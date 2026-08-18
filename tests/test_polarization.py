@@ -124,9 +124,9 @@ def test_synthetic_dataset_contains_exact_multi_correlation_truth(
     block = dataset.blocks[0]
     expected = np.asarray(
         predict_stokes_i(
-            [source.flux for source in sources],
-            [source.l for source in sources],
-            [source.m for source in sources],
+            np.asarray([source.flux for source in sources]),
+            np.asarray([source.l for source in sources]),
+            np.asarray([source.m for source in sources]),
             block.uvw_m,
             block.frequency_hz,
             block.antenna1,

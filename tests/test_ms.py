@@ -188,13 +188,18 @@ def test_extracts_multiple_fields_ddids_and_spws_with_weight_spectrum(
 
     dataset = ms_module.extract_measurement_set(fake_ms_path)
 
-    assert [(block.field_id[0], block.data_description_id) for block in dataset.blocks] == [
+    field_ddid_pairs = []
+    for block in dataset.blocks:
+        assert block.field_id is not None
+        field_ddid_pairs.append((block.field_id[0], block.data_description_id))
+    assert field_ddid_pairs == [
         (0, 0),
         (0, 1),
         (1, 0),
         (1, 1),
     ]
     for block in dataset.blocks:
+        assert block.field_id is not None
         field = int(block.field_id[0])
         ddid = block.data_description_id
         selected = (fake.field_id == field) & (fake.ddid == ddid)

@@ -1,23 +1,26 @@
+from typing import Any
+
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from jax import Array
 
 from sl1mjax.polarization import Correlation
 from sl1mjax.rime import SPEED_OF_LIGHT_M_S, predict_stokes_i
 
 
 def _predict(
-    intensity,
-    l,
-    m,
-    uvw_m,
-    correlations=(Correlation.I,),
+    intensity: Any,
+    l: Any,
+    m: Any,
+    uvw_m: Any,
+    correlations: tuple[Correlation, ...] = (Correlation.I,),
     *,
-    frequency_hz=(SPEED_OF_LIGHT_M_S,),
-    antenna1=None,
-    antenna2=None,
-    **kwargs,
-):
+    frequency_hz: Any = (SPEED_OF_LIGHT_M_S,),
+    antenna1: Any = None,
+    antenna2: Any = None,
+    **kwargs: Any,
+) -> Array:
     rows = np.asarray(uvw_m).shape[0]
     return predict_stokes_i(
         intensity,
@@ -32,15 +35,31 @@ def _predict(
     )
 
 
-def test_zero_baseline_flux_includes_projection() -> None:
+def test_zero_baseline_integrated_flux_has_no_automatic_projection() -> None:
     intensity = np.array([1.25, 2.5])
     l = np.array([0.0, 0.3])
     m = np.array([0.0, 0.4])
 
     actual = _predict(intensity, l, m, np.zeros((2, 3)))
-    expected_flux = np.sum(intensity / np.sqrt(1.0 - l**2 - m**2))
+    expected_flux = np.sum(intensity)
 
     np.testing.assert_allclose(actual[..., 0], expected_flux, rtol=1e-14, atol=1e-14)
+
+
+def test_direction_cosine_brightness_density_can_include_projection() -> None:
+    intensity = np.array([1.25, 2.5])
+    l = np.array([0.0, 0.3])
+    m = np.array([0.0, 0.4])
+
+    actual = _predict(
+        intensity,
+        l,
+        m,
+        np.zeros((1, 3)),
+        include_projection=True,
+    )
+    expected = np.sum(intensity / np.sqrt(1.0 - l**2 - m**2))
+    np.testing.assert_allclose(actual[..., 0], expected, rtol=1e-14, atol=1e-14)
 
 
 @pytest.mark.parametrize(
@@ -78,7 +97,7 @@ def test_geometric_phase_matches_measurement_equation() -> None:
     uvw = np.array([[1.5, -0.75, 2.0]])
     n = np.sqrt(1.0 - l**2 - m**2)
     expected = intensity * np.exp(
-        -2j * np.pi * (uvw[0, 0] * l + uvw[0, 1] * m + uvw[0, 2] * (n - 1.0))
+        2j * np.pi * (uvw[0, 0] * l + uvw[0, 1] * m + uvw[0, 2] * (n - 1.0))
     )
 
     actual = _predict(
@@ -128,7 +147,7 @@ def test_chunked_prediction_matches_single_chunk() -> None:
             [3.0, 6.0, -1.0],
         ]
     )
-    kwargs = dict(
+    kwargs: dict[str, Any] = dict(
         intensity=[0.5, 1.0, 2.0],
         l=[-0.1, 0.0, 0.2],
         m=[0.05, -0.15, 0.1],

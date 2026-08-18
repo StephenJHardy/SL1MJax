@@ -13,7 +13,7 @@ def test_regular_grid_coordinates_are_centered_and_x64() -> None:
 
     np.testing.assert_array_equal(
         l.reshape(3, 3),
-        np.array([[-0.1, 0.0, 0.1], [-0.1, 0.0, 0.1], [-0.1, 0.0, 0.1]]),
+        np.array([[0.1, 0.0, -0.1], [0.1, 0.0, -0.1], [0.1, 0.0, -0.1]]),
     )
     np.testing.assert_array_equal(
         m.reshape(3, 3),

@@ -11,7 +11,19 @@ build/
 *.egg-info/
 *.zarr/
 *.ms/
+*.flagversions/
+*.cl/
+*.compskymodel/
+*.compskymodel.flat/
+*.ptg.txt
 *.fits
 outputs/
+
+# CASA runtime logs and task state
 casa-*.log
+*.last
+
+# Downloaded observatory archives
+/data/*.tgz
+
 .DS_Store

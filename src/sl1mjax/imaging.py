@@ -12,7 +12,7 @@ from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.inference import InferenceConfig, InferenceResult, infer_regular_grid
 from sl1mjax.objective import weighted_complex_mse
 from sl1mjax.rime import predict_stokes_i
-from sl1mjax.sky import RegularGrid
+from sl1mjax.sky import DeltaPixelBasis, PixelBasis, RegularGrid
 from sl1mjax.split import uv_cell_split
 
 
@@ -20,6 +20,7 @@ from sl1mjax.split import uv_cell_split
 class ImagingConfig:
     size: int = 16
     pixel_size_rad: float = np.deg2rad(5 / 3600)
+    pixel_basis: PixelBasis = DeltaPixelBasis()
     inference: InferenceConfig = InferenceConfig()
     holdout_fraction: float = 0.2
     split_seed: int = 0
@@ -75,7 +76,13 @@ def reconstruct(
         seed=config.split_seed,
     )
     started = perf_counter()
-    inference = infer_regular_grid(block, grid, split.train, config.inference)
+    inference = infer_regular_grid(
+        block,
+        grid,
+        split.train,
+        config.inference,
+        pixel_basis=config.pixel_basis,
+    )
     elapsed = perf_counter() - started
     l, m = grid.coordinates
     prediction = np.asarray(
@@ -89,6 +96,8 @@ def reconstruct(
             block.antenna2,
             block.correlations,
             chunk_size=config.inference.chunk_size,
+            pixel_basis=config.pixel_basis,
+            pixel_size_rad=grid.pixel_size_rad,
         )
     )
     residual = prediction - block.visibility

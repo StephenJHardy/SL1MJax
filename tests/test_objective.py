@@ -121,7 +121,8 @@ def test_raw_sky_autodiff_matches_central_finite_differences() -> None:
         step = np.zeros(raw.shape, dtype=np.float64)
         step[index] = epsilon
         finite_difference[index] = (
-            float(objective(raw_numpy + step)) - float(objective(raw_numpy - step))
+            float(objective(jnp.asarray(raw_numpy + step)))
+            - float(objective(jnp.asarray(raw_numpy - step)))
         ) / (2 * epsilon)
 
     np.testing.assert_allclose(autodiff, finite_difference, rtol=2e-7, atol=2e-9)

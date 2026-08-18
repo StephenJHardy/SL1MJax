@@ -14,7 +14,7 @@ from sl1mjax.imaging import ImagingConfig, reconstruct
 from sl1mjax.inference import InferenceConfig
 from sl1mjax.output import write_products
 from sl1mjax.polarization import ReceptorBasis
-from sl1mjax.sky import RegularGrid
+from sl1mjax.sky import PIXEL_MODEL_NAMES, RegularGrid, pixel_basis_from_name
 
 
 def _ids(value: str | None) -> tuple[int, ...] | None:
@@ -38,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     simulate.add_argument("--channels", type=int, default=1)
     simulate.add_argument("--noise-std", type=float, default=0.0)
     simulate.add_argument("--seed", type=int, default=0)
+    simulate.add_argument("--pixel-model", choices=PIXEL_MODEL_NAMES, default="delta")
+    simulate.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
 
     ingest = commands.add_parser("ingest")
     ingest.add_argument("measurement_set", type=Path)
@@ -62,6 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument("--patience", type=int, default=100)
     image.add_argument("--holdout-fraction", type=float, default=0.2)
     image.add_argument("--split-seed", type=int, default=0)
+    image.add_argument("--pixel-model", choices=PIXEL_MODEL_NAMES, default="delta")
+    image.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
     return parser
 
 
@@ -72,6 +76,10 @@ def main(argv: list[str] | None = None) -> int:
         dataset = simulate_dataset(
             grid,
             basis=ReceptorBasis(arguments.basis),
+            pixel_basis=pixel_basis_from_name(
+                arguments.pixel_model,
+                gaussian_sigma_pixels=arguments.gaussian_sigma_pixels,
+            ),
             rows=arguments.rows,
             channels=arguments.channels,
             noise_std=arguments.noise_std,
@@ -107,6 +115,10 @@ def main(argv: list[str] | None = None) -> int:
         configuration = ImagingConfig(
             size=arguments.size,
             pixel_size_rad=np.deg2rad(arguments.pixel_arcsec / 3600),
+            pixel_basis=pixel_basis_from_name(
+                arguments.pixel_model,
+                gaussian_sigma_pixels=arguments.gaussian_sigma_pixels,
+            ),
             inference=inference,
             holdout_fraction=arguments.holdout_fraction,
             split_seed=arguments.split_seed,

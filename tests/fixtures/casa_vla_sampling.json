@@ -1,0 +1,26 @@
+{
+  "casa_version": "6.7.6.14",
+  "configurations": {
+    "A": {
+      "nominal_resolution_arcsec_p99": 1.325435974709784,
+      "rows": 10530,
+      "uv_distance_m_max": 36620.51380498704,
+      "uv_distance_m_p50": 12385.847039259292,
+      "uv_distance_m_p99": 33324.14737683924
+    },
+    "C": {
+      "nominal_resolution_arcsec_p99": 14.329812047521788,
+      "rows": 10530,
+      "uv_distance_m_max": 3387.233922879322,
+      "uv_distance_m_p50": 1148.0095286059463,
+      "uv_distance_m_p99": 3082.317033420689
+    },
+    "D": {
+      "nominal_resolution_arcsec_p99": 47.06927042505535,
+      "rows": 10530,
+      "uv_distance_m_max": 1031.1529520853946,
+      "uv_distance_m_p50": 351.51738332317416,
+      "uv_distance_m_p99": 938.3834370265038
+    }
+  }
+}

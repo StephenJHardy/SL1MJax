@@ -20,6 +20,23 @@ For the deterministic 8 × 8, three-source, 128-row, two-channel fixture:
 These thresholds are intentionally explicit and may only change alongside a
 documented fixture or scientific-model change.
 
+## CASA golden gate
+
+Compact CASA 6.7.6.14 fixtures provide an independent convention check without
+requiring CASA during routine tests. Schema version 1 declares the sky
+components and the currently absent noise and calibration effects.
+
+- point sources cover centre, east, north, and diagonal offsets;
+- a resolved, offset, circular 20-arcsec-FWHM Gaussian checks integrated flux,
+  FWHM-to-standard-deviation conversion, Fourier normalization, and phase;
+- every JAX prediction must have normalized complex RMS below `2e-4`;
+- the fixture adapter rejects undeclared sky shapes, noise, or calibration
+  effects until their corresponding model and validation logic are added.
+
+The generation and export scripts are retained so future spectral, temporal,
+noise, and calibration cases can extend the schema rather than create unrelated
+test harnesses.
+
 ## MeasurementSet gate
 
 Unit tests use a fake casacore table boundary to cover multi-field,

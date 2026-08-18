@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any, cast
 
 import jax
 import numpy as np
@@ -101,7 +102,7 @@ def test_checkpoint_round_trip(
     np.testing.assert_array_equal(raw, result.raw_parameters)
     expected_leaves, expected_tree = jax.tree_util.tree_flatten(result.optimizer_state)
     actual_leaves, actual_tree = jax.tree_util.tree_flatten(optimizer_state)
-    assert actual_tree == expected_tree
+    assert cast(Any, actual_tree) == expected_tree
     assert len(actual_leaves) == len(expected_leaves)
     for actual, expected in zip(actual_leaves, expected_leaves, strict=True):
         np.testing.assert_array_equal(actual, expected)

@@ -14,7 +14,13 @@ import optax
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.objective import sky_prior, weighted_complex_mse
 from sl1mjax.rime import predict_stokes_i
-from sl1mjax.sky import RegularGrid, physical_intensity, raw_from_intensity
+from sl1mjax.sky import (
+    DeltaPixelBasis,
+    PixelBasis,
+    RegularGrid,
+    physical_intensity,
+    raw_from_intensity,
+)
 
 
 @dataclass(frozen=True)
@@ -53,10 +59,12 @@ def infer_regular_grid(
     config: InferenceConfig | None = None,
     *,
     fixed_gains: np.ndarray | None = None,
+    pixel_basis: PixelBasis | None = None,
     initial_raw: np.ndarray | None = None,
     initial_optimizer_state: Any | None = None,
 ) -> InferenceResult:
     configuration = config or InferenceConfig()
+    selected_basis = pixel_basis or DeltaPixelBasis()
     if train_mask.shape != block.shape:
         raise ValueError("train_mask must match the visibility block")
     if configuration.steps < 1 or configuration.learning_rate <= 0:
@@ -79,6 +87,8 @@ def infer_regular_grid(
             block.correlations,
             fixed_gains=fixed_gains,
             chunk_size=configuration.chunk_size,
+            pixel_basis=selected_basis,
+            pixel_size_rad=grid.pixel_size_rad,
         )
         data_term = weighted_complex_mse(prediction, observation, weight, training_flag)
         prior_term = sky_prior(

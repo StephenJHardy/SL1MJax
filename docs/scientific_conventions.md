@@ -11,10 +11,39 @@ but they do not define this architecture or optimizer.
 - Each channel is converted to wavelengths with `frequency_hz / c`.
 - Sky coordinates `(l, m)` are direction cosines relative to the phase centre,
   with `n = sqrt(1 - l² - m²)`.
-- The geometric phase is
-  `exp(-2πi [u l + v m + w(n - 1)])`.
-- The initial direct model includes the `1/n` projection factor.
+- For UVW values stored by CASA MeasurementSets, the geometric phase is
+  `exp(+2πi [u l + v m + w(n - 1)])`. This sign is fixed by CASA-generated
+  east/north source fixtures rather than inherited from legacy code.
+- Initial pixel/component parameters are integrated flux in `Jy/pixel`.
+  Therefore they do not receive an automatic `1/n` factor. That Jacobian is
+  available only for an explicitly defined brightness-density integral in
+  direction-cosine coordinates.
 - Reversing UVW conjugates the coherency visibility for a real sky.
+
+## Pixel visibility models
+
+All pixel models carry integrated flux, and every normalized pixel response is
+one at zero baseline.
+
+- `delta` uses the exact spherical geometric phase above.
+- `gaussian-paraxial` and `gaussian-wide-field` use a circular Gaussian whose
+  public `sigma_pixels` is the ordinary standard deviation in grid-pixel
+  spacings. Hardy's Gaussian scale is therefore `sqrt(2π) sigma`, an explicit
+  conversion made inside the visibility kernel.
+- The paraxial Gaussian integrates the quadratic expansion
+  `n - 1 ≈ -(l² + m²)/2` analytically. The wide-field mode multiplies it by the
+  first omitted phase correction
+  `exp(+2πi w [n - 1 + (l² + m²)/2])`. It approaches the exact delta phase as
+  the Gaussian width approaches zero.
+- `compound-paraxial` and `compound-wide-field` use the frozen four-Gaussian
+  positive radial kernel found by `scripts/gaussian_kernel_search.py`. Its
+  radial amplitudes are converted to signed integrated Gaussian weights
+  `2π a_k sigma_k²`, which sum to one. One fitted grid parameter still denotes
+  one pixel's integrated flux.
+
+The approximation is part of the imaging configuration and must match the
+model used to synthesize or interpret data. The delta model remains the
+backward-compatible default.
 
 ## Polarization
 
@@ -53,6 +82,8 @@ chunked over samples and must not materialize the full
 ## Required independent checks
 
 Tests cover zero-baseline flux, linear and circular correlation mapping, known
-fringe phase, conjugate symmetry, masking and weighting, finite-difference
-gradients, gradient-based recovery, canonical-data round trips, and
-MeasurementSet extraction through a fake table adapter.
+fringe phase, conjugate symmetry, Gaussian analytic identities, spherical
+quadrature, zero-width limits, compound normalization, masking and weighting,
+finite-difference gradients, matched recovery for every pixel mode,
+canonical-data round trips, and MeasurementSet extraction through a fake table
+adapter.

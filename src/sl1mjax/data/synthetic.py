@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import numpy as np
 
 from sl1mjax.data.canonical import VisibilityBlock, VisibilityDataset
 from sl1mjax.polarization import Correlation, ReceptorBasis
 from sl1mjax.rime import predict_stokes_i
-from sl1mjax.sky import RegularGrid
+from sl1mjax.sky import DeltaPixelBasis, PixelBasis, RegularGrid
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ def simulate_dataset(
     grid: RegularGrid,
     *,
     basis: ReceptorBasis = ReceptorBasis.LINEAR,
+    pixel_basis: PixelBasis | None = None,
     sources: tuple[PointSource, ...] | None = None,
     rows: int = 256,
     channels: int = 1,
@@ -69,6 +70,7 @@ def simulate_dataset(
         np.arange(channels) - (channels - 1) / 2
     ) * channel_width_hz
     truth = sources or default_sources(grid)
+    selected_pixel_basis = pixel_basis or DeltaPixelBasis()
     correlations = correlations_for_basis(basis)
     visibility = np.asarray(
         predict_stokes_i(
@@ -80,6 +82,8 @@ def simulate_dataset(
             antenna1,
             antenna2,
             correlations,
+            pixel_basis=selected_pixel_basis,
+            pixel_size_rad=grid.pixel_size_rad,
         )
     )
     if noise_std > 0:
@@ -92,6 +96,7 @@ def simulate_dataset(
         "noise_std": noise_std,
         "grid_size": grid.size,
         "pixel_size_rad": grid.pixel_size_rad,
+        "pixel_basis": asdict(selected_pixel_basis),
         "truth": [
             {"flux": source.flux, "l": source.l, "m": source.m} for source in truth
         ],
