@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 import sl1mjax.data.ms as ms_module
+from sl1mjax.data.metadata import CalibratorRole
 from sl1mjax.polarization import Correlation, ReceptorBasis
 
 
@@ -71,6 +72,7 @@ class FakeTables:
         self.visibility = sample + 1j * (sample + 0.5)
         self.flags = np.zeros(shape, dtype=bool)
         self.flags[4, 1, 2] = True
+        self.flag_row = np.zeros(6, dtype=bool)
         self.weight_spectrum = sample + 10.0
         self.row_weight = np.arange(24, dtype=np.float64).reshape(6, 4) + 1.0
         self.field_id = np.array([1, 0, 0, 1, 1, 0], dtype=np.int32)
@@ -93,12 +95,19 @@ class FakeTables:
             source.name: FakeTable(
                 {
                     "CORRECTED_DATA": self.visibility,
+                    "MODEL_DATA": 0.5 * self.visibility,
                     "FLAG": self.flags,
+                    "FLAG_ROW": self.flag_row,
                     "UVW": self.uvw,
                     "TIME": self.times,
                     "ANTENNA1": self.antenna1,
                     "ANTENNA2": self.antenna2,
                     "SCAN_NUMBER": self.scan,
+                    "STATE_ID": np.array([1, 0, 0, 1, 1, 0], dtype=np.int32),
+                    "OBSERVATION_ID": np.zeros(6, dtype=np.int32),
+                    "FEED1": np.zeros(6, dtype=np.int32),
+                    "FEED2": np.zeros(6, dtype=np.int32),
+                    "INTERVAL": np.full(6, 10.0),
                     "FIELD_ID": self.field_id,
                     "DATA_DESC_ID": self.ddid,
                     "WEIGHT_SPECTRUM": self.weight_spectrum,
@@ -123,7 +132,48 @@ class FakeTables:
                     )
                 }
             ),
-            "FIELD": FakeTable({"PHASE_DIR": self.phase_centres}),
+            "FIELD": FakeTable(
+                {
+                    "NAME": np.array(["target", "calibrator"]),
+                    "SOURCE_ID": np.array([0, 1]),
+                    "PHASE_DIR": self.phase_centres,
+                    "DELAY_DIR": self.phase_centres,
+                    "REFERENCE_DIR": self.phase_centres,
+                }
+            ),
+            "ANTENNA": FakeTable(
+                {
+                    "NAME": np.array(["ea01", "ea02", "ea03", "ea04"]),
+                    "STATION": np.array(["W01", "E01", "N01", "W02"]),
+                    "POSITION": np.arange(12, dtype=float).reshape(4, 3),
+                    "DISH_DIAMETER": np.full(4, 25.0),
+                    "MOUNT": np.array(["ALT-AZ"] * 4),
+                }
+            ),
+            "STATE": FakeTable(
+                {
+                    "OBS_MODE": np.array(
+                        ["OBSERVE_TARGET#ON_SOURCE", "CALIBRATE_PHASE#ON_SOURCE"]
+                    )
+                }
+            ),
+            "OBSERVATION": FakeTable(
+                {
+                    "TELESCOPE_NAME": np.array(["EVLA"]),
+                    "OBSERVER": np.array(["tester"]),
+                    "PROJECT": np.array(["TEST"]),
+                    "TIME_RANGE": np.array([[100.0, 106.0]]),
+                }
+            ),
+            "FEED": FakeTable(
+                {
+                    "ANTENNA_ID": np.arange(4),
+                    "FEED_ID": np.zeros(4, dtype=int),
+                    "SPECTRAL_WINDOW_ID": np.zeros(4, dtype=int),
+                    "POLARIZATION_TYPE": np.array([["R", "L"]] * 4),
+                    "RECEPTOR_ANGLE": np.zeros((4, 2)),
+                }
+            ),
         }
 
     def table(self, path: str, *, readonly: bool, ack: bool) -> FakeTable:
@@ -239,9 +289,37 @@ def test_extracts_multiple_fields_ddids_and_spws_with_weight_spectrum(
 
     assert dataset.provenance["extractor"] == "sl1mjax"
     assert dataset.provenance["source"] == str(fake_ms_path.resolve())
-    assert len(fake.calls) == 5
+    assert dataset.metadata is not None
+    assert dataset.metadata.antennas[0].name == "ea01"
+    assert dataset.metadata.fields[1].name == "calibrator"
+    assert dataset.metadata.fields[1].roles == (CalibratorRole.PHASE,)
+    assert len(fake.calls) == 10
     assert all(readonly and not ack for _, readonly, ack in fake.calls)
     assert all(table.entered and table.closed for table in fake.tables.values())
+
+
+def test_selects_field_by_role_and_preserves_model_and_row_metadata(
+    monkeypatch: pytest.MonkeyPatch, fake_ms_path: Path
+) -> None:
+    fake = FakeTables(fake_ms_path, weight_spectrum_defined=True)
+    monkeypatch.setattr(ms_module, "_tables", lambda: fake)
+
+    dataset = ms_module.extract_measurement_set(
+        fake_ms_path,
+        model_column="MODEL_DATA",
+        roles=(CalibratorRole.PHASE,),
+    )
+
+    assert len(dataset.blocks) == 2
+    for block in dataset.blocks:
+        selected = (fake.field_id == 1) & (fake.ddid == block.data_description_id)
+        assert block.model_visibility is not None
+        np.testing.assert_array_equal(
+            block.model_visibility,
+            0.5 * fake.visibility[selected],
+        )
+        np.testing.assert_array_equal(block.interval_s, 10.0)
+        np.testing.assert_array_equal(block.state_id, 1)
 
 
 def test_falls_back_to_row_weights_and_broadcasts_over_channels(

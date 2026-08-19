@@ -13,6 +13,44 @@ instrument inference was intended. It is not the specification for this work.
 Its working calibration path fitted only a scalar complex gain for one
 polarization and one channel; its broader time/channel path was incomplete.
 
+## Implemented diagonal-calibration tranche
+
+The first parallel-hand calibration tranche was completed on 2026-08-19:
+
+- canonical schema 1.1 preserves antenna, field/role, state/intent,
+  observation and feed records, row-level IDs, `FLAG_ROW`, intervals and
+  optional model visibilities while retaining schema 1.0 reads;
+- `CalibrationSolution` represents time gains, delays, bandpasses, validity
+  masks, coordinates, gauge, interpolation and provenance as a portable JAX
+  PyTree;
+- non-mutating application supports preserved or propagated weights and
+  requires explicit extrapolation outside solution domains;
+- deterministic RR/LL fixtures gate independent static/time gains, delays,
+  bandpasses, flags, noise, gradients and checkpoint round trips;
+- Optax stages solve central-channel gains, delays, normalized complex
+  bandpasses and full time gains using connected baseline/time holdouts;
+- diagnostics report train/holdout residuals, amplitude/phase residuals,
+  closure, occupancy, disconnected domains and gauge-aligned solution
+  differences;
+- residual outliers are returned as proposals and never alter accepted flags;
+- the committed 3C391 NPZ/JSON fixture validates CASA K/B/G/antenna-position
+  application and runs the JAX solve without CASA.
+
+On the committed sample, imported CASA application agrees with CASA
+`CORRECTED_DATA` to `6.5e-4` normalized complex RMS. The JAX 3C286 solve has
+train/holdout RMS `0.0291/0.0310`; J1822-0938 has `0.0496/0.0493`, and its
+transferred flux is `2.2867 Jy` versus CASA's `2.2960 Jy`.
+
+Applying the flux-scaled J1822-0938 gains to raw `3C391 C1` target data gives
+`0.0651` visibility RMS relative to CASA calibration. Bounded reconstructions
+from the two paths correlate at `0.9960` with `0.0747` normalized RMS
+difference. The target comparison and its imaging limitations are documented
+in [3c391_target_imaging.md](3c391_target_imaging.md).
+
+This tranche does not implement immutable reason-coded flag versions,
+pre-calibration RFI discovery, calibrator catalogues, smooth bandpass bases,
+uncertainty estimation, target self-calibration, cross-hands or leakage.
+
 ## Scope
 
 The initial calibration release should:
@@ -569,13 +607,11 @@ A calibration release is acceptable only when:
 
 ## Immediate next steps
 
-1. Extend MeasurementSet extraction with antenna, field/source, state/intent,
-   feed and observation metadata.
-2. Define versioned flag reasons and declarative manual flag rules.
-3. Generate the first CASA ideal fixture containing a flux calibrator, a phase
-   calibrator and a target.
-4. Inject deterministic static diagonal gains and preserve ideal truth.
-5. Implement gauge-aware gain solve/application and exact synthetic tests.
-6. Build the conservative structural flagging pass.
-7. Calibrate the prepared 3C391 tutorial MS in CASA and preserve it as an
-   external integration reference.
+1. Define immutable, reason-coded flag versions and declarative manual rules.
+2. Add conservative structural and pre-calibration time/frequency RFI rules.
+3. Add smooth bandpass/time bases, robust losses and solution uncertainty.
+4. Build independently sourced Perley–Butler calibrator models.
+5. Exercise the same gates on another VLA band/configuration before target
+   self-calibration.
+6. Defer cross-hands, leakage and polarization angle until the diagonal system
+   is stable on multiple observations.

@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.direct_operator import predict_stokes_i_explicit
 from sl1mjax.inference import InferenceConfig, InferenceResult, infer_regular_grid
 from sl1mjax.objective import weighted_complex_mse
 from sl1mjax.rime import predict_stokes_i
@@ -85,21 +86,38 @@ def reconstruct(
     )
     elapsed = perf_counter() - started
     l, m = grid.coordinates
-    prediction = np.asarray(
-        predict_stokes_i(
-            inference.image.ravel(),
-            l,
-            m,
-            block.uvw_m,
-            block.frequency_hz,
-            block.antenna1,
-            block.antenna2,
-            block.correlations,
-            chunk_size=config.inference.chunk_size,
-            pixel_basis=config.pixel_basis,
-            pixel_size_rad=grid.pixel_size_rad,
+    if config.inference.operator_mode == "explicit":
+        prediction = np.asarray(
+            predict_stokes_i_explicit(
+                inference.image.ravel(),
+                l,
+                m,
+                block.uvw_m,
+                block.frequency_hz,
+                block.antenna1,
+                block.antenna2,
+                block.correlations,
+                pixel_basis=config.pixel_basis,
+                pixel_size_rad=grid.pixel_size_rad,
+                config=config.inference.direct_dft,
+            )
         )
-    )
+    else:
+        prediction = np.asarray(
+            predict_stokes_i(
+                inference.image.ravel(),
+                l,
+                m,
+                block.uvw_m,
+                block.frequency_hz,
+                block.antenna1,
+                block.antenna2,
+                block.correlations,
+                chunk_size=config.inference.chunk_size,
+                pixel_basis=config.pixel_basis,
+                pixel_size_rad=grid.pixel_size_rad,
+            )
+        )
     residual = prediction - block.visibility
     train_loss = float(
         weighted_complex_mse(prediction, block.visibility, block.weight, ~split.train)

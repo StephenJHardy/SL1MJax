@@ -1,0 +1,213 @@
+{
+  "calibration_tables": {
+    "antpos": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "FPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.antpos"
+    },
+    "bandpass": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.B0"
+    },
+    "delay": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "FPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.K0"
+    },
+    "flux_gain": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 468,
+      "source": "3c391.fluxscale1"
+    },
+    "gain": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 468,
+      "source": "3c391.G1"
+    },
+    "phase": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 2470,
+      "source": "3c391.G0"
+    }
+  },
+  "calibrators": {
+    "flux_bandpass": {
+      "field_id": 0,
+      "name": "J1331+3030"
+    },
+    "time_gain": {
+      "field_id": 1,
+      "name": "J1822-0938"
+    }
+  },
+  "casa_version": "6.7.6.14",
+  "correlation_indices": [
+    0,
+    3
+  ],
+  "correlations": [
+    "RR",
+    "LL"
+  ],
+  "effects": {
+    "input": "raw DATA with deterministic tutorial flags",
+    "model": "CASA MODEL_DATA after Perley-Butler 2017 setjy",
+    "reference": "CASA CORRECTED_DATA after K/B/G calibration"
+  },
+  "flag_version": "sl1mjax_calibration_input",
+  "flagged_fraction_calibration_input": 0.2822355416919512,
+  "flagged_fraction_post_apply": 0.34285568957828383,
+  "flux_scale": {
+    "1": {
+      "0": {
+        "fluxd": [
+          2.296007665849216,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "fluxdErr": [
+          0.006921935656282355,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "numSol": [
+          46.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "covarMat": [],
+      "fieldName": "J1822-0938",
+      "fitFluxd": 2.296007665849216,
+      "fitFluxdErr": 0.0,
+      "fitRefFreq": 4599000000.0,
+      "spidx": [
+        0.0,
+        0.0
+      ],
+      "spidxerr": [
+        0.0,
+        0.0
+      ]
+    },
+    "freq": [
+      4599000000.0
+    ],
+    "spwID": [
+      0
+    ],
+    "spwName": [
+      "Subband:0"
+    ]
+  },
+  "measurement_set": "3c391_ctm_mosaic_10s_spw0.ms",
+  "reference_antenna": "ea21",
+  "reference_directory": "reference-v2",
+  "schema_version": 1,
+  "visibility_cases": {
+    "flux_bandpass": {
+      "field_id": 0,
+      "row_count": 1228,
+      "scan_ids": [
+        2,
+        3,
+        37
+      ],
+      "time_count": 4
+    },
+    "time_gain": {
+      "field_id": 1,
+      "row_count": 1570,
+      "scan_ids": [
+        4,
+        28,
+        46,
+        70,
+        102
+      ],
+      "time_count": 6
+    }
+  }
+}

@@ -9,6 +9,12 @@ from sl1mjax.data.canonical import (
     read_dataset,
     write_dataset,
 )
+from sl1mjax.data.metadata import (
+    AntennaRecord,
+    CalibratorRole,
+    FieldRecord,
+    ObservationMetadata,
+)
 from sl1mjax.polarization import Correlation, ReceptorBasis
 
 
@@ -31,6 +37,7 @@ def _block(
         ),
         frequency_hz=np.array([1.0e9 + offset, 1.01e9 + offset]),
         visibility=real + 1j * (real + 0.25),
+        model_visibility=2 * real + 1j * real,
         weight=np.full(shape, offset + 1.0),
         flag=np.zeros(shape, dtype=bool),
         time_s=np.array([10.0, 20.0, 30.0]) + offset,
@@ -38,6 +45,11 @@ def _block(
         antenna2=np.array([1, 2, 3]),
         field_id=np.array([4, 4, 4]),
         scan_id=np.array([7, 7, 8]),
+        state_id=np.array([2, 2, 3]),
+        observation_id=np.array([1, 1, 1]),
+        feed1=np.array([0, 0, 0]),
+        feed2=np.array([0, 0, 0]),
+        interval_s=np.array([10.0, 10.0, 10.0]),
         correlations=correlations,
         receptor_basis=basis,
         phase_centre_rad=(0.12 + offset / 100, -0.34),
@@ -63,6 +75,7 @@ def _assert_blocks_equal(actual: VisibilityBlock, expected: VisibilityBlock) -> 
         "uvw_m",
         "frequency_hz",
         "visibility",
+        "model_visibility",
         "weight",
         "flag",
         "time_s",
@@ -70,6 +83,11 @@ def _assert_blocks_equal(actual: VisibilityBlock, expected: VisibilityBlock) -> 
         "antenna2",
         "field_id",
         "scan_id",
+        "state_id",
+        "observation_id",
+        "feed1",
+        "feed2",
+        "interval_s",
     ):
         np.testing.assert_array_equal(getattr(actual, name), getattr(expected, name))
 
@@ -110,6 +128,22 @@ def test_multi_block_zarr_round_trip_preserves_data_metadata_and_provenance(
             "inputs": ["first.ms", "second.ms"],
             "parameters": {"average": False},
         },
+        metadata=ObservationMetadata(
+            antennas=(
+                AntennaRecord(0, "ea01", "W01", (1.0, 2.0, 3.0), 25.0, "ALT-AZ"),
+            ),
+            fields=(
+                FieldRecord(
+                    4,
+                    "3C286",
+                    0,
+                    (0.1, 0.2),
+                    (0.1, 0.2),
+                    (0.1, 0.2),
+                    (CalibratorRole.FLUX, CalibratorRole.BANDPASS),
+                ),
+            ),
+        ),
     )
     path = tmp_path / "canonical.zarr"
 
@@ -117,6 +151,7 @@ def test_multi_block_zarr_round_trip_preserves_data_metadata_and_provenance(
     restored = read_dataset(path)
 
     assert restored.provenance == original.provenance
+    assert restored.metadata == original.metadata
     assert len(restored.blocks) == 3
     for actual, expected in zip(restored.blocks, original.blocks, strict=True):
         _assert_blocks_equal(actual, expected)

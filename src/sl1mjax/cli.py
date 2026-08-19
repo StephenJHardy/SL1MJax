@@ -8,8 +8,10 @@ from pathlib import Path
 import numpy as np
 
 from sl1mjax.data.canonical import read_dataset, write_dataset
+from sl1mjax.data.metadata import CalibratorRole
 from sl1mjax.data.ms import extract_measurement_set
 from sl1mjax.data.synthetic import simulate_dataset
+from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.imaging import ImagingConfig, reconstruct
 from sl1mjax.inference import InferenceConfig
 from sl1mjax.output import write_products
@@ -19,6 +21,10 @@ from sl1mjax.sky import PIXEL_MODEL_NAMES, RegularGrid, pixel_basis_from_name
 
 def _ids(value: str | None) -> tuple[int, ...] | None:
     return None if value is None else tuple(int(item) for item in value.split(","))
+
+
+def _names(value: str | None) -> tuple[str, ...] | None:
+    return None if value is None else tuple(item.strip() for item in value.split(","))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,7 +51,14 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("measurement_set", type=Path)
     ingest.add_argument("output", type=Path)
     ingest.add_argument("--column", default="CORRECTED_DATA")
+    ingest.add_argument("--model-column")
     ingest.add_argument("--fields", help="comma-separated field IDs")
+    ingest.add_argument("--field-names", help="comma-separated exact field names")
+    ingest.add_argument(
+        "--roles",
+        help="comma-separated normalized roles",
+        choices=None,
+    )
     ingest.add_argument("--data-description-ids", help="comma-separated data-description IDs")
     ingest.add_argument("--channels", help="comma-separated zero-based channel indices")
     ingest.add_argument("--row-stride", type=int, default=1)
@@ -61,6 +74,13 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument("--sparsity-weight", type=float, default=1e-4)
     image.add_argument("--smoothness-weight", type=float, default=0.0)
     image.add_argument("--chunk-size", type=int, default=4096)
+    image.add_argument(
+        "--operator-mode",
+        choices=("autodiff", "explicit"),
+        default="autodiff",
+    )
+    image.add_argument("--visibility-tile-size", type=int, default=256)
+    image.add_argument("--pixel-tile-size", type=int, default=1024)
     image.add_argument("--patience", type=int, default=100)
     image.add_argument("--holdout-fraction", type=float, default=0.2)
     image.add_argument("--split-seed", type=int, default=0)
@@ -92,7 +112,17 @@ def main(argv: list[str] | None = None) -> int:
         dataset = extract_measurement_set(
             arguments.measurement_set,
             data_column=arguments.column,
+            model_column=arguments.model_column,
             fields=_ids(arguments.fields),
+            field_names=_names(arguments.field_names),
+            roles=(
+                None
+                if arguments.roles is None
+                else tuple(
+                    CalibratorRole(value)
+                    for value in _names(arguments.roles) or ()
+                )
+            ),
             data_description_ids=_ids(arguments.data_description_ids),
             channels=_ids(arguments.channels),
             row_stride=arguments.row_stride,
@@ -111,6 +141,11 @@ def main(argv: list[str] | None = None) -> int:
             smoothness_weight=arguments.smoothness_weight,
             chunk_size=arguments.chunk_size,
             patience=arguments.patience,
+            operator_mode=arguments.operator_mode,
+            direct_dft=DirectDFTConfig(
+                visibility_chunk_size=arguments.visibility_tile_size,
+                pixel_chunk_size=arguments.pixel_tile_size,
+            ),
         )
         configuration = ImagingConfig(
             size=arguments.size,

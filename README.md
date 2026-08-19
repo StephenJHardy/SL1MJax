@@ -4,9 +4,10 @@ SL1MJax is a differentiable radio-interferometric sky–instrument model. It use
 pure JAX measurement equations and Optax gradient inference while treating
 polarization products, weights, flags, and provenance as first-class data.
 
-The first release fits a positive regular Stokes-I grid with a fixed scalar
-instrument response. Its APIs are designed for later joint calibration,
-multiscale components, full Stokes/Jones models, and temporal inference.
+The package fits positive regular Stokes-I grids and now includes staged,
+diagonal RR/LL calibration (`G`, `K`, and `B`) with structured holdouts,
+portable CASA-solution import, flux transfer, and residual/closure diagnostics.
+Cross-hand polarization and direction-dependent calibration remain deferred.
 
 MeasurementSet support is an optional, initially VLA-oriented extractor:
 
@@ -56,6 +57,22 @@ uv run sl1mjax ingest observation.ms selected.zarr \
 
 Selections are stored in provenance; they are never silently applied by the
 model.
+
+The committed 3C391 fixture runs both CASA-application parity and independent
+JAX solve/flux-transfer gates without CASA:
+
+```bash
+uv run pytest tests/test_calibration_3c391.py
+```
+
+With the prepared tutorial MS available, compare CASA-corrected target imaging
+against calibration solved and transferred in JAX:
+
+```bash
+uv run scripts/image_3c391_target.py /path/to/3c391_ctm_mosaic_10s_spw0.ms
+```
+
+See `docs/3c391_target_imaging.md` for measured results and limitations.
 
 Synthetic end-to-end example:
 

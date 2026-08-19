@@ -11,9 +11,11 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
+from sl1mjax.data.metadata import ObservationMetadata
 from sl1mjax.polarization import Correlation, ReceptorBasis, validate_correlations
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+SUPPORTED_SCHEMA_VERSIONS = {"1.0", SCHEMA_VERSION}
 
 
 def _json_default(value: Any) -> Any:
@@ -36,8 +38,14 @@ class VisibilityBlock:
     antenna2: np.ndarray
     correlations: tuple[Correlation, ...]
     receptor_basis: ReceptorBasis
+    model_visibility: np.ndarray | None = None
     field_id: np.ndarray | None = None
     scan_id: np.ndarray | None = None
+    state_id: np.ndarray | None = None
+    observation_id: np.ndarray | None = None
+    feed1: np.ndarray | None = None
+    feed2: np.ndarray | None = None
+    interval_s: np.ndarray | None = None
     phase_centre_rad: tuple[float, float] = (0.0, 0.0)
     data_description_id: int = 0
     spectral_window_id: int = 0
@@ -59,6 +67,12 @@ class VisibilityBlock:
             self, "correlations", tuple(Correlation(value) for value in self.correlations)
         )
         object.__setattr__(self, "receptor_basis", ReceptorBasis(self.receptor_basis))
+        if self.model_visibility is not None:
+            object.__setattr__(
+                self,
+                "model_visibility",
+                np.asarray(self.model_visibility, dtype=np.complex128),
+            )
         rows = self.uvw_m.shape[0] if self.uvw_m.ndim else 0
         object.__setattr__(
             self,
@@ -73,6 +87,22 @@ class VisibilityBlock:
             np.zeros(rows, dtype=np.int32)
             if self.scan_id is None
             else np.asarray(self.scan_id, dtype=np.int32),
+        )
+        for name in ("state_id", "observation_id", "feed1", "feed2"):
+            value = getattr(self, name)
+            object.__setattr__(
+                self,
+                name,
+                np.zeros(rows, dtype=np.int32)
+                if value is None
+                else np.asarray(value, dtype=np.int32),
+            )
+        object.__setattr__(
+            self,
+            "interval_s",
+            np.ones(rows, dtype=np.float64)
+            if self.interval_s is None
+            else np.asarray(self.interval_s, dtype=np.float64),
         )
         self.validate()
 
@@ -110,21 +140,28 @@ class VisibilityBlock:
         ):
             if value.shape != expected:
                 raise ValueError(f"{name} has shape {value.shape}; expected {expected}")
-        for name, value in (
-            ("time_s", self.time_s),
-            ("antenna1", self.antenna1),
-            ("antenna2", self.antenna2),
-        ):
-            if value.shape != (expected[0],):
+        if self.model_visibility is not None and self.model_visibility.shape != expected:
+            raise ValueError(
+                f"model_visibility has shape {self.model_visibility.shape}; expected {expected}"
+            )
+        for name in ("time_s", "antenna1", "antenna2", "interval_s"):
+            row_value = getattr(self, name)
+            if row_value is None or row_value.shape != (expected[0],):
                 raise ValueError(f"{name} must have shape ({expected[0]},)")
-        for name in ("field_id", "scan_id"):
+        for name in (
+            "field_id",
+            "scan_id",
+            "state_id",
+            "observation_id",
+            "feed1",
+            "feed2",
+        ):
             value = getattr(self, name)
             if value is None or value.shape != (expected[0],):
                 raise ValueError(f"{name} must have shape ({expected[0]},)")
 
     def to_xarray(self) -> xr.Dataset:
-        return xr.Dataset(
-            data_vars={
+        data_vars: dict[str, Any] = {
                 "uvw_m": (("row", "uvw"), self.uvw_m),
                 "visibility": (("row", "channel", "correlation"), self.visibility),
                 "weight": (("row", "channel", "correlation"), self.weight),
@@ -134,7 +171,19 @@ class VisibilityBlock:
                 "antenna2": (("row",), self.antenna2),
                 "field_id": (("row",), self.field_id),
                 "scan_id": (("row",), self.scan_id),
-            },
+                "state_id": (("row",), self.state_id),
+                "observation_id": (("row",), self.observation_id),
+                "feed1": (("row",), self.feed1),
+                "feed2": (("row",), self.feed2),
+                "interval_s": (("row",), self.interval_s),
+        }
+        if self.model_visibility is not None:
+            data_vars["model_visibility"] = (
+                ("row", "channel", "correlation"),
+                self.model_visibility,
+            )
+        return xr.Dataset(
+            data_vars=data_vars,
             coords={
                 "frequency_hz": (("channel",), self.frequency_hz),
                 "correlation": [value.value for value in self.correlations],
@@ -156,8 +205,15 @@ class VisibilityBlock:
 
     @classmethod
     def from_xarray(cls, dataset: xr.Dataset) -> VisibilityBlock:
-        if dataset.attrs.get("schema_version") != SCHEMA_VERSION:
+        if dataset.attrs.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS:
             raise ValueError(f"unsupported schema {dataset.attrs.get('schema_version')!r}")
+        rows = int(dataset.sizes["row"])
+
+        def optional_row(name: str, dtype: Any) -> np.ndarray:
+            if name in dataset:
+                return np.asarray(dataset[name].values, dtype=dtype)
+            return np.zeros(rows, dtype=dtype)
+
         return cls(
             uvw_m=dataset["uvw_m"].values,
             frequency_hz=dataset["frequency_hz"].values,
@@ -169,6 +225,20 @@ class VisibilityBlock:
             antenna2=dataset["antenna2"].values,
             field_id=dataset["field_id"].values,
             scan_id=dataset["scan_id"].values,
+            state_id=optional_row("state_id", np.int32),
+            observation_id=optional_row("observation_id", np.int32),
+            feed1=optional_row("feed1", np.int32),
+            feed2=optional_row("feed2", np.int32),
+            interval_s=(
+                np.asarray(dataset["interval_s"].values, dtype=np.float64)
+                if "interval_s" in dataset
+                else np.ones(rows, dtype=np.float64)
+            ),
+            model_visibility=(
+                dataset["model_visibility"].values
+                if "model_visibility" in dataset
+                else None
+            ),
             correlations=tuple(Correlation(str(value)) for value in dataset.correlation.values),
             receptor_basis=ReceptorBasis(dataset.attrs["receptor_basis"]),
             phase_centre_rad=(
@@ -186,6 +256,7 @@ class VisibilityBlock:
 class VisibilityDataset:
     blocks: tuple[VisibilityBlock, ...]
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    metadata: ObservationMetadata | None = None
 
     def __post_init__(self) -> None:
         if not self.blocks:
@@ -204,6 +275,9 @@ def write_dataset(dataset: VisibilityDataset, path: str | Path) -> None:
         "schema_version": SCHEMA_VERSION,
         "blocks": block_names,
         "provenance": dict(dataset.provenance),
+        "metadata": (
+            None if dataset.metadata is None else dataset.metadata.to_dict()
+        ),
     }
     (root / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True, default=_json_default) + "\n",
@@ -214,10 +288,14 @@ def write_dataset(dataset: VisibilityDataset, path: str | Path) -> None:
 def read_dataset(path: str | Path) -> VisibilityDataset:
     root = Path(path)
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-    if manifest.get("schema_version") != SCHEMA_VERSION:
+    if manifest.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS:
         raise ValueError(f"unsupported dataset schema {manifest.get('schema_version')!r}")
     blocks = []
     for name in manifest["blocks"]:
         with xr.open_zarr(root / name, consolidated=False) as stored:
             blocks.append(VisibilityBlock.from_xarray(stored.load()))
-    return VisibilityDataset(tuple(blocks), manifest.get("provenance", {}))
+    return VisibilityDataset(
+        tuple(blocks),
+        manifest.get("provenance", {}),
+        ObservationMetadata.from_dict(manifest.get("metadata")),
+    )

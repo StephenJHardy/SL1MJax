@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jax
 import jax.numpy as jnp
@@ -12,6 +12,7 @@ import numpy as np
 import optax
 
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.direct_operator import DirectDFTConfig, predict_stokes_i_explicit
 from sl1mjax.objective import sky_prior, weighted_complex_mse
 from sl1mjax.rime import predict_stokes_i
 from sl1mjax.sky import (
@@ -33,6 +34,8 @@ class InferenceConfig:
     initial_intensity: float = 1e-2
     patience: int = 100
     min_delta: float = 1e-9
+    operator_mode: Literal["autodiff", "explicit"] = "autodiff"
+    direct_dft: DirectDFTConfig = DirectDFTConfig()
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,8 @@ def infer_regular_grid(
         raise ValueError("train_mask must match the visibility block")
     if configuration.steps < 1 or configuration.learning_rate <= 0:
         raise ValueError("steps and learning rate must be positive")
+    if configuration.operator_mode not in {"autodiff", "explicit"}:
+        raise ValueError("operator_mode must be autodiff or explicit")
     l, m = grid.coordinates
     observation = jnp.asarray(block.visibility)
     weight = jnp.asarray(block.weight)
@@ -76,20 +81,36 @@ def infer_regular_grid(
 
     def terms(raw_parameters: jax.Array) -> tuple[jax.Array, tuple[jax.Array, jax.Array]]:
         intensity = physical_intensity(raw_parameters)
-        prediction = predict_stokes_i(
-            intensity,
-            l,
-            m,
-            block.uvw_m,
-            block.frequency_hz,
-            block.antenna1,
-            block.antenna2,
-            block.correlations,
-            fixed_gains=fixed_gains,
-            chunk_size=configuration.chunk_size,
-            pixel_basis=selected_basis,
-            pixel_size_rad=grid.pixel_size_rad,
-        )
+        if configuration.operator_mode == "explicit":
+            prediction = predict_stokes_i_explicit(
+                intensity,
+                l,
+                m,
+                block.uvw_m,
+                block.frequency_hz,
+                block.antenna1,
+                block.antenna2,
+                block.correlations,
+                fixed_gains=fixed_gains,
+                pixel_basis=selected_basis,
+                pixel_size_rad=grid.pixel_size_rad,
+                config=configuration.direct_dft,
+            )
+        else:
+            prediction = predict_stokes_i(
+                intensity,
+                l,
+                m,
+                block.uvw_m,
+                block.frequency_hz,
+                block.antenna1,
+                block.antenna2,
+                block.correlations,
+                fixed_gains=fixed_gains,
+                chunk_size=configuration.chunk_size,
+                pixel_basis=selected_basis,
+                pixel_size_rad=grid.pixel_size_rad,
+            )
         data_term = weighted_complex_mse(prediction, observation, weight, training_flag)
         prior_term = sky_prior(
             intensity,

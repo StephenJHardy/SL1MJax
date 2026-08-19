@@ -60,7 +60,7 @@ def _gaussian_kernel(
     source_m = m[None, :]
     radial_squared = source_l * source_l + source_m * source_m
     paper_sigma_squared = 2.0 * jnp.pi * jnp.square(
-        jnp.asarray(sigma_rad, dtype=jnp.float64)
+        jnp.asarray(sigma_rad, dtype=uvw_wavelengths.real.dtype)
     )
     denominator = 1.0 + 1j * w * paper_sigma_squared
     response = (
@@ -116,14 +116,21 @@ def _pixel_basis_kernel(
         )
     if isinstance(pixel_basis, CompoundPixelBasis):
         response = jnp.zeros(
-            (uvw_wavelengths.shape[0], l.size), dtype=jnp.complex128
+            (uvw_wavelengths.shape[0], l.size),
+            dtype=(
+                jnp.complex64
+                if uvw_wavelengths.dtype == jnp.float32
+                else jnp.complex128
+            ),
         )
         for weight, sigma_pixels in zip(
             pixel_basis.integrated_weights,
             pixel_basis.sigma_pixels,
             strict=True,
         ):
-            response += weight * _gaussian_kernel(
+            response += jnp.asarray(
+                weight, dtype=uvw_wavelengths.real.dtype
+            ) * _gaussian_kernel(
                 uvw_wavelengths,
                 l,
                 m,
