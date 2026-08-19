@@ -83,14 +83,30 @@ def test_simulate_to_canonical_zarr_and_image_products(
     diagnostics_path = image.with_suffix(".json")
     residuals_path = image.with_suffix(".residuals.npz")
     checkpoint_path = image.with_suffix(".checkpoint.npz")
+    evaluation_paths = tuple(
+        image.with_name(f"{image.stem}.{label}.fits")
+        for label in (
+            "full-residual-dirty",
+            "train-residual-dirty",
+            "holdout-residual-dirty",
+            "psf",
+        )
+    )
     reported = capsys.readouterr().out.strip().splitlines()
     assert reported == [
         str(image),
         str(diagnostics_path),
         str(residuals_path),
         str(checkpoint_path),
+        *(str(path) for path in evaluation_paths),
     ]
-    product_paths = (image, diagnostics_path, residuals_path, checkpoint_path)
+    product_paths = (
+        image,
+        diagnostics_path,
+        residuals_path,
+        checkpoint_path,
+        *evaluation_paths,
+    )
     assert all(path.is_file() for path in product_paths)
 
     with fits.open(image) as hdus:
@@ -107,9 +123,20 @@ def test_simulate_to_canonical_zarr_and_image_products(
     assert diagnostics["metrics"]["steps"] == 50
     assert np.isfinite(diagnostics["metrics"]["train_weighted_complex_mse"])
     assert np.isfinite(diagnostics["metrics"]["holdout_weighted_complex_mse"])
+    assert diagnostics["residual_evaluation"]["sign_convention"] == (
+        "observed_minus_model"
+    )
 
     with np.load(residuals_path) as residuals:
-        assert set(residuals.files) == {"prediction", "residual", "correlations"}
+        assert set(residuals.files) == {
+            "prediction",
+            "residual",
+            "correlations",
+            "full_residual_dirty",
+            "train_residual_dirty",
+            "holdout_residual_dirty",
+            "psf",
+        }
         assert residuals["prediction"].shape == block.shape
         assert residuals["residual"].shape == block.shape
         np.testing.assert_allclose(

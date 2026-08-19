@@ -87,6 +87,17 @@ does not imply that uncalibrated `DATA` is the preferred science input.
 The CLI must produce:
 
 - a WCS-labelled FITS Stokes-I image;
-- JSON configuration, provenance, optimizer, prior, and split diagnostics;
+- JSON configuration, provenance, optimizer, prior, split, residual-image, and
+  grouped visibility diagnostics;
 - correlation-resolved predicted visibility and residual arrays;
+- WCS-labelled full, training, and holdout residual dirty images using the
+  `observed - model` sign convention;
+- a matching naturally weighted PSF;
 - a resumable Optax checkpoint.
+
+Residual dirty images use an independent delta-basis adjoint even when the fit
+uses Gaussian or compound pixels. This makes coherent missing sky structure
+visible without constraining the diagnostic to the fitted basis. Reports
+include image peak, RMS, robust RMS, peak-to-robust-RMS, and nearest-neighbour
+spatial correlations, plus visibility residual power grouped by UV distance,
+time, channel, correlation, and the ten worst baselines.

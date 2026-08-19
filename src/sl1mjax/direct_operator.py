@@ -315,6 +315,47 @@ def direct_scalar_visibility(
     return operator(intensity_array, l_array, m_array, uvw_array)
 
 
+def direct_scalar_adjoint(
+    visibility: ArrayLike,
+    l: ArrayLike,
+    m: ArrayLike,
+    uvw_wavelengths: ArrayLike,
+    *,
+    pixel_basis: PixelBasis | None = None,
+    pixel_size_rad: float | None = None,
+    config: DirectDFTConfig | None = None,
+) -> Array:
+    """Apply the real adjoint, ``Re(Aᴴ visibility)``, without materializing A."""
+
+    selected_basis = pixel_basis or DeltaPixelBasis()
+    selected_config = config or DirectDFTConfig()
+    l_array = jnp.asarray(l, dtype=selected_config.real_dtype).ravel()
+    m_array = jnp.asarray(m, dtype=selected_config.real_dtype).ravel()
+    uvw_array = jnp.asarray(
+        uvw_wavelengths, dtype=selected_config.real_dtype
+    ).reshape(-1, 3)
+    visibility_array = jnp.asarray(
+        visibility, dtype=selected_config.complex_dtype
+    ).ravel()
+    if l_array.size != m_array.size:
+        raise ValueError("l and m must have equal sizes")
+    if visibility_array.size != uvw_array.shape[0]:
+        raise ValueError("visibility and uvw_wavelengths must have equal sizes")
+    if l_array.size == 0 or visibility_array.size == 0:
+        raise ValueError("direct DFT requires at least one pixel and visibility")
+    selected_config.validate_problem(uvw_array.shape[0], l_array.size)
+    return _adjoint_tiled(
+        jnp.conj(visibility_array),
+        l_array,
+        m_array,
+        uvw_array,
+        pixel_basis=selected_basis,
+        pixel_size_rad=pixel_size_rad,
+        visibility_chunk_size=selected_config.visibility_chunk_size,
+        pixel_chunk_size=selected_config.pixel_chunk_size,
+    )
+
+
 def predict_stokes_i_explicit(
     intensity: ArrayLike,
     l: ArrayLike,

@@ -9,6 +9,7 @@ from typing import Any, Literal
 import numpy as np
 
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.diagnostics import ResidualEvaluation, evaluate_residuals
 from sl1mjax.direct_operator import predict_stokes_i_explicit
 from sl1mjax.inference import InferenceConfig, InferenceResult, infer_regular_grid
 from sl1mjax.objective import (
@@ -29,6 +30,7 @@ class ImagingConfig:
     holdout_fraction: float = 0.2
     split_seed: int = 0
     split_strategy: Literal["uv_cell", "random_row"] = "uv_cell"
+    residual_diagnostics: bool = True
 
 
 @dataclass(frozen=True)
@@ -47,10 +49,11 @@ class ImagingResult:
     provenance: dict[str, Any]
     correlations: tuple[str, ...]
     phase_centre_rad: tuple[float, float]
+    residual_evaluation: ResidualEvaluation | None = None
 
     def diagnostics(self) -> dict[str, Any]:
         configuration = asdict(self.configuration)
-        return {
+        diagnostics = {
             "configuration": configuration,
             "provenance": self.provenance,
             "correlations": list(self.correlations),
@@ -82,6 +85,11 @@ class ImagingResult:
                 "seed": self.configuration.split_seed,
             },
         }
+        if self.residual_evaluation is not None:
+            diagnostics["residual_evaluation"] = (
+                self.residual_evaluation.diagnostics
+            )
+        return diagnostics
 
 
 def reconstruct(
@@ -163,6 +171,18 @@ def reconstruct(
             prediction, block.visibility, block.weight, ~split.holdout
         )
     )
+    residual_evaluation = (
+        evaluate_residuals(
+            block,
+            prediction,
+            grid,
+            split.train,
+            split.holdout,
+            config=config.inference.direct_dft,
+        )
+        if config.residual_diagnostics
+        else None
+    )
     return ImagingResult(
         image=inference.image,
         prediction=prediction,
@@ -178,4 +198,5 @@ def reconstruct(
         provenance=dict(block.provenance),
         correlations=tuple(value.value for value in block.correlations),
         phase_centre_rad=block.phase_centre_rad,
+        residual_evaluation=residual_evaluation,
     )

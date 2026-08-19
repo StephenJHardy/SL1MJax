@@ -23,9 +23,14 @@ from sl1mjax.data import (  # noqa: E402
     read_dataset,
     write_dataset,
 )
-from sl1mjax.diagnostics import dirty_image_and_psf  # noqa: E402
+from sl1mjax.diagnostics import (  # noqa: E402
+    ResidualEvaluation,
+    dirty_image_and_psf,
+    evaluate_residuals,
+)
 from sl1mjax.direct_operator import (  # noqa: E402
     DirectDFTConfig,
+    direct_scalar_adjoint,
     direct_scalar_visibility,
     predict_stokes_i_explicit,
 )
@@ -64,12 +69,15 @@ __all__ = [
     "InferenceResult",
     "ReceptorBasis",
     "RegularGrid",
+    "ResidualEvaluation",
     "VisibilityBlock",
     "VisibilityDataset",
     "apply_calibration",
     "diagnose_calibration",
     "dirty_image_and_psf",
+    "direct_scalar_adjoint",
     "direct_scalar_visibility",
+    "evaluate_residuals",
     "gaussian_primary_beam",
     "infer_regular_grid",
     "identity_solution",

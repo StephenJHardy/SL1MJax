@@ -9,6 +9,7 @@ from jax import Array
 from sl1mjax.data.synthetic import simulate_dataset
 from sl1mjax.direct_operator import (
     DirectDFTConfig,
+    direct_scalar_adjoint,
     direct_scalar_visibility,
     predict_stokes_i_explicit,
 )
@@ -191,6 +192,47 @@ def test_explicit_adjoint_obeys_real_transpose_identity() -> None:
     left = jnp.real(jnp.sum(output * cotangent))
     right = jnp.vdot(intensity, adjoint)
     np.testing.assert_allclose(left, right, rtol=2e-13, atol=2e-13)
+
+
+def test_public_adjoint_matches_materialized_hermitian_transpose() -> None:
+    intensity, l, m, uvw_m, frequency_hz, *_ = _problem()
+    uvw = (
+        uvw_m[:, None, :]
+        * frequency_hz[None, :, None]
+        / SPEED_OF_LIGHT_M_S
+    ).reshape(-1, 3)
+    config = DirectDFTConfig(
+        visibility_chunk_size=4,
+        pixel_chunk_size=6,
+    )
+    matrix = np.column_stack(
+        [
+            np.asarray(
+                direct_scalar_visibility(
+                    jnp.eye(intensity.size, dtype=intensity.dtype)[index],
+                    l,
+                    m,
+                    uvw,
+                    config=config,
+                )
+            )
+            for index in range(intensity.size)
+        ]
+    )
+    visibility = np.linspace(0.2, 1.1, uvw.shape[0]) + 1j * np.linspace(
+        -0.7, 0.4, uvw.shape[0]
+    )
+
+    actual = direct_scalar_adjoint(
+        visibility,
+        l,
+        m,
+        uvw,
+        config=config,
+    )
+    expected = np.real(np.conj(matrix).T @ visibility)
+
+    np.testing.assert_allclose(actual, expected, rtol=2e-13, atol=2e-13)
 
 
 @pytest.mark.parametrize("pixel_model", PIXEL_MODEL_NAMES)
