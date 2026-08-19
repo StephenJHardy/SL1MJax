@@ -39,6 +39,15 @@ def _parse_cases(value: str) -> list[tuple[int, int]]:
     return cases
 
 
+def _parse_tile_grid(value: str) -> list[tuple[int, int]]:
+    try:
+        return _parse_cases(value)
+    except argparse.ArgumentTypeError as error:
+        raise argparse.ArgumentTypeError(
+            "tile grid must use VISIBILITIESxPIXELS form"
+        ) from error
+
+
 def _gpu_memory_bytes(gpu_index: int) -> int | None:
     try:
         result = subprocess.run(
@@ -230,6 +239,8 @@ def _csv_row(result: dict[str, Any]) -> dict[str, Any]:
         "pixel_model": result["pixel_model"],
         "visibility_count": result["visibility_count"],
         "pixel_count": result["pixel_count"],
+        "visibility_tile_size": result["visibility_tile_size"],
+        "pixel_tile_size": result["pixel_tile_size"],
         "response_gib": result["response_bytes"] / 1024**3,
         "guarded_native_gib": result["guarded_native_bytes"] / 1024**3,
         "explicit_tile_mib": result["explicit_tile_bytes"] / 1024**2,
@@ -286,6 +297,14 @@ def main() -> int:
     parser.add_argument("--pixel-size-rad", type=float, default=1e-5)
     parser.add_argument("--visibility-tile-size", type=int, default=256)
     parser.add_argument("--pixel-tile-size", type=int, default=1024)
+    parser.add_argument(
+        "--tile-grid",
+        type=_parse_tile_grid,
+        help=(
+            "comma-separated VISIBILITYxPIXEL explicit tile pairs; "
+            "autodiff is run only once"
+        ),
+    )
     parser.add_argument("--native-visibility-chunk-size", type=int, default=256)
     parser.add_argument("--max-response-mib", type=float, default=512.0)
     parser.add_argument("--gpu-index", type=int, default=0)
@@ -333,112 +352,120 @@ def main() -> int:
         )
     real_bytes = 4 if arguments.precision == "float32" else 8
     complex_bytes = 2 * real_bytes
-    configured_explicit_tile_bytes = (
-        arguments.visibility_tile_size
-        * arguments.pixel_tile_size
-        * complex_bytes
-    )
+    tile_grid = arguments.tile_grid or [
+        (arguments.visibility_tile_size, arguments.pixel_tile_size)
+    ]
     max_response_bytes = int(arguments.max_response_mib * 1024**2)
-    if configured_explicit_tile_bytes > max_response_bytes:
-        parser.error("explicit tile exceeds --max-response-mib")
+    if any(
+        visibility_tile * pixel_tile * complex_bytes > max_response_bytes
+        for visibility_tile, pixel_tile in tile_grid
+    ):
+        parser.error("an explicit tile exceeds --max-response-mib")
+
+    def execute(case: dict[str, Any]) -> dict[str, Any]:
+        environment = os.environ.copy()
+        environment["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+        environment["JAX_PLATFORM_NAME"] = arguments.platform
+        if arguments.platform == "gpu":
+            environment["CUDA_VISIBLE_DEVICES"] = str(arguments.gpu_index)
+        command = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            "--_child-case",
+            json.dumps(case, separators=(",", ":")),
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=arguments.timeout_s,
+                env=environment,
+            )
+            output_lines = [
+                line for line in completed.stdout.splitlines() if line.strip()
+            ]
+            result: dict[str, Any] = json.loads(output_lines[-1])
+            if completed.returncode != 0 and result["status"] == "ok":
+                result["status"] = "error"
+                result["error"] = completed.stderr[-2000:]
+            return result
+        except subprocess.TimeoutExpired:
+            return {
+                **case,
+                "status": "timeout",
+                "error": f"exceeded {arguments.timeout_s} seconds",
+            }
+        except (IndexError, json.JSONDecodeError) as error:
+            return {
+                **case,
+                "status": "error",
+                "error": f"child output could not be parsed: {error}",
+            }
 
     results: list[dict[str, Any]] = []
     for visibility_count, pixel_count in arguments.cases:
         response_bytes = visibility_count * pixel_count * complex_bytes
-        explicit_tile_bytes = (
-            min(visibility_count, arguments.visibility_tile_size)
-            * min(pixel_count, arguments.pixel_tile_size)
-            * complex_bytes
-        )
         guarded_native_bytes = int(
             response_bytes * arguments.native_memory_factor
         )
         for mode in modes:
-            case: dict[str, Any] = {
-                "mode": mode,
-                "operation": arguments.operation,
-                "precision": arguments.precision,
-                "pixel_model": arguments.pixel_model,
-                "gaussian_sigma_pixels": arguments.gaussian_sigma_pixels,
-                "pixel_size_rad": arguments.pixel_size_rad,
-                "visibility_count": visibility_count,
-                "pixel_count": pixel_count,
-                "visibility_tile_size": arguments.visibility_tile_size,
-                "pixel_tile_size": arguments.pixel_tile_size,
-                "native_visibility_chunk_size": (
-                    arguments.native_visibility_chunk_size
-                ),
-                "max_response_bytes": max_response_bytes,
-                "response_bytes": response_bytes,
-                "guarded_native_bytes": guarded_native_bytes,
-                "explicit_tile_bytes": explicit_tile_bytes,
-                "device_memory_bytes": device_memory_bytes,
-                "warmups": arguments.warmups,
-                "repeats": arguments.repeats,
-                "seed": arguments.seed,
-            }
-            unsafe_native = (
-                mode == "autodiff"
-                and device_memory_bytes is not None
-                and guarded_native_bytes
-                > device_memory_bytes * arguments.safe_memory_fraction
-            )
-            if unsafe_native and not arguments.allow_unsafe_native:
-                result = {
-                    **case,
-                    "status": "skipped",
-                    "skip_reason": "native memory safety guard",
+            selected_tiles = tile_grid if mode == "explicit" else tile_grid[:1]
+            for visibility_tile_size, pixel_tile_size in selected_tiles:
+                explicit_tile_bytes = (
+                    min(visibility_count, visibility_tile_size)
+                    * min(pixel_count, pixel_tile_size)
+                    * complex_bytes
+                )
+                case: dict[str, Any] = {
+                    "mode": mode,
+                    "operation": arguments.operation,
+                    "precision": arguments.precision,
+                    "pixel_model": arguments.pixel_model,
+                    "gaussian_sigma_pixels": arguments.gaussian_sigma_pixels,
+                    "pixel_size_rad": arguments.pixel_size_rad,
+                    "visibility_count": visibility_count,
+                    "pixel_count": pixel_count,
+                    "visibility_tile_size": visibility_tile_size,
+                    "pixel_tile_size": pixel_tile_size,
+                    "native_visibility_chunk_size": (
+                        arguments.native_visibility_chunk_size
+                    ),
+                    "max_response_bytes": max_response_bytes,
+                    "response_bytes": response_bytes,
+                    "guarded_native_bytes": guarded_native_bytes,
+                    "explicit_tile_bytes": explicit_tile_bytes,
+                    "device_memory_bytes": device_memory_bytes,
+                    "warmups": arguments.warmups,
+                    "repeats": arguments.repeats,
+                    "seed": arguments.seed,
                 }
-            else:
-                environment = os.environ.copy()
-                environment["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-                environment["JAX_PLATFORM_NAME"] = arguments.platform
-                if arguments.platform == "gpu":
-                    environment["CUDA_VISIBLE_DEVICES"] = str(arguments.gpu_index)
-                command = [
-                    sys.executable,
-                    str(Path(__file__).resolve()),
-                    "--_child-case",
-                    json.dumps(case, separators=(",", ":")),
-                ]
-                try:
-                    completed = subprocess.run(
-                        command,
-                        check=False,
-                        capture_output=True,
-                        text=True,
-                        timeout=arguments.timeout_s,
-                        env=environment,
-                    )
-                    output_lines = [
-                        line for line in completed.stdout.splitlines() if line.strip()
-                    ]
-                    result = json.loads(output_lines[-1])
-                    if completed.returncode != 0 and result["status"] == "ok":
-                        result["status"] = "error"
-                        result["error"] = completed.stderr[-2000:]
-                except subprocess.TimeoutExpired:
+                unsafe_native = (
+                    mode == "autodiff"
+                    and device_memory_bytes is not None
+                    and guarded_native_bytes
+                    > device_memory_bytes * arguments.safe_memory_fraction
+                )
+                if unsafe_native and not arguments.allow_unsafe_native:
                     result = {
                         **case,
-                        "status": "timeout",
-                        "error": f"exceeded {arguments.timeout_s} seconds",
+                        "status": "skipped",
+                        "skip_reason": "native memory safety guard",
                     }
-                except (IndexError, json.JSONDecodeError) as error:
-                    result = {
-                        **case,
-                        "status": "error",
-                        "error": f"child output could not be parsed: {error}",
-                    }
-            results.append(result)
-            row = _csv_row(result)
-            print(
-                f"{mode:8s} V={visibility_count:7d} P={pixel_count:7d} "
-                f"{result['status']:7s} median={row['median_s']} "
-                f"peak_GiB={row['peak_device_gib']:.3f}"
-            )
-            _write_results(
-                results, arguments.output_json, arguments.output_csv
-            )
+                else:
+                    result = execute(case)
+                results.append(result)
+                row = _csv_row(result)
+                print(
+                    f"{mode:8s} V={visibility_count:7d} P={pixel_count:7d} "
+                    f"tile={visibility_tile_size}x{pixel_tile_size} "
+                    f"{result['status']:7s} median={row['median_s']} "
+                    f"peak_GiB={row['peak_device_gib']:.3f}"
+                )
+                _write_results(
+                    results, arguments.output_json, arguments.output_csv
+                )
     return (
         0
         if all(result["status"] in {"ok", "skipped"} for result in results)

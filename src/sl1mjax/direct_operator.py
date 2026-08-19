@@ -170,26 +170,26 @@ def _adjoint_tiled(
     padded_m = _pad_rows(m, padded_pixel_count)
     gradient = jnp.zeros(padded_pixel_count, dtype=l.dtype)
 
-    def visibility_body(index: int, values: Array) -> Array:
-        visibility_start = index * visibility_tile
-        uvw_tile = jax.lax.dynamic_slice(
-            padded_uvw,
-            (visibility_start, 0),
-            (visibility_tile, 3),
+    def pixel_body(pixel_index: int, pixel_values: Array) -> Array:
+        pixel_start = pixel_index * pixel_tile
+        l_tile = jax.lax.dynamic_slice(
+            padded_l, (pixel_start,), (pixel_tile,)
         )
-        cotangent_tile = jax.lax.dynamic_slice(
-            padded_cotangent,
-            (visibility_start,),
-            (visibility_tile,),
+        m_tile = jax.lax.dynamic_slice(
+            padded_m, (pixel_start,), (pixel_tile,)
         )
 
-        def pixel_body(pixel_index: int, pixel_values: Array) -> Array:
-            pixel_start = pixel_index * pixel_tile
-            l_tile = jax.lax.dynamic_slice(
-                padded_l, (pixel_start,), (pixel_tile,)
+        def visibility_body(index: int, contribution: Array) -> Array:
+            visibility_start = index * visibility_tile
+            uvw_tile = jax.lax.dynamic_slice(
+                padded_uvw,
+                (visibility_start, 0),
+                (visibility_tile, 3),
             )
-            m_tile = jax.lax.dynamic_slice(
-                padded_m, (pixel_start,), (pixel_tile,)
+            cotangent_tile = jax.lax.dynamic_slice(
+                padded_cotangent,
+                (visibility_start,),
+                (visibility_tile,),
             )
             response = _pixel_basis_kernel(
                 uvw_tile,
@@ -202,20 +202,22 @@ def _adjoint_tiled(
             # JAX complex VJPs use a transpose cotangent convention. For a
             # real-valued intensity vector the exact pullback is Re(Aᵀ g);
             # the cotangent already carries the required conjugation.
-            contribution = jnp.real(response.T @ cotangent_tile)
-            previous = jax.lax.dynamic_slice(
-                pixel_values, (pixel_start,), (pixel_tile,)
-            )
-            return jax.lax.dynamic_update_slice(
-                pixel_values,
-                previous + contribution,
-                (pixel_start,),
-            )
+            return contribution + jnp.real(response.T @ cotangent_tile)
 
-        return cast(Array, jax.lax.fori_loop(0, pixel_tiles, pixel_body, values))
+        contribution = jax.lax.fori_loop(
+            0,
+            visibility_tiles,
+            visibility_body,
+            jnp.zeros(pixel_tile, dtype=l.dtype),
+        )
+        return jax.lax.dynamic_update_slice(
+            pixel_values,
+            contribution,
+            (pixel_start,),
+        )
 
     gradient = jax.lax.fori_loop(
-        0, visibility_tiles, visibility_body, gradient
+        0, pixel_tiles, pixel_body, gradient
     )
     return cast(Array, gradient[:pixel_count])
 

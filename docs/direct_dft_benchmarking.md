@@ -63,23 +63,21 @@ selecting production tiles, also compare speed among several explicit tile
 shapes:
 
 ```bash
-for tiles in 128x512 256x1024 512x1024 512x2048; do
-  visibility_tile=${tiles%x*}
-  pixel_tile=${tiles#*x}
-  uv run scripts/benchmark_direct_operator.py \
-    --platform gpu \
-    --precision float32 \
-    --modes explicit \
-    --cases 32768x16384 \
-    --visibility-tile-size "$visibility_tile" \
-    --pixel-tile-size "$pixel_tile" \
-    --repeats 5 \
-    --output-json "outputs/direct_operator_3080ti_tiles_${tiles}.json" \
-    --output-csv "outputs/direct_operator_3080ti_tiles_${tiles}.csv"
-done
+uv run scripts/benchmark_direct_operator.py \
+  --platform gpu \
+  --precision float32 \
+  --modes explicit \
+  --cases 32768x16384 \
+  --tile-grid 128x512,256x1024,512x1024,512x2048,1024x2048 \
+  --repeats 5 \
+  --output-json outputs/direct_operator_3080ti_tiles.json \
+  --output-csv outputs/direct_operator_3080ti_tiles.csv
 ```
 
 Start with the delta model. After selecting tile sizes, repeat representative
 cases with `--pixel-model gaussian-wide-field` and
 `--pixel-model compound-wide-field`; those kernels perform more arithmetic and
 may have different optimal tiles.
+
+The CSV records both tile dimensions so results can be sorted directly by
+steady-state time or products per second.
