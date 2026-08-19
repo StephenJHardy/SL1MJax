@@ -19,8 +19,8 @@ OUTPUT = Path(
     )
 ).resolve()
 FIELD = os.environ.get("SL1MJAX_3C391_IMAGE_FIELD", "3C391 C1")
-IMAGE_SIZE = 96
-CELL = "4arcsec"
+IMAGE_SIZE = int(os.environ.get("SL1MJAX_3C391_IMAGE_SIZE", "96"))
+CELL = os.environ.get("SL1MJAX_3C391_IMAGE_CELL", "4arcsec")
 
 
 def _remove_products(prefix: Path) -> None:
