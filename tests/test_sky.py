@@ -23,19 +23,19 @@ def test_regular_grid_coordinates_are_centered_and_x64() -> None:
     assert m.dtype == np.float64
 
 
-def test_physical_intensity_is_positive_softplus_in_x64() -> None:
+def test_physical_intensity_is_positive_softplus_in_input_precision() -> None:
     raw = jnp.array([-1000.0, -2.0, 0.0, 3.0, 1000.0], dtype=jnp.float32)
 
     intensity = physical_intensity(raw)
 
-    assert intensity.dtype == jnp.float64
+    assert intensity.dtype == jnp.float32
     assert np.all(np.asarray(intensity) >= 0.0)
     assert np.all(np.asarray(intensity[1:]) > 0.0)
     np.testing.assert_allclose(
         intensity[1:-1],
-        np.logaddexp(np.asarray(raw[1:-1], dtype=np.float64), 0.0),
-        rtol=1e-14,
-        atol=1e-14,
+        np.logaddexp(np.asarray(raw[1:-1], dtype=np.float32), 0.0),
+        rtol=1e-6,
+        atol=1e-7,
     )
     np.testing.assert_allclose(intensity[-1], 1000.0, rtol=0.0, atol=0.0)
 

@@ -76,6 +76,9 @@ def test_fits_wcs_and_grid_share_east_north_handedness(tmp_path: Path) -> None:
         objective_history=(1.0,),
         data_history=(1.0,),
         prior_history=(0.0,),
+        holdout_history=(),
+        holdout_steps=(),
+        best_step=1,
         steps=1,
         converged=False,
     )
@@ -87,6 +90,8 @@ def test_fits_wcs_and_grid_share_east_north_handedness(tmp_path: Path) -> None:
         inference=inference,
         train_loss=0.0,
         holdout_loss=0.0,
+        train_normalized_loss=0.0,
+        holdout_normalized_loss=0.0,
         elapsed_s=0.0,
         grid=grid,
         configuration=ImagingConfig(

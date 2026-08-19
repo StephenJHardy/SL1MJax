@@ -81,9 +81,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     image.add_argument("--visibility-tile-size", type=int, default=256)
     image.add_argument("--pixel-tile-size", type=int, default=1024)
+    image.add_argument(
+        "--precision", choices=("float32", "float64"), default="float64"
+    )
     image.add_argument("--patience", type=int, default=100)
+    image.add_argument("--validation-interval", type=int, default=10)
     image.add_argument("--holdout-fraction", type=float, default=0.2)
     image.add_argument("--split-seed", type=int, default=0)
+    image.add_argument(
+        "--split-strategy",
+        choices=("uv_cell", "random_row"),
+        default="uv_cell",
+    )
     image.add_argument("--pixel-model", choices=PIXEL_MODEL_NAMES, default="delta")
     image.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
     return parser
@@ -141,10 +150,12 @@ def main(argv: list[str] | None = None) -> int:
             smoothness_weight=arguments.smoothness_weight,
             chunk_size=arguments.chunk_size,
             patience=arguments.patience,
+            validation_interval=arguments.validation_interval,
             operator_mode=arguments.operator_mode,
             direct_dft=DirectDFTConfig(
                 visibility_chunk_size=arguments.visibility_tile_size,
                 pixel_chunk_size=arguments.pixel_tile_size,
+                precision=arguments.precision,
             ),
         )
         configuration = ImagingConfig(
@@ -157,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
             inference=inference,
             holdout_fraction=arguments.holdout_fraction,
             split_seed=arguments.split_seed,
+            split_strategy=arguments.split_strategy,
         )
         products = write_products(
             reconstruct(dataset.blocks[arguments.block], configuration),

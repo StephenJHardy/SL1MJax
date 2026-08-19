@@ -20,6 +20,28 @@ For the deterministic 8 × 8, three-source, 128-row, two-channel fixture:
 These thresholds are intentionally explicit and may only change alongside a
 documented fixture or scientific-model change.
 
+## Imaging validation and regularization
+
+Imaging supports two deterministic, correlation-aware holdout strategies:
+
+- `uv_cell` withholds complete occupied Fourier-plane cells and therefore tests
+  interpolation across missing spatial-frequency regions;
+- `random_row` withholds complete rows while retaining the training UV
+  distribution as a less stringent generalization control.
+
+Both keep every channel and correlation from a selected row together. Reports
+include absolute weighted complex MSE and residual power normalized by observed
+signal power for both train and holdout samples. The optimizer evaluates the
+holdout at a configurable interval and returns the checkpoint with the lowest
+holdout loss; holdout samples never contribute gradients.
+
+Positive intensity is enforced by the softplus parameterization. The sparsity
+penalty is the L1 norm of integrated pixel flux, `weight * sum(image)`, so its
+meaning does not weaken merely because the image contains more pixels.
+Smoothness remains an independently configurable mean squared adjacent-pixel
+difference. These calculations preserve the configured FP32 or FP64 inference
+precision.
+
 ## CASA golden gate
 
 Compact CASA 6.7.6.14 fixtures provide an independent convention check without

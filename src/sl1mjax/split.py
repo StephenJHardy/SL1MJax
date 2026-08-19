@@ -44,6 +44,36 @@ def uv_cell_split(
     return VisibilitySplit(train, holdout, "uv_cell")
 
 
+def random_row_split(
+    block: VisibilityBlock,
+    *,
+    holdout_fraction: float = 0.2,
+    seed: int = 0,
+) -> VisibilitySplit:
+    """Hold out random complete rows, preserving channel/correlation grouping."""
+
+    if not 0 < holdout_fraction < 1:
+        raise ValueError("holdout_fraction must be between zero and one")
+    active_rows = np.flatnonzero(np.any(block.active, axis=(1, 2)))
+    if active_rows.size < 2:
+        raise ValueError("at least two active rows are required")
+    count = int(
+        np.clip(
+            round(holdout_fraction * active_rows.size),
+            1,
+            active_rows.size - 1,
+        )
+    )
+    held_rows = np.zeros(block.shape[0], dtype=bool)
+    selected = np.random.default_rng(seed).choice(
+        active_rows, count, replace=False
+    )
+    held_rows[selected] = True
+    holdout = held_rows[:, None, None] & block.active
+    train = ~holdout & block.active
+    return VisibilitySplit(train, holdout, "random_row")
+
+
 def _antenna_graph_connected(
     antenna1: np.ndarray,
     antenna2: np.ndarray,

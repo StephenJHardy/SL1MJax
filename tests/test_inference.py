@@ -22,7 +22,7 @@ from sl1mjax.inference import (
 )
 from sl1mjax.polarization import Correlation, ReceptorBasis
 from sl1mjax.sky import RegularGrid
-from sl1mjax.split import uv_cell_split
+from sl1mjax.split import random_row_split, uv_cell_split
 
 
 @pytest.fixture(scope="module")
@@ -70,6 +70,8 @@ def test_optax_reconstruction_is_deterministic_and_recovers_sources(
     np.testing.assert_array_equal(first.objective_history, second.objective_history)
 
     assert first.steps == config.steps
+    assert first.best_step == config.steps
+    assert first.holdout_history == ()
     assert first.objective_history[-1] < first.objective_history[0] * 0.01
     assert first.data_history[-1] < first.data_history[0] * 0.01
     assert np.all(first.image > 0)
@@ -98,7 +100,7 @@ def test_checkpoint_round_trip(
         grid.size * grid.size,
     )
 
-    assert step == result.steps
+    assert step == result.best_step
     np.testing.assert_array_equal(raw, result.raw_parameters)
     expected_leaves, expected_tree = jax.tree_util.tree_flatten(result.optimizer_state)
     actual_leaves, actual_tree = jax.tree_util.tree_flatten(optimizer_state)
@@ -150,7 +152,29 @@ def test_structured_holdout_and_diagnostics_are_correlation_aware(
     assert np.isfinite(metrics["holdout_weighted_complex_mse"])
     assert metrics["train_weighted_complex_mse"] == pytest.approx(result.train_loss)
     assert metrics["holdout_weighted_complex_mse"] == pytest.approx(result.holdout_loss)
+    assert np.isfinite(metrics["train_normalized_weighted_complex_mse"])
+    assert np.isfinite(metrics["holdout_normalized_weighted_complex_mse"])
+    assert result.inference.best_step in result.inference.holdout_steps
+    assert result.holdout_loss == pytest.approx(
+        min(result.inference.holdout_history)
+    )
     assert len(diagnostics["history"]["objective"]) == metrics["steps"]
+    assert diagnostics["history"]["holdout_steps"] == [10, 20, 30, 40, 50]
+
+
+def test_random_row_holdout_is_deterministic_and_groups_correlations(
+    reconstruction: tuple[RegularGrid, VisibilityBlock, InferenceConfig, InferenceResult],
+) -> None:
+    _grid, block, _config, _result = reconstruction
+
+    first = random_row_split(block, holdout_fraction=0.2, seed=7)
+    second = random_row_split(block, holdout_fraction=0.2, seed=7)
+
+    assert first.strategy == "random_row"
+    np.testing.assert_array_equal(first.train, second.train)
+    np.testing.assert_array_equal(first.holdout, second.holdout)
+    assert np.all(first.holdout == first.holdout[:, :1, :1])
+    assert not np.any(first.train & first.holdout)
 
 
 def test_legacy_fista_and_proximal_apis_are_absent() -> None:

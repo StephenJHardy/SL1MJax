@@ -127,9 +127,12 @@ def _result_metrics(result: ImagingResult) -> dict[str, float | int | bool]:
     return {
         "elapsed_s": result.elapsed_s,
         "steps": result.inference.steps,
+        "best_step": result.inference.best_step,
         "converged": result.inference.converged,
         "train_loss": result.train_loss,
         "holdout_loss": result.holdout_loss,
+        "train_normalized_loss": result.train_normalized_loss,
+        "holdout_normalized_loss": result.holdout_normalized_loss,
         "peak_flux": float(np.max(result.image)),
         "total_flux": float(np.sum(result.image)),
     }
@@ -149,6 +152,14 @@ def main() -> int:
     parser.add_argument("--steps", type=int, default=150)
     parser.add_argument("--learning-rate", type=float, default=0.03)
     parser.add_argument("--sparsity-weight", type=float, default=1e-4)
+    parser.add_argument("--smoothness-weight", type=float, default=0.0)
+    parser.add_argument("--holdout-fraction", type=float, default=0.2)
+    parser.add_argument(
+        "--split-strategy",
+        choices=("uv_cell", "random_row"),
+        default="uv_cell",
+    )
+    parser.add_argument("--validation-interval", type=int, default=10)
     parser.add_argument("--pixel-model", choices=PIXEL_MODEL_NAMES, default="delta")
     parser.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
     parser.add_argument("--precision", choices=("float32", "float64"), default="float32")
@@ -184,13 +195,17 @@ def main() -> int:
             steps=arguments.steps,
             learning_rate=arguments.learning_rate,
             sparsity_weight=arguments.sparsity_weight,
+            smoothness_weight=arguments.smoothness_weight,
             chunk_size=arguments.visibility_tile_size,
             initial_intensity=1e-3,
             patience=arguments.steps + 1,
+            validation_interval=arguments.validation_interval,
             operator_mode="explicit",
             direct_dft=direct_config,
         ),
+        holdout_fraction=arguments.holdout_fraction,
         split_seed=17,
+        split_strategy=arguments.split_strategy,
     )
     casa_result = reconstruct(casa, configuration)
     jax_result = reconstruct(jax_calibrated, configuration)
@@ -221,6 +236,11 @@ def main() -> int:
             "pixel_arcsec": arguments.pixel_arcsec,
             "pixel_model": arguments.pixel_model,
             "steps": arguments.steps,
+            "sparsity_weight": arguments.sparsity_weight,
+            "smoothness_weight": arguments.smoothness_weight,
+            "holdout_fraction": arguments.holdout_fraction,
+            "split_strategy": arguments.split_strategy,
+            "validation_interval": arguments.validation_interval,
             "precision": arguments.precision,
             "visibility_tile_size": arguments.visibility_tile_size,
             "pixel_tile_size": arguments.pixel_tile_size,

@@ -34,6 +34,7 @@ class InferenceConfig:
     initial_intensity: float = 1e-2
     patience: int = 100
     min_delta: float = 1e-9
+    validation_interval: int = 10
     operator_mode: Literal["autodiff", "explicit"] = "autodiff"
     direct_dft: DirectDFTConfig = DirectDFTConfig()
 
@@ -46,6 +47,9 @@ class InferenceResult:
     objective_history: tuple[float, ...]
     data_history: tuple[float, ...]
     prior_history: tuple[float, ...]
+    holdout_history: tuple[float, ...]
+    holdout_steps: tuple[int, ...]
+    best_step: int
     steps: int
     converged: bool
 
@@ -70,6 +74,7 @@ def infer_regular_grid(
     train_mask: np.ndarray,
     config: InferenceConfig | None = None,
     *,
+    holdout_mask: np.ndarray | None = None,
     fixed_gains: np.ndarray | None = None,
     pixel_basis: PixelBasis | None = None,
     initial_raw: np.ndarray | None = None,
@@ -79,8 +84,17 @@ def infer_regular_grid(
     selected_basis = pixel_basis or DeltaPixelBasis()
     if train_mask.shape != block.shape:
         raise ValueError("train_mask must match the visibility block")
+    if holdout_mask is not None:
+        if holdout_mask.shape != block.shape:
+            raise ValueError("holdout_mask must match the visibility block")
+        if np.any(train_mask & holdout_mask):
+            raise ValueError("train_mask and holdout_mask must be disjoint")
+        if not np.any(holdout_mask):
+            raise ValueError("holdout_mask must contain active samples")
     if configuration.steps < 1 or configuration.learning_rate <= 0:
         raise ValueError("steps and learning rate must be positive")
+    if configuration.validation_interval < 1:
+        raise ValueError("validation_interval must be positive")
     if configuration.operator_mode not in {"autodiff", "explicit"}:
         raise ValueError("operator_mode must be autodiff or explicit")
     real_dtype, complex_dtype = _inference_dtypes(configuration)
@@ -89,10 +103,10 @@ def infer_regular_grid(
     weight = jnp.asarray(block.weight, dtype=real_dtype)
     training_flag = jnp.asarray(~train_mask)
 
-    def terms(raw_parameters: jax.Array) -> tuple[jax.Array, tuple[jax.Array, jax.Array]]:
+    def predict(raw_parameters: jax.Array) -> jax.Array:
         intensity = physical_intensity(raw_parameters)
         if configuration.operator_mode == "explicit":
-            prediction = predict_stokes_i_explicit(
+            return predict_stokes_i_explicit(
                 intensity,
                 l,
                 m,
@@ -106,21 +120,24 @@ def infer_regular_grid(
                 pixel_size_rad=grid.pixel_size_rad,
                 config=configuration.direct_dft,
             )
-        else:
-            prediction = predict_stokes_i(
-                intensity,
-                l,
-                m,
-                block.uvw_m,
-                block.frequency_hz,
-                block.antenna1,
-                block.antenna2,
-                block.correlations,
-                fixed_gains=fixed_gains,
-                chunk_size=configuration.chunk_size,
-                pixel_basis=selected_basis,
-                pixel_size_rad=grid.pixel_size_rad,
-            )
+        return predict_stokes_i(
+            intensity,
+            l,
+            m,
+            block.uvw_m,
+            block.frequency_hz,
+            block.antenna1,
+            block.antenna2,
+            block.correlations,
+            fixed_gains=fixed_gains,
+            chunk_size=configuration.chunk_size,
+            pixel_basis=selected_basis,
+            pixel_size_rad=grid.pixel_size_rad,
+        )
+
+    def terms(raw_parameters: jax.Array) -> tuple[jax.Array, tuple[jax.Array, jax.Array]]:
+        intensity = physical_intensity(raw_parameters)
+        prediction = predict(raw_parameters)
         data_term = weighted_complex_mse(prediction, observation, weight, training_flag)
         prior_term = sky_prior(
             intensity,
@@ -131,6 +148,21 @@ def infer_regular_grid(
         return data_term + prior_term, (data_term, prior_term)
 
     value_and_gradient = jax.jit(jax.value_and_grad(terms, has_aux=True))
+    holdout_flag = (
+        None if holdout_mask is None else jnp.asarray(~holdout_mask)
+    )
+
+    @jax.jit
+    def holdout_data(raw_parameters: jax.Array) -> jax.Array:
+        if holdout_flag is None:
+            return jnp.asarray(jnp.inf, dtype=real_dtype)
+        return weighted_complex_mse(
+            predict(raw_parameters),
+            observation,
+            weight,
+            holdout_flag,
+        )
+
     optimizer = create_optimizer(configuration)
     if initial_raw is None:
         raw = jnp.full(
@@ -146,10 +178,14 @@ def infer_regular_grid(
     best_raw = raw
     best_optimizer_state = optimizer_state
     best_objective = np.inf
+    best_holdout = np.inf
+    best_step = 0
     stale_steps = 0
     objectives: list[float] = []
     data_values: list[float] = []
     prior_values: list[float] = []
+    holdout_values: list[float] = []
+    holdout_steps: list[int] = []
     converged = False
 
     @jax.jit
@@ -168,19 +204,40 @@ def infer_regular_grid(
             prior_term,
         )
 
-    for _ in range(configuration.steps):
+    last_validation_step = 0
+    for step_index in range(configuration.steps):
         raw, optimizer_state, objective, data_term, prior_term = update(raw, optimizer_state)
+        step = step_index + 1
         objective_value = float(objective)
         objectives.append(objective_value)
         data_values.append(float(data_term))
         prior_values.append(float(prior_term))
-        if objective_value < best_objective - configuration.min_delta:
-            best_objective = objective_value
-            best_raw = raw
-            best_optimizer_state = optimizer_state
-            stale_steps = 0
-        else:
-            stale_steps += 1
+        if holdout_mask is None:
+            if objective_value < best_objective - configuration.min_delta:
+                best_objective = objective_value
+                best_raw = raw
+                best_optimizer_state = optimizer_state
+                best_step = step
+                stale_steps = 0
+            else:
+                stale_steps += 1
+        elif (
+            step % configuration.validation_interval == 0
+            or step == configuration.steps
+        ):
+            holdout_value = float(holdout_data(raw))
+            holdout_values.append(holdout_value)
+            holdout_steps.append(step)
+            elapsed_steps = step - last_validation_step
+            last_validation_step = step
+            if holdout_value < best_holdout - configuration.min_delta:
+                best_holdout = holdout_value
+                best_raw = raw
+                best_optimizer_state = optimizer_state
+                best_step = step
+                stale_steps = 0
+            else:
+                stale_steps += elapsed_steps
         if stale_steps >= configuration.patience:
             converged = True
             break
@@ -193,6 +250,9 @@ def infer_regular_grid(
         objective_history=tuple(objectives),
         data_history=tuple(data_values),
         prior_history=tuple(prior_values),
+        holdout_history=tuple(holdout_values),
+        holdout_steps=tuple(holdout_steps),
+        best_step=best_step,
         steps=len(objectives),
         converged=converged,
     )
@@ -203,7 +263,11 @@ def save_checkpoint(path: str | Path, result: InferenceResult) -> None:
         (jnp.asarray(result.raw_parameters), result.optimizer_state)
     )
     with Path(path).open("wb") as stream:
-        np.savez(stream, *(np.asarray(leaf) for leaf in leaves), step=result.steps)
+        np.savez(
+            stream,
+            *(np.asarray(leaf) for leaf in leaves),
+            step=result.best_step,
+        )
 
 
 def load_checkpoint(

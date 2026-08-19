@@ -136,6 +136,7 @@ def _plot(
     path: Path,
     *,
     label: str,
+    casa_label: str,
 ) -> None:
     difference = actual - expected
     valid_values = np.concatenate(
@@ -151,7 +152,7 @@ def _plot(
     for axis, image, title in zip(
         axes[:2],
         (expected, actual),
-        ("CASA Högbom CLEAN", label),
+        (casa_label, label),
         strict=True,
     ):
         shown = axis.imshow(
@@ -181,6 +182,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("casa_clean", type=Path)
     parser.add_argument("jax_results", type=Path, nargs="+")
+    parser.add_argument("--casa-label")
     parser.add_argument(
         "--output",
         type=Path,
@@ -188,6 +190,13 @@ def main() -> int:
     )
     arguments = parser.parse_args()
     casa_clean, casa_header = _read(arguments.casa_clean)
+    casa_label = arguments.casa_label
+    if casa_label is None:
+        casa_label = (
+            "CASA multiscale CLEAN"
+            if "multiscale" in arguments.casa_clean.name
+            else "CASA Högbom CLEAN"
+        )
     arguments.output.mkdir(parents=True, exist_ok=True)
     results: dict[str, object] = {
         "casa_clean": arguments.casa_clean.name,
@@ -225,6 +234,7 @@ def main() -> int:
             restored,
             arguments.output / f"{label}.png",
             label=label,
+            casa_label=casa_label,
         )
         fits.PrimaryHDU(restored, header=model_header).writeto(
             arguments.output / f"{label}.restored.fits",

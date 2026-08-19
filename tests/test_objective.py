@@ -2,7 +2,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from sl1mjax.objective import sky_prior, weighted_complex_mse
+from sl1mjax.objective import (
+    normalized_weighted_complex_mse,
+    sky_prior,
+    weighted_complex_mse,
+)
 from sl1mjax.polarization import Correlation
 from sl1mjax.rime import SPEED_OF_LIGHT_M_S, predict_stokes_i
 from sl1mjax.sky import RegularGrid, physical_intensity
@@ -41,7 +45,21 @@ def test_weighted_flagged_multi_correlation_loss() -> None:
     np.testing.assert_allclose(actual, expected, rtol=1e-14, atol=1e-14)
 
 
-def test_sky_prior_is_normalized_per_pixel_and_per_edge() -> None:
+def test_normalized_loss_uses_observed_signal_power() -> None:
+    prediction = np.array([2.0 + 0.0j, 2.0 + 0.0j], dtype=np.complex64)
+    observation = np.array([1.0 + 0.0j, 3.0 + 0.0j], dtype=np.complex64)
+    weight = np.array([1.0, 2.0], dtype=np.float32)
+    flag = np.array([False, False])
+
+    actual = normalized_weighted_complex_mse(
+        prediction, observation, weight, flag
+    )
+
+    np.testing.assert_allclose(actual, 3.0 / 19.0)
+    assert actual.dtype == jnp.float32
+
+
+def test_sky_prior_penalizes_total_flux_and_mean_edge_power() -> None:
     small = np.array([[1.0, 3.0], [5.0, 7.0]])
     tiled = np.repeat(np.repeat(small, 2, axis=0), 2, axis=1)
 
@@ -55,10 +73,24 @@ def test_sky_prior_is_normalized_per_pixel_and_per_edge() -> None:
         small, size=2, sparsity_weight=0.0, smoothness_weight=3.0
     )
 
-    np.testing.assert_allclose(small_sparsity, 8.0)
-    np.testing.assert_allclose(tiled_sparsity, small_sparsity)
+    np.testing.assert_allclose(small_sparsity, 32.0)
+    np.testing.assert_allclose(tiled_sparsity, 4 * small_sparsity)
     # Horizontal mean square is 4 and vertical mean square is 16.
     np.testing.assert_allclose(smoothness, 3.0 * (4.0 + 16.0) / 2.0)
+
+
+def test_intensity_and_prior_preserve_float32() -> None:
+    raw = jnp.array([-1.0, 0.0, 1.0, 2.0], dtype=jnp.float32)
+    intensity = physical_intensity(raw)
+    prior = sky_prior(
+        intensity,
+        size=2,
+        sparsity_weight=1e-4,
+        smoothness_weight=0.0,
+    )
+
+    assert intensity.dtype == jnp.float32
+    assert prior.dtype == jnp.float32
 
 
 def test_raw_sky_autodiff_matches_central_finite_differences() -> None:

@@ -4,17 +4,20 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.direct_operator import predict_stokes_i_explicit
 from sl1mjax.inference import InferenceConfig, InferenceResult, infer_regular_grid
-from sl1mjax.objective import weighted_complex_mse
+from sl1mjax.objective import (
+    normalized_weighted_complex_mse,
+    weighted_complex_mse,
+)
 from sl1mjax.rime import predict_stokes_i
 from sl1mjax.sky import DeltaPixelBasis, PixelBasis, RegularGrid
-from sl1mjax.split import uv_cell_split
+from sl1mjax.split import random_row_split, uv_cell_split
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class ImagingConfig:
     inference: InferenceConfig = InferenceConfig()
     holdout_fraction: float = 0.2
     split_seed: int = 0
+    split_strategy: Literal["uv_cell", "random_row"] = "uv_cell"
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,8 @@ class ImagingResult:
     inference: InferenceResult
     train_loss: float
     holdout_loss: float
+    train_normalized_loss: float
+    holdout_normalized_loss: float
     elapsed_s: float
     grid: RegularGrid
     configuration: ImagingConfig
@@ -51,7 +57,14 @@ class ImagingResult:
             "metrics": {
                 "train_weighted_complex_mse": self.train_loss,
                 "holdout_weighted_complex_mse": self.holdout_loss,
+                "train_normalized_weighted_complex_mse": (
+                    self.train_normalized_loss
+                ),
+                "holdout_normalized_weighted_complex_mse": (
+                    self.holdout_normalized_loss
+                ),
                 "steps": self.inference.steps,
+                "best_step": self.inference.best_step,
                 "converged": self.inference.converged,
                 "elapsed_s": self.elapsed_s,
                 "peak_flux": float(np.max(self.image)),
@@ -61,8 +74,13 @@ class ImagingResult:
                 "objective": list(self.inference.objective_history),
                 "data": list(self.inference.data_history),
                 "prior": list(self.inference.prior_history),
+                "holdout": list(self.inference.holdout_history),
+                "holdout_steps": list(self.inference.holdout_steps),
             },
-            "split": {"strategy": "uv_cell", "seed": self.configuration.split_seed},
+            "split": {
+                "strategy": self.configuration.split_strategy,
+                "seed": self.configuration.split_seed,
+            },
         }
 
 
@@ -71,17 +89,27 @@ def reconstruct(
 ) -> ImagingResult:
     config = configuration or ImagingConfig()
     grid = RegularGrid(config.size, config.pixel_size_rad)
-    split = uv_cell_split(
-        block,
-        holdout_fraction=config.holdout_fraction,
-        seed=config.split_seed,
-    )
+    if config.split_strategy == "uv_cell":
+        split = uv_cell_split(
+            block,
+            holdout_fraction=config.holdout_fraction,
+            seed=config.split_seed,
+        )
+    elif config.split_strategy == "random_row":
+        split = random_row_split(
+            block,
+            holdout_fraction=config.holdout_fraction,
+            seed=config.split_seed,
+        )
+    else:
+        raise ValueError("split_strategy must be uv_cell or random_row")
     started = perf_counter()
     inference = infer_regular_grid(
         block,
         grid,
         split.train,
         config.inference,
+        holdout_mask=split.holdout,
         pixel_basis=config.pixel_basis,
     )
     elapsed = perf_counter() - started
@@ -125,6 +153,16 @@ def reconstruct(
     holdout_loss = float(
         weighted_complex_mse(prediction, block.visibility, block.weight, ~split.holdout)
     )
+    train_normalized_loss = float(
+        normalized_weighted_complex_mse(
+            prediction, block.visibility, block.weight, ~split.train
+        )
+    )
+    holdout_normalized_loss = float(
+        normalized_weighted_complex_mse(
+            prediction, block.visibility, block.weight, ~split.holdout
+        )
+    )
     return ImagingResult(
         image=inference.image,
         prediction=prediction,
@@ -132,6 +170,8 @@ def reconstruct(
         inference=inference,
         train_loss=train_loss,
         holdout_loss=holdout_loss,
+        train_normalized_loss=train_normalized_loss,
+        holdout_normalized_loss=holdout_normalized_loss,
         elapsed_s=elapsed,
         grid=grid,
         configuration=config,

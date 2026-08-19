@@ -146,11 +146,14 @@ class RegularGrid:
 def physical_intensity(raw_intensity: ArrayLike) -> Array:
     """Map unconstrained optimizer parameters to positive flux."""
 
-    return jnp.logaddexp(jnp.asarray(raw_intensity, dtype=jnp.float64), 0.0)
+    raw = jnp.asarray(raw_intensity)
+    return jnp.logaddexp(raw, jnp.asarray(0.0, dtype=raw.dtype))
 
 
 def raw_from_intensity(intensity: ArrayLike) -> Array:
     """Stable inverse softplus for strictly positive initialization."""
 
-    value = jnp.maximum(jnp.asarray(intensity, dtype=jnp.float64), 1e-12)
+    intensity_array = jnp.asarray(intensity)
+    minimum = jnp.asarray(1e-12, dtype=intensity_array.dtype)
+    value = jnp.maximum(intensity_array, minimum)
     return value + jnp.log(-jnp.expm1(-value))
