@@ -286,8 +286,10 @@ def test_explicit_operator_runs_inside_jitted_optax_inference() -> None:
             direct_dft=DirectDFTConfig(
                 visibility_chunk_size=5,
                 pixel_chunk_size=4,
+                precision="float32",
             ),
         ),
     )
     assert result.steps == 3
+    assert result.raw_parameters.dtype == np.float32
     assert np.all(np.isfinite(result.objective_history))

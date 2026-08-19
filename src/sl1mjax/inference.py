@@ -55,6 +55,15 @@ def create_optimizer(config: InferenceConfig) -> optax.GradientTransformation:
     return optax.adam(schedule)
 
 
+def _inference_dtypes(config: InferenceConfig) -> tuple[Any, Any]:
+    if (
+        config.operator_mode == "explicit"
+        and config.direct_dft.precision == "float32"
+    ):
+        return jnp.float32, jnp.complex64
+    return jnp.float64, jnp.complex128
+
+
 def infer_regular_grid(
     block: VisibilityBlock,
     grid: RegularGrid,
@@ -74,9 +83,10 @@ def infer_regular_grid(
         raise ValueError("steps and learning rate must be positive")
     if configuration.operator_mode not in {"autodiff", "explicit"}:
         raise ValueError("operator_mode must be autodiff or explicit")
+    real_dtype, complex_dtype = _inference_dtypes(configuration)
     l, m = grid.coordinates
-    observation = jnp.asarray(block.visibility)
-    weight = jnp.asarray(block.weight)
+    observation = jnp.asarray(block.visibility, dtype=complex_dtype)
+    weight = jnp.asarray(block.weight, dtype=real_dtype)
     training_flag = jnp.asarray(~train_mask)
 
     def terms(raw_parameters: jax.Array) -> tuple[jax.Array, tuple[jax.Array, jax.Array]]:
@@ -126,10 +136,10 @@ def infer_regular_grid(
         raw = jnp.full(
             grid.size * grid.size,
             raw_from_intensity(configuration.initial_intensity),
-            dtype=jnp.float64,
+            dtype=real_dtype,
         )
     else:
-        raw = jnp.asarray(initial_raw, dtype=jnp.float64).reshape(-1)
+        raw = jnp.asarray(initial_raw, dtype=real_dtype).reshape(-1)
     optimizer_state = (
         optimizer.init(raw) if initial_optimizer_state is None else initial_optimizer_state
     )
@@ -202,7 +212,8 @@ def load_checkpoint(
     parameter_count: int,
 ) -> tuple[np.ndarray, Any, int]:
     optimizer = create_optimizer(config)
-    template_raw = jnp.zeros(parameter_count, dtype=jnp.float64)
+    real_dtype, _ = _inference_dtypes(config)
+    template_raw = jnp.zeros(parameter_count, dtype=real_dtype)
     template = (template_raw, optimizer.init(template_raw))
     template_leaves, tree = jax.tree_util.tree_flatten(template)
     with np.load(Path(path)) as stored:
