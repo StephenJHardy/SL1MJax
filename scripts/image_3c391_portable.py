@@ -153,7 +153,12 @@ def main() -> int:
     parser.add_argument("--learning-rate", type=float, default=0.03)
     parser.add_argument("--sparsity-weight", type=float, default=1e-4)
     parser.add_argument("--smoothness-weight", type=float, default=0.0)
-    parser.add_argument("--holdout-fraction", type=float, default=0.2)
+    parser.add_argument(
+        "--holdout-fraction",
+        type=float,
+        default=0.2,
+        help="Held-out visibility fraction. Use 0 to fit all visibilities for CASA comparison.",
+    )
     parser.add_argument(
         "--split-strategy",
         choices=("uv_cell", "random_row"),

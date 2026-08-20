@@ -8,24 +8,34 @@ from sl1mjax.data.canonical import (
 )
 from sl1mjax.data.metadata import (
     AntennaRecord,
+    CalibrationDeviceRecord,
     CalibratorRole,
+    DataDescriptionRecord,
     FeedRecord,
     FieldRecord,
     ObservationMetadata,
     ObservationRecord,
+    SpectralWindowRecord,
     StateRecord,
+    SwitchedPowerRecord,
+    WeatherRecord,
 )
 
 __all__ = [
     "AntennaRecord",
+    "CalibrationDeviceRecord",
     "CalibratorRole",
+    "DataDescriptionRecord",
     "FeedRecord",
     "FieldRecord",
     "ObservationMetadata",
     "ObservationRecord",
+    "SpectralWindowRecord",
     "StateRecord",
+    "SwitchedPowerRecord",
     "VisibilityBlock",
     "VisibilityDataset",
+    "WeatherRecord",
     "read_dataset",
     "write_dataset",
 ]

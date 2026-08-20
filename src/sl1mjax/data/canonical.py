@@ -14,8 +14,8 @@ import xarray as xr
 from sl1mjax.data.metadata import ObservationMetadata
 from sl1mjax.polarization import Correlation, ReceptorBasis, validate_correlations
 
-SCHEMA_VERSION = "1.1"
-SUPPORTED_SCHEMA_VERSIONS = {"1.0", SCHEMA_VERSION}
+SCHEMA_VERSION = "1.2"
+SUPPORTED_SCHEMA_VERSIONS = {"1.0", "1.1", SCHEMA_VERSION}
 
 
 def _json_default(value: Any) -> Any:

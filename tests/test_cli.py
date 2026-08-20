@@ -118,7 +118,11 @@ def test_simulate_to_canonical_zarr_and_image_products(
         assert hdus[0].header["CTYPE2"] == "DEC--SIN"
 
     diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
-    assert diagnostics["split"] == {"strategy": "uv_cell", "seed": 9}
+    assert diagnostics["split"] == {
+        "strategy": "uv_cell",
+        "seed": 9,
+        "holdout_fraction": 0.2,
+    }
     assert diagnostics["correlations"] == ["XX", "XY", "YX", "YY"]
     assert diagnostics["metrics"]["steps"] == 50
     assert np.isfinite(diagnostics["metrics"]["train_weighted_complex_mse"])

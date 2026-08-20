@@ -1,4 +1,9 @@
-"""Run a resumable 3C391 regularization and validation sweep."""
+"""Run a resumable 3C391 regularization and validation sweep.
+
+Keep a holdout here so train and validation losses can be compared. After a
+regularizer is chosen, the CASA comparison should be a full-visibility refit
+(`image_3c391_portable.py --holdout-fraction 0`).
+"""
 
 from __future__ import annotations
 

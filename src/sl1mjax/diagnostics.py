@@ -311,8 +311,10 @@ def evaluate_residuals(
     train_dirty = _adjoint_image(
         block, residual, grid, train_mask, selected_config
     )
-    holdout_dirty = _adjoint_image(
-        block, residual, grid, holdout_mask, selected_config
+    holdout_dirty = (
+        _adjoint_image(block, residual, grid, holdout_mask, selected_config)
+        if np.any(holdout_mask & block.active)
+        else np.zeros((grid.size, grid.size), dtype=np.float64)
     )
     psf = _adjoint_image(
         block,

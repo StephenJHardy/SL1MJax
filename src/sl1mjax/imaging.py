@@ -18,7 +18,7 @@ from sl1mjax.objective import (
 )
 from sl1mjax.rime import predict_stokes_i
 from sl1mjax.sky import DeltaPixelBasis, PixelBasis, RegularGrid
-from sl1mjax.split import random_row_split, uv_cell_split
+from sl1mjax.split import VisibilitySplit, random_row_split, uv_cell_split
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,8 @@ class ImagingConfig:
     pixel_size_rad: float = np.deg2rad(5 / 3600)
     pixel_basis: PixelBasis = DeltaPixelBasis()
     inference: InferenceConfig = InferenceConfig()
+    # 0 fits every active visibility. Use that for the final CASA comparison
+    # after the regularizer has been selected on a holdout split.
     holdout_fraction: float = 0.2
     split_seed: int = 0
     split_strategy: Literal["uv_cell", "random_row"] = "uv_cell"
@@ -81,8 +83,13 @@ class ImagingResult:
                 "holdout_steps": list(self.inference.holdout_steps),
             },
             "split": {
-                "strategy": self.configuration.split_strategy,
+                "strategy": (
+                    "all"
+                    if self.configuration.holdout_fraction == 0
+                    else self.configuration.split_strategy
+                ),
                 "seed": self.configuration.split_seed,
+                "holdout_fraction": self.configuration.holdout_fraction,
             },
         }
         if self.residual_evaluation is not None:
@@ -96,8 +103,12 @@ def reconstruct(
     block: VisibilityBlock, configuration: ImagingConfig | None = None
 ) -> ImagingResult:
     config = configuration or ImagingConfig()
+    if config.holdout_fraction < 0 or config.holdout_fraction >= 1:
+        raise ValueError("holdout_fraction must be in [0, 1)")
     grid = RegularGrid(config.size, config.pixel_size_rad)
-    if config.split_strategy == "uv_cell":
+    if config.holdout_fraction == 0:
+        split = VisibilitySplit(block.active.copy(), np.zeros(block.shape, dtype=bool), "all")
+    elif config.split_strategy == "uv_cell":
         split = uv_cell_split(
             block,
             holdout_fraction=config.holdout_fraction,
@@ -117,7 +128,7 @@ def reconstruct(
         grid,
         split.train,
         config.inference,
-        holdout_mask=split.holdout,
+        holdout_mask=None if config.holdout_fraction == 0 else split.holdout,
         pixel_basis=config.pixel_basis,
     )
     elapsed = perf_counter() - started
@@ -158,17 +169,23 @@ def reconstruct(
     train_loss = float(
         weighted_complex_mse(prediction, block.visibility, block.weight, ~split.train)
     )
-    holdout_loss = float(
-        weighted_complex_mse(prediction, block.visibility, block.weight, ~split.holdout)
-    )
+    if config.holdout_fraction == 0:
+        holdout_loss = float("nan")
+        holdout_normalized_loss = float("nan")
+    else:
+        holdout_loss = float(
+            weighted_complex_mse(
+                prediction, block.visibility, block.weight, ~split.holdout
+            )
+        )
+        holdout_normalized_loss = float(
+            normalized_weighted_complex_mse(
+                prediction, block.visibility, block.weight, ~split.holdout
+            )
+        )
     train_normalized_loss = float(
         normalized_weighted_complex_mse(
             prediction, block.visibility, block.weight, ~split.train
-        )
-    )
-    holdout_normalized_loss = float(
-        normalized_weighted_complex_mse(
-            prediction, block.visibility, block.weight, ~split.holdout
         )
     )
     residual_evaluation = (

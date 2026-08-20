@@ -16,6 +16,13 @@ from sl1mjax.calibration_inference import (  # noqa: E402
     CalibrationSolveConfig,
     solve_staged_calibration,
 )
+from sl1mjax.calibration_terms import (  # noqa: E402
+    CalibrationChain,
+    CalibrationCoordinates,
+    GainCurveTerm,
+    OpacityTerm,
+    RequantizerTerm,
+)
 from sl1mjax.coordinates import lmn_to_radec, radec_to_lmn  # noqa: E402
 from sl1mjax.data import (  # noqa: E402
     VisibilityBlock,
@@ -55,6 +62,8 @@ from sl1mjax.sky import (  # noqa: E402
 __all__ = [
     "Correlation",
     "CalibrationFitResult",
+    "CalibrationChain",
+    "CalibrationCoordinates",
     "CalibrationSolution",
     "CalibrationSolveConfig",
     "COMPOUND_N4_BASIS",
@@ -63,13 +72,16 @@ __all__ = [
     "DirectDFTConfig",
     "GaussianApproximation",
     "GaussianPixelBasis",
+    "GainCurveTerm",
     "ImagingConfig",
     "ImagingResult",
     "InferenceConfig",
     "InferenceResult",
     "ReceptorBasis",
+    "RequantizerTerm",
     "RegularGrid",
     "ResidualEvaluation",
+    "OpacityTerm",
     "VisibilityBlock",
     "VisibilityDataset",
     "apply_calibration",

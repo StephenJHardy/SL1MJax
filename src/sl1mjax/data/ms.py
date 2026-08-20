@@ -11,12 +11,17 @@ import numpy as np
 from sl1mjax.data.canonical import VisibilityBlock, VisibilityDataset
 from sl1mjax.data.metadata import (
     AntennaRecord,
+    CalibrationDeviceRecord,
     CalibratorRole,
+    DataDescriptionRecord,
     FeedRecord,
     FieldRecord,
     ObservationMetadata,
     ObservationRecord,
+    SpectralWindowRecord,
     StateRecord,
+    SwitchedPowerRecord,
+    WeatherRecord,
 )
 from sl1mjax.polarization import Correlation, ReceptorBasis
 
@@ -80,6 +85,26 @@ def _direction(value: Any) -> tuple[float, float]:
     return float(direction[0]), float(direction[1])
 
 
+def _optional_scalar(
+    table: Any, columns: set[str], name: str, row: int
+) -> float | None:
+    if name not in columns or not table.iscelldefined(name, row):
+        return None
+    value = float(np.asarray(table.getcell(name, row)).reshape(-1)[0])
+    return value if np.isfinite(value) else None
+
+
+def _optional_tuple(
+    table: Any, columns: set[str], name: str, row: int
+) -> tuple[float, ...]:
+    if name not in columns or not table.iscelldefined(name, row):
+        return ()
+    return tuple(
+        float(value)
+        for value in np.asarray(table.getcell(name, row), dtype=np.float64).ravel()
+    )
+
+
 def _intent_names(observation_mode: str) -> tuple[str, ...]:
     return tuple(
         sorted(
@@ -110,6 +135,7 @@ def _extract_metadata(
     state_id: np.ndarray,
     *,
     role_overrides: Mapping[str, tuple[CalibratorRole, ...]] | None,
+    include_switched_power: bool = True,
 ) -> ObservationMetadata:
     antennas: list[AntennaRecord] = []
     try:
@@ -156,7 +182,25 @@ def _extract_metadata(
                     if "OBS_MODE" in columns
                     else ""
                 )
-                states.append(StateRecord(row, mode, _intent_names(mode)))
+                def optional_bool(name: str, selected_row: int = row) -> bool | None:
+                    return (
+                        bool(table.getcell(name, selected_row))
+                        if name in columns
+                        and table.iscelldefined(name, selected_row)
+                        else None
+                    )
+
+                states.append(
+                    StateRecord(
+                        row,
+                        mode,
+                        _intent_names(mode),
+                        optional_bool("SIG"),
+                        optional_bool("REF"),
+                        optional_bool("CAL"),
+                        optional_bool("LOAD"),
+                    )
+                )
     except (KeyError, RuntimeError):
         pass
 
@@ -267,12 +311,174 @@ def _extract_metadata(
                 )
     except (KeyError, RuntimeError):
         pass
+
+    spectral_windows: list[SpectralWindowRecord] = []
+    try:
+        with tables.table(
+            str(source / "SPECTRAL_WINDOW"), readonly=True, ack=False
+        ) as table:
+            columns = set(table.colnames())
+            for row in range(table.nrows()):
+                frequencies = _optional_tuple(table, columns, "CHAN_FREQ", row)
+                widths = _optional_tuple(table, columns, "CHAN_WIDTH", row)
+                spectral_windows.append(
+                    SpectralWindowRecord(
+                        spectral_window_id=row,
+                        name=(
+                            str(table.getcell("NAME", row))
+                            if "NAME" in columns
+                            else str(row)
+                        ),
+                        reference_frequency_hz=(
+                            _optional_scalar(
+                                table, columns, "REF_FREQUENCY", row
+                            )
+                            or (float(np.mean(frequencies)) if frequencies else np.nan)
+                        ),
+                        channel_frequencies_hz=frequencies,
+                        channel_widths_hz=widths,
+                        effective_bandwidths_hz=_optional_tuple(
+                            table, columns, "EFFECTIVE_BW", row
+                        ),
+                        resolutions_hz=_optional_tuple(
+                            table, columns, "RESOLUTION", row
+                        ),
+                        total_bandwidth_hz=_optional_scalar(
+                            table, columns, "TOTAL_BANDWIDTH", row
+                        ),
+                    )
+                )
+    except (KeyError, RuntimeError):
+        pass
+
+    data_descriptions: list[DataDescriptionRecord] = []
+    try:
+        with tables.table(
+            str(source / "DATA_DESCRIPTION"), readonly=True, ack=False
+        ) as table:
+            for row in range(table.nrows()):
+                data_descriptions.append(
+                    DataDescriptionRecord(
+                        row,
+                        int(table.getcell("SPECTRAL_WINDOW_ID", row)),
+                        int(table.getcell("POLARIZATION_ID", row)),
+                    )
+                )
+    except (KeyError, RuntimeError):
+        pass
+
+    weather: list[WeatherRecord] = []
+    try:
+        with tables.table(str(source / "WEATHER"), readonly=True, ack=False) as table:
+            columns = set(table.colnames())
+            for row in range(table.nrows()):
+                weather.append(
+                    WeatherRecord(
+                        time_s=float(table.getcell("TIME", row)),
+                        interval_s=float(table.getcell("INTERVAL", row)),
+                        antenna_id=(
+                            int(table.getcell("ANTENNA_ID", row))
+                            if "ANTENNA_ID" in columns
+                            else -1
+                        ),
+                        temperature_k=_optional_scalar(
+                            table, columns, "TEMPERATURE", row
+                        ),
+                        dew_point_k=_optional_scalar(
+                            table, columns, "DEW_POINT", row
+                        ),
+                        pressure_pa=_optional_scalar(
+                            table, columns, "PRESSURE", row
+                        ),
+                        relative_humidity=_optional_scalar(
+                            table, columns, "REL_HUMIDITY", row
+                        ),
+                        wind_speed_m_s=_optional_scalar(
+                            table, columns, "WIND_SPEED", row
+                        ),
+                        wind_direction_rad=_optional_scalar(
+                            table, columns, "WIND_DIRECTION", row
+                        ),
+                    )
+                )
+    except (KeyError, RuntimeError):
+        pass
+
+    switched_power: list[SwitchedPowerRecord] = []
+    if include_switched_power:
+        try:
+            with tables.table(str(source / "SYSPOWER"), readonly=True, ack=False) as table:
+                columns = set(table.colnames())
+                for row in range(table.nrows()):
+                    switched_power.append(
+                        SwitchedPowerRecord(
+                            time_s=float(table.getcell("TIME", row)),
+                            interval_s=float(table.getcell("INTERVAL", row)),
+                            antenna_id=int(table.getcell("ANTENNA_ID", row)),
+                            feed_id=int(table.getcell("FEED_ID", row)),
+                            spectral_window_id=int(
+                                table.getcell("SPECTRAL_WINDOW_ID", row)
+                            ),
+                            switched_diff=_optional_tuple(
+                                table, columns, "SWITCHED_DIFF", row
+                            ),
+                            switched_sum=_optional_tuple(
+                                table, columns, "SWITCHED_SUM", row
+                            ),
+                            requantizer_gain=_optional_tuple(
+                                table, columns, "REQUANTIZER_GAIN", row
+                            ),
+                        )
+                    )
+        except (KeyError, RuntimeError):
+            pass
+
+    calibration_devices: list[CalibrationDeviceRecord] = []
+    try:
+        with tables.table(str(source / "CALDEVICE"), readonly=True, ack=False) as table:
+            columns = set(table.colnames())
+            for row in range(table.nrows()):
+                calibration_devices.append(
+                    CalibrationDeviceRecord(
+                        time_s=float(table.getcell("TIME", row)),
+                        interval_s=float(table.getcell("INTERVAL", row)),
+                        antenna_id=int(table.getcell("ANTENNA_ID", row)),
+                        feed_id=int(table.getcell("FEED_ID", row)),
+                        spectral_window_id=int(
+                            table.getcell("SPECTRAL_WINDOW_ID", row)
+                        ),
+                        noise_cal_k=_optional_tuple(
+                            table, columns, "NOISE_CAL", row
+                        ),
+                        calibration_efficiency=_optional_tuple(
+                            table, columns, "CAL_EFF", row
+                        ),
+                        load_names=(
+                            tuple(
+                                str(value)
+                                for value in np.asarray(
+                                    table.getcell("CAL_LOAD_NAMES", row)
+                                ).ravel()
+                            )
+                            if "CAL_LOAD_NAMES" in columns
+                            and table.iscelldefined("CAL_LOAD_NAMES", row)
+                            else ()
+                        ),
+                    )
+                )
+    except (KeyError, RuntimeError):
+        pass
     return ObservationMetadata(
         antennas=tuple(antennas),
         fields=tuple(fields),
         states=tuple(states),
         observations=tuple(observations),
         feeds=tuple(feeds),
+        spectral_windows=tuple(spectral_windows),
+        data_descriptions=tuple(data_descriptions),
+        weather=tuple(weather),
+        switched_power=tuple(switched_power),
+        calibration_devices=tuple(calibration_devices),
     )
 
 
@@ -288,6 +494,7 @@ def extract_measurement_set(
     data_description_ids: tuple[int, ...] | None = None,
     channels: tuple[int, ...] | None = None,
     row_stride: int = 1,
+    include_switched_power_metadata: bool = True,
 ) -> VisibilityDataset:
     """Extract compatible field/data-description blocks from a MeasurementSet."""
 
@@ -358,6 +565,7 @@ def extract_measurement_set(
         field_id,
         arrays["state_id"],
         role_overrides=role_overrides,
+        include_switched_power=include_switched_power_metadata,
     )
     requested_fields = set(np.unique(field_id) if fields is None else fields)
     if field_names is not None:

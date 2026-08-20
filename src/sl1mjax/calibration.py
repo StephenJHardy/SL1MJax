@@ -13,6 +13,11 @@ import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
 
+from sl1mjax.calibration_terms import (
+    CalibrationChain,
+    CalibrationCoordinates,
+    prior_baseline_jones,
+)
 from sl1mjax.data.canonical import VisibilityBlock, VisibilityDataset
 from sl1mjax.polarization import Correlation, ReceptorBasis
 
@@ -268,6 +273,8 @@ def baseline_jones(
     *,
     extrapolate: bool = False,
     phase_centre_rad: tuple[float, float] | None = None,
+    priors: CalibrationChain | None = None,
+    spectral_window_id: int = 0,
 ) -> tuple[Array, Array]:
     """Evaluate `J_p conj(J_q)` and its validity for each parallel hand."""
 
@@ -376,7 +383,29 @@ def baseline_jones(
         & solution.delay_valid[second, :][:, None, :]
         & np.transpose(bandpass_valid[second, :, :], (0, 1, 2))
     )
-    return jnp.asarray(j1 * np.conj(j2)), jnp.asarray(v1 & v2)
+    baseline = j1 * np.conj(j2)
+    baseline_valid = v1 & v2
+    if priors is not None and priors.terms:
+        if priors.antenna_position_m is None:
+            raise ValueError("prior calibration requires antenna positions")
+        if phase_centre_rad is None:
+            raise ValueError("prior calibration requires phase_centre_rad")
+        prior_value, prior_valid = prior_baseline_jones(
+            priors,
+            CalibrationCoordinates(
+                time_s=times,
+                frequency_hz=frequencies,
+                spectral_window_id=spectral_window_id,
+                phase_centre_rad=phase_centre_rad,
+                antenna_position_m=priors.antenna_position_m,
+                receptor_count=solution.receptor_count,
+            ),
+            first,
+            second,
+        )
+        baseline *= prior_value
+        baseline_valid &= prior_valid
+    return jnp.asarray(baseline), jnp.asarray(baseline_valid)
 
 
 def corrupt_model(
@@ -389,6 +418,8 @@ def corrupt_model(
     antenna2: ArrayLike,
     extrapolate: bool = False,
     phase_centre_rad: tuple[float, float] | None = None,
+    priors: CalibrationChain | None = None,
+    spectral_window_id: int = 0,
 ) -> Array:
     baseline, valid = baseline_jones(
         solution,
@@ -398,6 +429,8 @@ def corrupt_model(
         antenna2,
         extrapolate=extrapolate,
         phase_centre_rad=phase_centre_rad,
+        priors=priors,
+        spectral_window_id=spectral_window_id,
     )
     model = jnp.asarray(model_visibility)
     if model.shape != baseline.shape:
@@ -411,6 +444,7 @@ def apply_calibration(
     *,
     propagate_weights: bool = False,
     extrapolate: bool = False,
+    priors: CalibrationChain | None = None,
 ) -> VisibilityBlock:
     if block.correlations != solution.correlations:
         raise ValueError("block correlations must exactly match solution correlations")
@@ -422,6 +456,8 @@ def apply_calibration(
         block.antenna2,
         extrapolate=extrapolate,
         phase_centre_rad=block.phase_centre_rad,
+        priors=priors,
+        spectral_window_id=block.spectral_window_id,
     )
     baseline_array = np.asarray(baseline)
     valid_array = np.asarray(valid) & np.isfinite(baseline_array) & (
@@ -453,6 +489,10 @@ def apply_calibration(
             "propagate_weights": propagate_weights,
             "extrapolate": extrapolate,
             "solution_provenance": solution.provenance,
+            "prior_provenance": None if priors is None else priors.provenance,
+            "prior_terms": (
+                [] if priors is None else [term.kind for term in priors.terms]
+            ),
         },
     }
     return replace(
@@ -470,6 +510,7 @@ def apply_calibration_dataset(
     *,
     propagate_weights: bool = False,
     extrapolate: bool = False,
+    priors: CalibrationChain | None = None,
 ) -> VisibilityDataset:
     return VisibilityDataset(
         tuple(
@@ -478,6 +519,7 @@ def apply_calibration_dataset(
                 solution,
                 propagate_weights=propagate_weights,
                 extrapolate=extrapolate,
+                priors=priors,
             )
             for block in dataset.blocks
         ),

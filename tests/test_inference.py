@@ -146,7 +146,11 @@ def test_structured_holdout_and_diagnostics_are_correlation_aware(
     )
     diagnostics = result.diagnostics()
     metrics = diagnostics["metrics"]
-    assert diagnostics["split"] == {"strategy": "uv_cell", "seed": 9}
+    assert diagnostics["split"] == {
+        "strategy": "uv_cell",
+        "seed": 9,
+        "holdout_fraction": 0.25,
+    }
     assert diagnostics["correlations"] == ["XX", "XY", "YX", "YY"]
     assert np.isfinite(metrics["train_weighted_complex_mse"])
     assert np.isfinite(metrics["holdout_weighted_complex_mse"])

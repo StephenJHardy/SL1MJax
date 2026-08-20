@@ -137,3 +137,33 @@ def test_standard_products_include_residual_fits_and_grouped_diagnostics(
             "holdout_residual_dirty",
             "psf",
         } <= set(stored.files)
+
+
+def test_all_visibility_fit_has_no_holdout_split() -> None:
+    grid, block = _case()
+    result = reconstruct(
+        block,
+        ImagingConfig(
+            size=grid.size,
+            pixel_size_rad=grid.pixel_size_rad,
+            holdout_fraction=0.0,
+            inference=InferenceConfig(
+                steps=2,
+                patience=3,
+                validation_interval=1,
+                operator_mode="explicit",
+                direct_dft=DirectDFTConfig(
+                    visibility_chunk_size=16,
+                    pixel_chunk_size=32,
+                    precision="float32",
+                ),
+            ),
+        ),
+    )
+    diagnostics = result.diagnostics()
+    assert diagnostics["split"]["strategy"] == "all"
+    assert diagnostics["split"]["holdout_fraction"] == 0.0
+    assert result.residual_evaluation is not None
+    assert result.residual_evaluation.diagnostics["visibility"]["holdout"][
+        "active_count"
+    ] == 0

@@ -77,5 +77,9 @@ def test_reconstruction_reports_low_independent_holdout_error() -> None:
     assert result.holdout_loss < 2e-3
     assert np.max(result.image) == pytest.approx(truth_peak, rel=0.1)
     diagnostics = result.diagnostics()
-    assert diagnostics["split"] == {"strategy": "uv_cell", "seed": 31}
+    assert diagnostics["split"] == {
+        "strategy": "uv_cell",
+        "seed": 31,
+        "holdout_fraction": 0.2,
+    }
     assert diagnostics["metrics"]["holdout_weighted_complex_mse"] == result.holdout_loss

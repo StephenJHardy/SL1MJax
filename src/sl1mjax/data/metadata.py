@@ -43,6 +43,10 @@ class StateRecord:
     state_id: int
     observation_mode: str
     intents: tuple[str, ...] = ()
+    sig: bool | None = None
+    ref: bool | None = None
+    cal: bool | None = None
+    load: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -64,12 +68,73 @@ class FeedRecord:
 
 
 @dataclass(frozen=True)
+class SpectralWindowRecord:
+    spectral_window_id: int
+    name: str
+    reference_frequency_hz: float
+    channel_frequencies_hz: tuple[float, ...]
+    channel_widths_hz: tuple[float, ...]
+    effective_bandwidths_hz: tuple[float, ...] = ()
+    resolutions_hz: tuple[float, ...] = ()
+    total_bandwidth_hz: float | None = None
+
+
+@dataclass(frozen=True)
+class DataDescriptionRecord:
+    data_description_id: int
+    spectral_window_id: int
+    polarization_id: int
+
+
+@dataclass(frozen=True)
+class WeatherRecord:
+    time_s: float
+    interval_s: float
+    antenna_id: int
+    temperature_k: float | None = None
+    dew_point_k: float | None = None
+    pressure_pa: float | None = None
+    relative_humidity: float | None = None
+    wind_speed_m_s: float | None = None
+    wind_direction_rad: float | None = None
+
+
+@dataclass(frozen=True)
+class SwitchedPowerRecord:
+    time_s: float
+    interval_s: float
+    antenna_id: int
+    feed_id: int
+    spectral_window_id: int
+    switched_diff: tuple[float, ...]
+    switched_sum: tuple[float, ...]
+    requantizer_gain: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class CalibrationDeviceRecord:
+    time_s: float
+    interval_s: float
+    antenna_id: int
+    feed_id: int
+    spectral_window_id: int
+    noise_cal_k: tuple[float, ...]
+    calibration_efficiency: tuple[float, ...] = ()
+    load_names: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ObservationMetadata:
     antennas: tuple[AntennaRecord, ...] = ()
     fields: tuple[FieldRecord, ...] = ()
     states: tuple[StateRecord, ...] = ()
     observations: tuple[ObservationRecord, ...] = ()
     feeds: tuple[FeedRecord, ...] = ()
+    spectral_windows: tuple[SpectralWindowRecord, ...] = ()
+    data_descriptions: tuple[DataDescriptionRecord, ...] = ()
+    weather: tuple[WeatherRecord, ...] = ()
+    switched_power: tuple[SwitchedPowerRecord, ...] = ()
+    calibration_devices: tuple[CalibrationDeviceRecord, ...] = ()
     extras: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -105,7 +170,15 @@ class ObservationMetadata:
                 )
                 for record in value.get("fields", ())
             ),
-            states=tuple(StateRecord(**record) for record in value.get("states", ())),
+            states=tuple(
+                StateRecord(
+                    **{
+                        **record,
+                        "intents": tuple(record.get("intents", ())),
+                    }
+                )
+                for record in value.get("states", ())
+            ),
             observations=tuple(
                 ObservationRecord(
                     **{
@@ -124,6 +197,53 @@ class ObservationMetadata:
                     }
                 )
                 for record in value.get("feeds", ())
+            ),
+            spectral_windows=tuple(
+                SpectralWindowRecord(
+                    **{
+                        **record,
+                        "channel_frequencies_hz": tuple(
+                            record["channel_frequencies_hz"]
+                        ),
+                        "channel_widths_hz": tuple(record["channel_widths_hz"]),
+                        "effective_bandwidths_hz": tuple(
+                            record.get("effective_bandwidths_hz", ())
+                        ),
+                        "resolutions_hz": tuple(record.get("resolutions_hz", ())),
+                    }
+                )
+                for record in value.get("spectral_windows", ())
+            ),
+            data_descriptions=tuple(
+                DataDescriptionRecord(**record)
+                for record in value.get("data_descriptions", ())
+            ),
+            weather=tuple(
+                WeatherRecord(**record) for record in value.get("weather", ())
+            ),
+            switched_power=tuple(
+                SwitchedPowerRecord(
+                    **{
+                        **record,
+                        "switched_diff": tuple(record["switched_diff"]),
+                        "switched_sum": tuple(record["switched_sum"]),
+                        "requantizer_gain": tuple(record["requantizer_gain"]),
+                    }
+                )
+                for record in value.get("switched_power", ())
+            ),
+            calibration_devices=tuple(
+                CalibrationDeviceRecord(
+                    **{
+                        **record,
+                        "noise_cal_k": tuple(record["noise_cal_k"]),
+                        "calibration_efficiency": tuple(
+                            record.get("calibration_efficiency", ())
+                        ),
+                        "load_names": tuple(record.get("load_names", ())),
+                    }
+                )
+                for record in value.get("calibration_devices", ())
             ),
             extras=dict(value.get("extras", {})),
         )

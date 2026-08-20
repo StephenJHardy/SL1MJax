@@ -122,7 +122,24 @@ class FakeTables:
                 }
             ),
             "SPECTRAL_WINDOW": FakeTable(
-                {"CHAN_FREQ": self.channel_frequencies}
+                {
+                    "NAME": np.array(["L0", "L1"]),
+                    "REF_FREQUENCY": np.array([1.005e9, 1.505e9]),
+                    "CHAN_FREQ": self.channel_frequencies,
+                    "CHAN_WIDTH": (
+                        np.full(2, 1.0e7),
+                        np.full(2, 1.0e7),
+                    ),
+                    "EFFECTIVE_BW": (
+                        np.full(2, 9.0e6),
+                        np.full(2, 9.0e6),
+                    ),
+                    "RESOLUTION": (
+                        np.full(2, 1.1e7),
+                        np.full(2, 1.1e7),
+                    ),
+                    "TOTAL_BANDWIDTH": np.full(2, 2.0e7),
+                }
             ),
             "POLARIZATION": FakeTable(
                 {
@@ -154,7 +171,11 @@ class FakeTables:
                 {
                     "OBS_MODE": np.array(
                         ["OBSERVE_TARGET#ON_SOURCE", "CALIBRATE_PHASE#ON_SOURCE"]
-                    )
+                    ),
+                    "SIG": np.array([True, True]),
+                    "REF": np.array([False, False]),
+                    "CAL": np.array([False, True]),
+                    "LOAD": np.array([False, False]),
                 }
             ),
             "OBSERVATION": FakeTable(
@@ -172,6 +193,43 @@ class FakeTables:
                     "SPECTRAL_WINDOW_ID": np.zeros(4, dtype=int),
                     "POLARIZATION_TYPE": np.array([["R", "L"]] * 4),
                     "RECEPTOR_ANGLE": np.zeros((4, 2)),
+                }
+            ),
+            "WEATHER": FakeTable(
+                {
+                    "TIME": np.array([100.0]),
+                    "INTERVAL": np.array([60.0]),
+                    "ANTENNA_ID": np.array([-1]),
+                    "TEMPERATURE": np.array([285.0]),
+                    "DEW_POINT": np.array([275.0]),
+                    "PRESSURE": np.array([79000.0]),
+                    "REL_HUMIDITY": np.array([0.3]),
+                    "WIND_SPEED": np.array([3.0]),
+                    "WIND_DIRECTION": np.array([1.0]),
+                }
+            ),
+            "SYSPOWER": FakeTable(
+                {
+                    "TIME": np.array([100.0]),
+                    "INTERVAL": np.array([10.0]),
+                    "ANTENNA_ID": np.array([0]),
+                    "FEED_ID": np.array([0]),
+                    "SPECTRAL_WINDOW_ID": np.array([0]),
+                    "SWITCHED_DIFF": np.array([[2.0, 3.0]]),
+                    "SWITCHED_SUM": np.array([[4.0, 5.0]]),
+                    "REQUANTIZER_GAIN": np.array([[0.5, 0.6]]),
+                }
+            ),
+            "CALDEVICE": FakeTable(
+                {
+                    "TIME": np.array([100.0]),
+                    "INTERVAL": np.array([60.0]),
+                    "ANTENNA_ID": np.array([0]),
+                    "FEED_ID": np.array([0]),
+                    "SPECTRAL_WINDOW_ID": np.array([0]),
+                    "NOISE_CAL": np.array([[1.0, 1.1]]),
+                    "CAL_EFF": np.array([[0.9, 0.9]]),
+                    "CAL_LOAD_NAMES": np.array([["NOISE_TUBE"]]),
                 }
             ),
         }
@@ -293,7 +351,13 @@ def test_extracts_multiple_fields_ddids_and_spws_with_weight_spectrum(
     assert dataset.metadata.antennas[0].name == "ea01"
     assert dataset.metadata.fields[1].name == "calibrator"
     assert dataset.metadata.fields[1].roles == (CalibratorRole.PHASE,)
-    assert len(fake.calls) == 10
+    assert dataset.metadata.spectral_windows[0].name == "L0"
+    assert dataset.metadata.data_descriptions[1].spectral_window_id == 0
+    assert dataset.metadata.weather[0].dew_point_k == 275.0
+    assert dataset.metadata.switched_power[0].requantizer_gain == (0.5, 0.6)
+    assert dataset.metadata.calibration_devices[0].noise_cal_k == (1.0, 1.1)
+    assert dataset.metadata.states[1].cal is True
+    assert len(fake.calls) == 15
     assert all(readonly and not ack for _, readonly, ack in fake.calls)
     assert all(table.entered and table.closed for table in fake.tables.values())
 
