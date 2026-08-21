@@ -53,7 +53,19 @@ from sl1mjax.inference import (  # noqa: E402
     infer_regular_grid,
 )
 from sl1mjax.polarization import Correlation, ReceptorBasis  # noqa: E402
-from sl1mjax.rime import predict_stokes_i  # noqa: E402
+from sl1mjax.quadtree import (  # noqa: E402
+    QuadtreeGrid,
+    QuadtreeLeaf,
+    QuadtreeSky,
+    leaves_exceeding_error_bound,
+    predict_quadtree_stokes_i,
+    quadtree_sky_from_regular_grid,
+    wide_field_error_bounds,
+)
+from sl1mjax.rime import (  # noqa: E402
+    predict_stokes_i,
+    square_wide_field_error_bound,
+)
 from sl1mjax.sky import (  # noqa: E402
     COMPOUND_N4_BASIS,
     CompoundPixelBasis,
@@ -83,6 +95,9 @@ __all__ = [
     "ImagingResult",
     "InferenceConfig",
     "InferenceResult",
+    "QuadtreeGrid",
+    "QuadtreeLeaf",
+    "QuadtreeSky",
     "ReceptorBasis",
     "RequantizerTerm",
     "RegularGrid",
@@ -102,15 +117,20 @@ __all__ = [
     "gaussian_primary_beam",
     "infer_regular_grid",
     "identity_solution",
+    "leaves_exceeding_error_bound",
     "lmn_to_radec",
     "pixel_basis_from_name",
     "primary_beam_from_name",
+    "predict_quadtree_stokes_i",
     "predict_stokes_i",
     "predict_stokes_i_explicit",
+    "quadtree_sky_from_regular_grid",
     "radec_to_lmn",
     "read_dataset",
     "reconstruct",
     "solve_staged_calibration",
+    "square_wide_field_error_bound",
+    "wide_field_error_bounds",
     "write_dataset",
 ]
 

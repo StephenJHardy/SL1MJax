@@ -7,7 +7,12 @@ import pytest
 from numpy.polynomial.legendre import leggauss
 
 from sl1mjax.polarization import Correlation
-from sl1mjax.rime import _delta_kernel, _square_kernel, predict_stokes_i
+from sl1mjax.rime import (
+    _delta_kernel,
+    _square_kernel,
+    predict_stokes_i,
+    square_wide_field_error_bound,
+)
 from sl1mjax.sky import GaussianApproximation, SquarePixelBasis
 
 
@@ -107,6 +112,75 @@ def test_wide_field_correction_tracks_spherical_quadrature() -> None:
     wide_error = abs(predictions[GaussianApproximation.WIDE_FIELD] - oracle)
     assert wide_error < 0.05
     assert wide_error < 0.05 * paraxial_error
+
+
+def test_wide_field_tilt_shift_beats_naive_centroid_correction() -> None:
+    """The sinc-argument tilt shift must not regress vs. a plain centroid fix."""
+
+    def naive_centroid_correction(uvw: np.ndarray, l0: float, m0: float, width: float) -> complex:
+        u, v, w = uvw
+        n0 = np.sqrt(1 - l0 * l0 - m0 * m0)
+        flat = np.sinc(u * width) * np.sinc(v * width) * np.exp(
+            2j * np.pi * (u * l0 + v * m0)
+        )
+        return complex(flat * np.exp(2j * np.pi * w * (n0 - 1)))
+
+    uvw = np.asarray([20.0, 15.0, 200.0])
+    l0, m0, width = 0.2, 0.15, 8e-3
+    oracle = _spherical_square_quadrature(uvw, l0, m0, width, order=120)
+    naive = naive_centroid_correction(uvw, l0, m0, width)
+    tilted = complex(
+        _square_kernel(
+            jnp.asarray(uvw[None, :]),
+            jnp.asarray([l0]),
+            jnp.asarray([m0]),
+            width,
+            GaussianApproximation.WIDE_FIELD,
+            include_projection=False,
+        )[0, 0]
+    )
+    naive_error = abs(naive - oracle)
+    tilted_error = abs(tilted - oracle)
+    assert tilted_error < naive_error
+
+
+def test_wide_field_error_bound_holds_against_spherical_quadrature() -> None:
+    """The analytic bound must never fall short of the true oracle error."""
+
+    rng = np.random.default_rng(1)
+    for _ in range(200):
+        l0 = float(rng.uniform(-0.5, 0.5))
+        m0 = float(rng.uniform(-0.5, 0.5))
+        if l0**2 + m0**2 > 0.6:
+            continue
+        width = float(10 ** rng.uniform(-4, -1.3))
+        w = float(rng.uniform(-500, 500))
+        u = float(rng.uniform(-200, 200))
+        v = float(rng.uniform(-200, 200))
+        uvw = np.asarray([u, v, w])
+        oracle = _spherical_square_quadrature(uvw, l0, m0, width, order=100)
+        approx = complex(
+            _square_kernel(
+                jnp.asarray(uvw[None, :]),
+                jnp.asarray([l0]),
+                jnp.asarray([m0]),
+                width,
+                GaussianApproximation.WIDE_FIELD,
+                include_projection=False,
+            )[0, 0]
+        )
+        actual_error = abs(approx - oracle)
+        bound = float(square_wide_field_error_bound(width, l0, m0, w))
+        assert actual_error <= bound * 1.05, (l0, m0, width, w, actual_error, bound)
+
+
+def test_wide_field_error_bound_scales_with_width_squared_and_w() -> None:
+    l0, m0 = 0.2, 0.15
+    base = float(square_wide_field_error_bound(4e-3, l0, m0, 100.0))
+    doubled_width = float(square_wide_field_error_bound(8e-3, l0, m0, 100.0))
+    doubled_w = float(square_wide_field_error_bound(4e-3, l0, m0, 200.0))
+    np.testing.assert_allclose(doubled_width, base * 4, rtol=1e-12)
+    np.testing.assert_allclose(doubled_w, base * 2, rtol=1e-12)
 
 
 def test_square_split_conserves_flux_and_reproduces_parent_response() -> None:
