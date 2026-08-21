@@ -61,6 +61,7 @@ from sl1mjax.sky import (  # noqa: E402
     GaussianApproximation,
     GaussianPixelBasis,
     RegularGrid,
+    SquarePixelBasis,
     pixel_basis_from_name,
 )
 
@@ -89,6 +90,7 @@ __all__ = [
     "VLAPrimaryBeam",
     "ResidualEvaluation",
     "OpacityTerm",
+    "SquarePixelBasis",
     "VisibilityBlock",
     "VisibilityDataset",
     "apply_calibration",

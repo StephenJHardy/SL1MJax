@@ -15,6 +15,7 @@ from sl1mjax.sky import (
     GaussianApproximation,
     GaussianPixelBasis,
     PixelBasis,
+    SquarePixelBasis,
 )
 
 SPEED_OF_LIGHT_M_S = 299_792_458.0
@@ -86,6 +87,50 @@ def _gaussian_kernel(
     return response
 
 
+def _square_kernel(
+    uvw_wavelengths: Array,
+    l: Array,
+    m: Array,
+    width_rad: float | Array,
+    approximation: GaussianApproximation,
+    *,
+    include_projection: bool,
+) -> Array:
+    """Analytic uniform-brightness square-pixel visibility response.
+
+    The paraxial response is the exact 2-D Fourier transform of a flat-sky
+    top-hat: a separable product of two ``sinc`` factors, so no numerical
+    integration is required. ``width_rad`` is the square's side length,
+    measured in the paraxial ``(l, m)`` plane and carries no curvature term.
+
+    Unlike the Gaussian kernel, the top-hat integral has no closed form once
+    a quadratic w-term phase is folded in, so the wide-field correction here
+    is a plain centroid correction: it multiplies by the exact single-point
+    curvature phase ``w·(n(l, m) - 1)`` evaluated at the pixel center. This
+    ignores curvature variation across the pixel's own extent, unlike the
+    Gaussian kernel's wide-field term, which swaps out an already-integrated
+    quadratic approximation for the exact centroid value.
+    """
+
+    n = jnp.sqrt(1.0 - l * l - m * m)
+    u = uvw_wavelengths[:, 0, None]
+    v = uvw_wavelengths[:, 1, None]
+    w = uvw_wavelengths[:, 2, None]
+    source_l = l[None, :]
+    source_m = m[None, :]
+    width = jnp.asarray(width_rad, dtype=uvw_wavelengths.real.dtype)
+    response = (
+        jnp.exp(2j * jnp.pi * (u * source_l + v * source_m))
+        * jnp.sinc(u * width)
+        * jnp.sinc(v * width)
+    )
+    if approximation is GaussianApproximation.WIDE_FIELD:
+        response = response * jnp.exp(2j * jnp.pi * w * (n[None, :] - 1.0))
+    if include_projection:
+        response = response / n[None, :]
+    return response
+
+
 def _pixel_basis_kernel(
     uvw_wavelengths: Array,
     l: Array,
@@ -104,7 +149,7 @@ def _pixel_basis_kernel(
         or not math.isfinite(pixel_size_rad)
         or pixel_size_rad <= 0
     ):
-        raise ValueError("finite positive pixel_size_rad is required for Gaussian pixels")
+        raise ValueError("finite positive pixel_size_rad is required for non-delta pixels")
     if isinstance(pixel_basis, GaussianPixelBasis):
         return _gaussian_kernel(
             uvw_wavelengths,
@@ -139,6 +184,15 @@ def _pixel_basis_kernel(
                 include_projection=include_projection,
             )
         return response
+    if isinstance(pixel_basis, SquarePixelBasis):
+        return _square_kernel(
+            uvw_wavelengths,
+            l,
+            m,
+            pixel_basis.width_pixels * pixel_size_rad,
+            pixel_basis.approximation,
+            include_projection=include_projection,
+        )
     raise TypeError(f"unsupported pixel basis {type(pixel_basis).__name__}")
 
 

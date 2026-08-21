@@ -80,7 +80,30 @@ class CompoundPixelBasis:
         )
 
 
-PixelBasis = DeltaPixelBasis | GaussianPixelBasis | CompoundPixelBasis
+@dataclass(frozen=True)
+class SquarePixelBasis:
+    """A uniform-brightness square pixel of fixed side length.
+
+    The kernel is the exact 2-D Fourier transform of a flat-sky top-hat: a
+    separable product of ``sinc`` factors. Four quarter-width children at
+    quarter-cell offsets exactly tile the parent square, so an equal-flux
+    split reproduces the parent response exactly (unlike a Gaussian or
+    compound kernel, whose children only approximate the parent).
+    """
+
+    width_pixels: float
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD
+    kind: str = field(default="square", init=False)
+
+    def __post_init__(self) -> None:
+        if not np.isfinite(self.width_pixels) or self.width_pixels <= 0:
+            raise ValueError("width_pixels must be finite and positive")
+        object.__setattr__(
+            self, "approximation", GaussianApproximation(self.approximation)
+        )
+
+
+PixelBasis = DeltaPixelBasis | GaussianPixelBasis | CompoundPixelBasis | SquarePixelBasis
 
 
 COMPOUND_N4_BASIS = CompoundPixelBasis(
@@ -94,11 +117,16 @@ PIXEL_MODEL_NAMES = (
     "gaussian-wide-field",
     "compound-paraxial",
     "compound-wide-field",
+    "square-paraxial",
+    "square-wide-field",
 )
 
 
 def pixel_basis_from_name(
-    name: str, *, gaussian_sigma_pixels: float = 0.5
+    name: str,
+    *,
+    gaussian_sigma_pixels: float = 0.5,
+    square_width_pixels: float = 1.0,
 ) -> PixelBasis:
     """Construct a public pixel basis from its CLI/configuration name."""
 
@@ -114,6 +142,9 @@ def pixel_basis_from_name(
             COMPOUND_N4_BASIS.sigma_pixels,
             approximation,
         )
+    if name.startswith("square-"):
+        approximation = GaussianApproximation(name.removeprefix("square-").replace("-", "_"))
+        return SquarePixelBasis(square_width_pixels, approximation)
     raise ValueError(f"unknown pixel model {name!r}")
 
 
