@@ -4,7 +4,12 @@ from jax import config as _jax_config
 
 _jax_config.update("jax_enable_x64", True)
 
-from sl1mjax.beam import gaussian_primary_beam  # noqa: E402
+from sl1mjax.beam import (  # noqa: E402
+    VLABeamCatalog,
+    VLAPrimaryBeam,
+    gaussian_primary_beam,
+    primary_beam_from_name,
+)
 from sl1mjax.calibration import (  # noqa: E402
     CalibrationSolution,
     apply_calibration,
@@ -80,6 +85,8 @@ __all__ = [
     "ReceptorBasis",
     "RequantizerTerm",
     "RegularGrid",
+    "VLABeamCatalog",
+    "VLAPrimaryBeam",
     "ResidualEvaluation",
     "OpacityTerm",
     "VisibilityBlock",
@@ -95,6 +102,7 @@ __all__ = [
     "identity_solution",
     "lmn_to_radec",
     "pixel_basis_from_name",
+    "primary_beam_from_name",
     "predict_stokes_i",
     "predict_stokes_i_explicit",
     "radec_to_lmn",

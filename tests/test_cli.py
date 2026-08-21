@@ -121,7 +121,7 @@ def test_simulate_to_canonical_zarr_and_image_products(
     assert diagnostics["split"] == {
         "strategy": "uv_cell",
         "seed": 9,
-        "holdout_fraction": 0.2,
+            "holdout_fraction": 0.25,
     }
     assert diagnostics["correlations"] == ["XX", "XY", "YX", "YY"]
     assert diagnostics["metrics"]["steps"] == 50

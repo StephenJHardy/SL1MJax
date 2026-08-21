@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 import numpy as np
 
+from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.diagnostics import ResidualEvaluation, evaluate_residuals
 from sl1mjax.direct_operator import predict_stokes_i_explicit
@@ -33,6 +34,7 @@ class ImagingConfig:
     split_seed: int = 0
     split_strategy: Literal["uv_cell", "random_row"] = "uv_cell"
     residual_diagnostics: bool = True
+    primary_beam: VLAPrimaryBeam | None = None
 
 
 @dataclass(frozen=True)
@@ -130,9 +132,13 @@ def reconstruct(
         config.inference,
         holdout_mask=None if config.holdout_fraction == 0 else split.holdout,
         pixel_basis=config.pixel_basis,
+        primary_beam=config.primary_beam,
     )
     elapsed = perf_counter() - started
     l, m = grid.coordinates
+    beam_i, beam_rr, beam_ll = predict_beam_weights(
+        config.primary_beam, l, m, block.frequency_hz
+    )
     if config.inference.operator_mode == "explicit":
         prediction = np.asarray(
             predict_stokes_i_explicit(
@@ -147,6 +153,9 @@ def reconstruct(
                 pixel_basis=config.pixel_basis,
                 pixel_size_rad=grid.pixel_size_rad,
                 config=config.inference.direct_dft,
+                beam_weights=beam_i,
+                beam_weights_rr=beam_rr,
+                beam_weights_ll=beam_ll,
             )
         )
     else:
@@ -163,6 +172,9 @@ def reconstruct(
                 chunk_size=config.inference.chunk_size,
                 pixel_basis=config.pixel_basis,
                 pixel_size_rad=grid.pixel_size_rad,
+                beam_weights=beam_i,
+                beam_weights_rr=beam_rr,
+                beam_weights_ll=beam_ll,
             )
         )
     residual = prediction - block.visibility
@@ -196,6 +208,11 @@ def reconstruct(
             split.train,
             split.holdout,
             config=config.inference.direct_dft,
+            beam_weights=(
+                config.primary_beam.power_weights(l, m, block.frequency_hz)
+                if config.primary_beam is not None
+                else None
+            ),
         )
         if config.residual_diagnostics
         else None

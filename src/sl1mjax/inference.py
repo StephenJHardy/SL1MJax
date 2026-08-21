@@ -11,6 +11,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
+from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.direct_operator import DirectDFTConfig, predict_stokes_i_explicit
 from sl1mjax.objective import sky_prior, weighted_complex_mse
@@ -77,6 +78,7 @@ def infer_regular_grid(
     holdout_mask: np.ndarray | None = None,
     fixed_gains: np.ndarray | None = None,
     pixel_basis: PixelBasis | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
     initial_raw: np.ndarray | None = None,
     initial_optimizer_state: Any | None = None,
 ) -> InferenceResult:
@@ -102,6 +104,16 @@ def infer_regular_grid(
     observation = jnp.asarray(block.visibility, dtype=complex_dtype)
     weight = jnp.asarray(block.weight, dtype=real_dtype)
     training_flag = jnp.asarray(~train_mask)
+    beam_i, beam_rr, beam_ll = predict_beam_weights(
+        primary_beam, l, m, block.frequency_hz
+    )
+    beam_i_array = None if beam_i is None else jnp.asarray(beam_i, dtype=real_dtype)
+    beam_rr_array = (
+        None if beam_rr is None else jnp.asarray(beam_rr, dtype=real_dtype)
+    )
+    beam_ll_array = (
+        None if beam_ll is None else jnp.asarray(beam_ll, dtype=real_dtype)
+    )
 
     def predict(raw_parameters: jax.Array) -> jax.Array:
         intensity = physical_intensity(raw_parameters)
@@ -119,6 +131,9 @@ def infer_regular_grid(
                 pixel_basis=selected_basis,
                 pixel_size_rad=grid.pixel_size_rad,
                 config=configuration.direct_dft,
+                beam_weights=beam_i_array,
+                beam_weights_rr=beam_rr_array,
+                beam_weights_ll=beam_ll_array,
             )
         return predict_stokes_i(
             intensity,
@@ -133,6 +148,9 @@ def infer_regular_grid(
             chunk_size=configuration.chunk_size,
             pixel_basis=selected_basis,
             pixel_size_rad=grid.pixel_size_rad,
+            beam_weights=beam_i_array,
+            beam_weights_rr=beam_rr_array,
+            beam_weights_ll=beam_ll_array,
         )
 
     def terms(raw_parameters: jax.Array) -> tuple[jax.Array, tuple[jax.Array, jax.Array]]:

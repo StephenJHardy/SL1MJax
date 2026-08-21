@@ -10,6 +10,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sl1mjax.beam import primary_beam_from_name
 from sl1mjax.data.canonical import VisibilityBlock, read_dataset
 from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.imaging import ImagingConfig, ImagingResult, reconstruct
@@ -166,6 +167,17 @@ def main() -> int:
     )
     parser.add_argument("--validation-interval", type=int, default=10)
     parser.add_argument("--pixel-model", choices=PIXEL_MODEL_NAMES, default="delta")
+    parser.add_argument(
+        "--primary-beam",
+        choices=("none", "gaussian", "airy"),
+        default="none",
+        help="VLA power beam applied in the predict. Default none keeps the current C1 path.",
+    )
+    parser.add_argument(
+        "--beam-squint",
+        action="store_true",
+        help="Use opposite RR/LL VLA feed squint in the primary beam.",
+    )
     parser.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
     parser.add_argument("--precision", choices=("float32", "float64"), default="float32")
     parser.add_argument("--visibility-tile-size", type=int, default=256)
@@ -211,6 +223,9 @@ def main() -> int:
         holdout_fraction=arguments.holdout_fraction,
         split_seed=17,
         split_strategy=arguments.split_strategy,
+        primary_beam=primary_beam_from_name(
+            arguments.primary_beam, apply_squint=arguments.beam_squint
+        ),
     )
     casa_result = reconstruct(casa, configuration)
     jax_result = reconstruct(jax_calibrated, configuration)
@@ -249,6 +264,8 @@ def main() -> int:
             "precision": arguments.precision,
             "visibility_tile_size": arguments.visibility_tile_size,
             "pixel_tile_size": arguments.pixel_tile_size,
+            "primary_beam": arguments.primary_beam,
+            "beam_squint": arguments.beam_squint,
         },
         "casa_corrected": _result_metrics(casa_result),
         "jax_calibrated": _result_metrics(jax_result),

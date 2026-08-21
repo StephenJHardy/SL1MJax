@@ -254,6 +254,7 @@ def _adjoint_image(
     grid: RegularGrid,
     mask: np.ndarray,
     config: DirectDFTConfig,
+    beam_weights: np.ndarray | None = None,
 ) -> NDArray[np.float64]:
     factors = np.asarray(
         stokes_i_to_correlations(1.0, block.correlations),
@@ -271,20 +272,41 @@ def _adjoint_image(
     normalization = float(np.sum(weighted_response))
     if normalization <= 0:
         raise ValueError("residual image mask has no active positive-weight samples")
-    uvw_wavelengths = (
-        block.uvw_m[:, None, :]
-        * block.frequency_hz[None, :, None]
-        / SPEED_OF_LIGHT_M_S
-    ).reshape(-1, 3)
     l, m = grid.coordinates
-    image = direct_scalar_adjoint(
-        weighted_visibility.ravel(),
-        l,
-        m,
-        uvw_wavelengths,
-        config=config,
-    )
-    return np.asarray(image, dtype=np.float64).reshape(grid.size, grid.size) / normalization
+    if beam_weights is None:
+        uvw_wavelengths = (
+            block.uvw_m[:, None, :]
+            * block.frequency_hz[None, :, None]
+            / SPEED_OF_LIGHT_M_S
+        ).reshape(-1, 3)
+        image = np.asarray(
+            direct_scalar_adjoint(
+                weighted_visibility.ravel(),
+                l,
+                m,
+                uvw_wavelengths,
+                config=config,
+            ),
+            dtype=np.float64,
+        )
+    else:
+        weights = np.asarray(beam_weights, dtype=np.float64)
+        if weights.shape != (l.size, block.frequency_hz.size):
+            raise ValueError("beam_weights must have shape (pixels, channels)")
+        image = np.zeros(l.size, dtype=np.float64)
+        for channel, frequency in enumerate(block.frequency_hz):
+            uvw_wavelengths = block.uvw_m * (frequency / SPEED_OF_LIGHT_M_S)
+            image += weights[:, channel] * np.asarray(
+                direct_scalar_adjoint(
+                    weighted_visibility[:, channel],
+                    l,
+                    m,
+                    uvw_wavelengths,
+                    config=config,
+                ),
+                dtype=np.float64,
+            )
+    return image.reshape(grid.size, grid.size) / normalization
 
 
 def evaluate_residuals(
@@ -295,6 +317,7 @@ def evaluate_residuals(
     holdout_mask: np.ndarray,
     *,
     config: DirectDFTConfig | None = None,
+    beam_weights: np.ndarray | None = None,
 ) -> ResidualEvaluation:
     """Evaluate visibility and model-independent dirty-image residual structure."""
 
@@ -306,13 +329,15 @@ def evaluate_residuals(
     residual = block.visibility - prediction
     full_mask = train_mask | holdout_mask
     full_dirty = _adjoint_image(
-        block, residual, grid, full_mask, selected_config
+        block, residual, grid, full_mask, selected_config, beam_weights
     )
     train_dirty = _adjoint_image(
-        block, residual, grid, train_mask, selected_config
+        block, residual, grid, train_mask, selected_config, beam_weights
     )
     holdout_dirty = (
-        _adjoint_image(block, residual, grid, holdout_mask, selected_config)
+        _adjoint_image(
+            block, residual, grid, holdout_mask, selected_config, beam_weights
+        )
         if np.any(holdout_mask & block.active)
         else np.zeros((grid.size, grid.size), dtype=np.float64)
     )
@@ -322,6 +347,7 @@ def evaluate_residuals(
         grid,
         full_mask,
         selected_config,
+        beam_weights,
     )
     return ResidualEvaluation(
         full_dirty=full_dirty,

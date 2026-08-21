@@ -142,6 +142,72 @@ def _pixel_basis_kernel(
     raise TypeError(f"unsupported pixel basis {type(pixel_basis).__name__}")
 
 
+def _scalar_from_intensity(
+    intensity: Array,
+    l: Array,
+    m: Array,
+    uvw_m: Array,
+    frequency_hz: Array,
+    *,
+    chunk_size: int,
+    include_projection: bool,
+    pixel_basis: PixelBasis,
+    pixel_size_rad: float | None,
+    beam_weights: Array | None,
+) -> Array:
+    rows, channels = uvw_m.shape[0], frequency_hz.size
+    if beam_weights is None:
+        scale = frequency_hz / SPEED_OF_LIGHT_M_S
+        uvw_samples = (uvw_m[:, None, :] * scale[None, :, None]).reshape(-1, 3)
+        pieces = []
+        for start in range(0, rows * channels, chunk_size):
+            response = _pixel_basis_kernel(
+                uvw_samples[start : start + chunk_size],
+                l,
+                m,
+                pixel_basis,
+                pixel_size_rad,
+                include_projection=include_projection,
+            )
+            pieces.append(response @ intensity)
+        return jnp.concatenate(pieces).reshape(rows, channels)
+    pieces = []
+    for channel in range(channels):
+        scaled = intensity * beam_weights[:, channel]
+        uvw_samples = uvw_m * (frequency_hz[channel] / SPEED_OF_LIGHT_M_S)
+        channel_pieces = []
+        for start in range(0, rows, chunk_size):
+            response = _pixel_basis_kernel(
+                uvw_samples[start : start + chunk_size],
+                l,
+                m,
+                pixel_basis,
+                pixel_size_rad,
+                include_projection=include_projection,
+            )
+            channel_pieces.append(response @ scaled)
+        pieces.append(jnp.concatenate(channel_pieces))
+    return jnp.stack(pieces, axis=1)
+
+
+def _pack_parallel_correlations(
+    rr: Array, ll: Array, correlations: tuple[Correlation, ...]
+) -> Array:
+    """Pack RR/LL scalar visibilities into the requested correlation order."""
+
+    columns = []
+    for correlation in correlations:
+        if correlation is Correlation.RR:
+            columns.append(rr)
+        elif correlation is Correlation.LL:
+            columns.append(ll)
+        elif correlation is Correlation.I:
+            columns.append(0.5 * (rr + ll))
+        else:
+            columns.append(jnp.zeros_like(rr))
+    return jnp.stack(columns, axis=-1)
+
+
 def predict_stokes_i(
     intensity: ArrayLike,
     l: ArrayLike,
@@ -157,6 +223,9 @@ def predict_stokes_i(
     include_projection: bool = False,
     pixel_basis: PixelBasis | None = None,
     pixel_size_rad: float | None = None,
+    beam_weights: ArrayLike | None = None,
+    beam_weights_rr: ArrayLike | None = None,
+    beam_weights_ll: ArrayLike | None = None,
 ) -> Array:
     """Predict correlations for integrated Stokes-I pixel/component fluxes.
 
@@ -176,25 +245,35 @@ def predict_stokes_i(
     if chunk_size < 1:
         raise ValueError("chunk_size must be positive")
     selected_basis = pixel_basis or DeltaPixelBasis()
-    rows, channels = uvw_array.shape[0], frequency_array.size
-    scale = frequency_array / SPEED_OF_LIGHT_M_S
-    uvw_samples = (uvw_array[:, None, :] * scale[None, :, None]).reshape(-1, 3)
-    pieces = []
-    for start in range(0, rows * channels, chunk_size):
-        response = _pixel_basis_kernel(
-            uvw_samples[start : start + chunk_size],
-            l_array,
-            m_array,
-            selected_basis,
-            pixel_size_rad,
-            include_projection=include_projection,
-        )
-        pieces.append(response @ intensity_array)
-    scalar = jnp.concatenate(pieces).reshape(rows, channels)
+    baseline_gain = None
     if fixed_gains is not None:
         gains = jnp.asarray(fixed_gains, dtype=jnp.complex128)
         baseline_gain = gains[jnp.asarray(antenna1)] * jnp.conj(
             gains[jnp.asarray(antenna2)]
         )
-        scalar = scalar * baseline_gain[:, None]
-    return stokes_i_to_correlations(scalar, correlations)
+
+    def _apply(weights: Array | None) -> Array:
+        scalar = _scalar_from_intensity(
+            intensity_array,
+            l_array,
+            m_array,
+            uvw_array,
+            frequency_array,
+            chunk_size=chunk_size,
+            include_projection=include_projection,
+            pixel_basis=selected_basis,
+            pixel_size_rad=pixel_size_rad,
+            beam_weights=weights,
+        )
+        if baseline_gain is not None:
+            return scalar * baseline_gain[:, None]
+        return scalar
+
+    if beam_weights_rr is None or beam_weights_ll is None:
+        weights = None if beam_weights is None else jnp.asarray(beam_weights)
+        return stokes_i_to_correlations(_apply(weights), correlations)
+    return _pack_parallel_correlations(
+        _apply(jnp.asarray(beam_weights_rr)),
+        _apply(jnp.asarray(beam_weights_ll)),
+        correlations,
+    )

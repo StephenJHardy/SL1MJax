@@ -14,7 +14,11 @@ from jax import Array
 from jax.typing import ArrayLike
 
 from sl1mjax.polarization import Correlation, stokes_i_to_correlations
-from sl1mjax.rime import SPEED_OF_LIGHT_M_S, _pixel_basis_kernel
+from sl1mjax.rime import (
+    SPEED_OF_LIGHT_M_S,
+    _pack_parallel_correlations,
+    _pixel_basis_kernel,
+)
 from sl1mjax.sky import DeltaPixelBasis, PixelBasis
 
 
@@ -356,6 +360,51 @@ def direct_scalar_adjoint(
     )
 
 
+def _explicit_scalar(
+    intensity: ArrayLike,
+    l: ArrayLike,
+    m: ArrayLike,
+    uvw: Array,
+    frequency: Array,
+    *,
+    pixel_basis: PixelBasis | None,
+    pixel_size_rad: float | None,
+    config: DirectDFTConfig,
+    beam_weights: ArrayLike | None,
+) -> Array:
+    rows, channels = uvw.shape[0], frequency.size
+    if beam_weights is None:
+        uvw_samples = (
+            uvw[:, None, :] * frequency[None, :, None] / SPEED_OF_LIGHT_M_S
+        ).reshape(-1, 3)
+        return direct_scalar_visibility(
+            intensity,
+            l,
+            m,
+            uvw_samples,
+            pixel_basis=pixel_basis,
+            pixel_size_rad=pixel_size_rad,
+            config=config,
+        ).reshape(rows, channels)
+    weights = jnp.asarray(beam_weights, dtype=config.real_dtype)
+    intensity_array = jnp.asarray(intensity, dtype=config.real_dtype).ravel()
+    pieces = []
+    for channel in range(channels):
+        uvw_samples = uvw * (frequency[channel] / SPEED_OF_LIGHT_M_S)
+        pieces.append(
+            direct_scalar_visibility(
+                intensity_array * weights[:, channel],
+                l,
+                m,
+                uvw_samples,
+                pixel_basis=pixel_basis,
+                pixel_size_rad=pixel_size_rad,
+                config=config,
+            )
+        )
+    return jnp.stack(pieces, axis=1)
+
+
 def predict_stokes_i_explicit(
     intensity: ArrayLike,
     l: ArrayLike,
@@ -370,6 +419,9 @@ def predict_stokes_i_explicit(
     pixel_basis: PixelBasis | None = None,
     pixel_size_rad: float | None = None,
     config: DirectDFTConfig | None = None,
+    beam_weights: ArrayLike | None = None,
+    beam_weights_rr: ArrayLike | None = None,
+    beam_weights_ll: ArrayLike | None = None,
 ) -> Array:
     """Predict Stokes-I correlations with the explicit exact DFT operator."""
 
@@ -378,23 +430,33 @@ def predict_stokes_i_explicit(
     frequency = jnp.asarray(
         frequency_hz, dtype=selected_config.real_dtype
     )
-    rows, channels = uvw.shape[0], frequency.size
-    uvw_samples = (
-        uvw[:, None, :] * frequency[None, :, None] / SPEED_OF_LIGHT_M_S
-    ).reshape(-1, 3)
-    scalar = direct_scalar_visibility(
-        intensity,
-        l,
-        m,
-        uvw_samples,
-        pixel_basis=pixel_basis,
-        pixel_size_rad=pixel_size_rad,
-        config=selected_config,
-    ).reshape(rows, channels)
+    baseline_gain = None
     if fixed_gains is not None:
         gains = jnp.asarray(fixed_gains, dtype=selected_config.complex_dtype)
         baseline_gain = gains[jnp.asarray(antenna1)] * jnp.conj(
             gains[jnp.asarray(antenna2)]
         )
-        scalar *= baseline_gain[:, None]
-    return stokes_i_to_correlations(scalar, correlations)
+
+    def _apply(weights: ArrayLike | None) -> Array:
+        scalar = _explicit_scalar(
+            intensity,
+            l,
+            m,
+            uvw,
+            frequency,
+            pixel_basis=pixel_basis,
+            pixel_size_rad=pixel_size_rad,
+            config=selected_config,
+            beam_weights=weights,
+        )
+        if baseline_gain is not None:
+            return scalar * baseline_gain[:, None]
+        return scalar
+
+    if beam_weights_rr is None or beam_weights_ll is None:
+        return stokes_i_to_correlations(_apply(beam_weights), correlations)
+    return _pack_parallel_correlations(
+        _apply(beam_weights_rr),
+        _apply(beam_weights_ll),
+        correlations,
+    )
