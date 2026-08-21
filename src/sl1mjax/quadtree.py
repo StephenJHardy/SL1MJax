@@ -7,6 +7,16 @@ doubles the per-axis leaf count. Splitting a leaf replaces it with four
 children whose flux sums to the parent's, so total sky flux is conserved
 under any sequence of splits and merges.
 
+Topology (``QuadtreeTopology``: which leaves exist) and flux (the physical
+brightness carried by each leaf) are kept as separate types. Topology is
+static, host-side data with no NumPy array fields, so it is safe to close
+over as a constant inside ``jax.jit``/``jax.grad``. Flux should be passed to
+``predict_quadtree_stokes_i`` as a plain JAX array aligned with the
+topology's leaf order, so it can be optimized directly; ``QuadtreeSky``
+bundles topology with a NumPy-backed flux array purely for host-side
+bookkeeping (split/merge, error-bound diagnostics) and is not meant to be
+constructed from traced values.
+
 This module intentionally stops short of the proposal's scientific
 residual/Haar split score, which needs a fitted model and visibility
 residuals. It does wire up the cheaper, purely geometric companion gate
@@ -21,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import jax.numpy as jnp
 import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
@@ -56,6 +67,16 @@ class QuadtreeLeaf:
         if self.level == 0:
             raise ValueError("level-0 leaves have no parent")
         return QuadtreeLeaf(self.level - 1, self.iy // 2, self.ix // 2)
+
+    def ancestors(self) -> tuple[QuadtreeLeaf, ...]:
+        """This leaf's parent, grandparent, ... up to (excluding) the root level."""
+
+        chain = []
+        current = self
+        while current.level > 0:
+            current = current.parent()
+            chain.append(current)
+        return tuple(chain)
 
 
 @dataclass(frozen=True)
@@ -109,31 +130,48 @@ class QuadtreeGrid:
         )
 
 
-@dataclass(frozen=True)
-class QuadtreeSky:
-    """A flux-conserving quadtree sky: deterministic leaves plus integrated flux.
+def _validate_leaf_set(grid: QuadtreeGrid, leaves: tuple[QuadtreeLeaf, ...]) -> None:
+    """Shared structural checks for a leaf set: unique, in bounds, prefix-free.
 
-    Leaves are canonicalized to ``(level, iy, ix)`` order on construction, so
-    two skies with the same leaves and flux always compare and hash the same
-    way regardless of split/merge history.
+    Prefix-free means no active leaf may have another active leaf among its
+    ancestors. Two leaves in an ancestor/descendant relationship cover
+    overlapping sky area, so allowing both would double-count part of the
+    image and make split/merge bookkeeping (which assumes a partition of
+    the sky) unsound.
+    """
+
+    if len(set(leaves)) != len(leaves):
+        raise ValueError("leaves must be unique")
+    for leaf in leaves:
+        if not grid.contains(leaf):
+            raise ValueError(f"leaf {leaf} is out of bounds for the grid")
+    leaf_set = set(leaves)
+    for leaf in leaves:
+        conflicting_ancestors = [ancestor for ancestor in leaf.ancestors() if ancestor in leaf_set]
+        if conflicting_ancestors:
+            raise ValueError(
+                f"leaf set is not prefix-free: {leaf} has active ancestor "
+                f"{conflicting_ancestors[0]} covering overlapping sky area"
+            )
+
+
+@dataclass(frozen=True)
+class QuadtreeTopology:
+    """Which leaves exist, with no flux data.
+
+    Genuinely comparable and hashable (no NumPy array fields), and safe to
+    close over as a constant inside ``jax.jit``/``jax.grad``: constructing
+    one never touches JAX tracers, so it can be built once per optimization
+    epoch and reused. Pass leaf flux separately, as a plain array aligned
+    with ``leaves``, to ``predict_quadtree_stokes_i``.
     """
 
     grid: QuadtreeGrid
     leaves: tuple[QuadtreeLeaf, ...]
-    flux: np.ndarray
 
     def __post_init__(self) -> None:
-        flux_array = np.asarray(self.flux, dtype=np.float64)
-        if flux_array.shape != (len(self.leaves),):
-            raise ValueError("flux must have exactly one value per leaf")
-        if len(set(self.leaves)) != len(self.leaves):
-            raise ValueError("leaves must be unique")
-        for leaf in self.leaves:
-            if not self.grid.contains(leaf):
-                raise ValueError(f"leaf {leaf} is out of bounds for the grid")
-        order = sorted(range(len(self.leaves)), key=lambda index: self.leaves[index])
-        object.__setattr__(self, "leaves", tuple(self.leaves[index] for index in order))
-        object.__setattr__(self, "flux", flux_array[order])
+        _validate_leaf_set(self.grid, self.leaves)
+        object.__setattr__(self, "leaves", tuple(sorted(self.leaves)))
 
     def centers(self) -> tuple[np.ndarray, np.ndarray]:
         coordinates = [self.grid.leaf_center_rad(leaf) for leaf in self.leaves]
@@ -147,13 +185,60 @@ class QuadtreeSky:
             dtype=np.float64,
         )
 
+
+@dataclass(frozen=True)
+class QuadtreeSky:
+    """Host-side bookkeeping bundle: a quadtree topology plus its physical flux.
+
+    This is a convenience container for split/merge and diagnostics, not a
+    JAX-traceable object: ``flux`` is eagerly converted to a NumPy array, so
+    constructing one from a value under ``jax.grad``/``jax.jit`` will raise
+    ``TracerArrayConversionError``. For an optimizable sky, keep the
+    topology fixed for an optimization epoch (``sky.topology``) and pass
+    flux directly to ``predict_quadtree_stokes_i`` as a JAX array.
+
+    Unlike ``QuadtreeTopology``, this class does not support meaningful
+    equality or hashing (dataclass equality on a NumPy array field returns
+    an elementwise boolean array, and ``hash()`` raises); don't rely on
+    either. Flux must be finite and non-negative, matching the physical
+    "integrated Jy per leaf" convention used throughout the rest of the
+    package.
+    """
+
+    grid: QuadtreeGrid
+    leaves: tuple[QuadtreeLeaf, ...]
+    flux: np.ndarray
+
+    def __post_init__(self) -> None:
+        flux_array = np.asarray(self.flux, dtype=np.float64)
+        if flux_array.shape != (len(self.leaves),):
+            raise ValueError("flux must have exactly one value per leaf")
+        if not np.all(np.isfinite(flux_array)):
+            raise ValueError("flux must be finite")
+        if np.any(flux_array < 0):
+            raise ValueError("flux must be non-negative")
+        _validate_leaf_set(self.grid, self.leaves)
+        order = sorted(range(len(self.leaves)), key=lambda index: self.leaves[index])
+        object.__setattr__(self, "leaves", tuple(self.leaves[index] for index in order))
+        object.__setattr__(self, "flux", flux_array[order])
+
+    @property
+    def topology(self) -> QuadtreeTopology:
+        return QuadtreeTopology(self.grid, self.leaves)
+
+    def centers(self) -> tuple[np.ndarray, np.ndarray]:
+        return self.topology.centers()
+
+    def widths_rad(self) -> np.ndarray:
+        return self.topology.widths_rad()
+
     def split(self, leaf: QuadtreeLeaf, child_flux: ArrayLike | None = None) -> QuadtreeSky:
         """Replace ``leaf`` with its four children, conserving total flux.
 
         By default each child gets one quarter of the parent's flux. Pass
         ``child_flux`` (four values, in ``children()`` order) to seed an
-        unequal split, e.g. from a four-child lookahead solve; total flux is
-        conserved as long as the four values sum to the parent's.
+        unequal split, e.g. from a four-child lookahead solve; the four
+        values must be finite, non-negative, and sum to the parent's flux.
         """
 
         if leaf not in self.leaves:
@@ -166,6 +251,16 @@ class QuadtreeSky:
             child_values = np.asarray(child_flux, dtype=np.float64)
             if child_values.shape != (4,):
                 raise ValueError("child_flux must contain exactly four values")
+            if not np.all(np.isfinite(child_values)):
+                raise ValueError("child_flux must be finite")
+            if np.any(child_values < 0):
+                raise ValueError("child_flux must be non-negative")
+            total = float(child_values.sum())
+            if not np.isclose(total, parent_flux, rtol=1e-9, atol=1e-12):
+                raise ValueError(
+                    "child_flux must sum to the parent's flux: "
+                    f"got {total!r}, expected {parent_flux!r}"
+                )
         children = leaf.children()
         remaining_leaves = self.leaves[:index] + self.leaves[index + 1 :]
         remaining_flux = np.concatenate((self.flux[:index], self.flux[index + 1 :]))
@@ -205,8 +300,12 @@ def quadtree_sky_from_regular_grid(
     return QuadtreeSky(grid, grid.root_leaves(), flux_array)
 
 
+_COMPONENT_INDEXED_KWARGS = ("beam_weights", "beam_weights_rr", "beam_weights_ll")
+
+
 def predict_quadtree_stokes_i(
-    sky: QuadtreeSky,
+    flux: ArrayLike,
+    topology: QuadtreeTopology,
     uvw_m: ArrayLike,
     frequency_hz: ArrayLike,
     antenna1: ArrayLike,
@@ -214,26 +313,56 @@ def predict_quadtree_stokes_i(
     correlations: tuple[Correlation, ...],
     *,
     approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    beam_weights: ArrayLike | None = None,
+    beam_weights_rr: ArrayLike | None = None,
+    beam_weights_ll: ArrayLike | None = None,
     **predict_kwargs: Any,
 ) -> Array:
     """Predict correlations for a quadtree sky.
+
+    ``flux`` is a plain array (one value per leaf, in ``topology.leaves``
+    order) rather than part of ``topology``, so it can be a traced JAX
+    array under ``jax.grad``/``jax.jit`` with the topology held fixed as a
+    constant.
 
     Leaves are grouped by depth so every group shares one pixel width and
     can reuse the existing single-width square-pixel operator (and its
     ``_operator_factory`` cache) with one call per level, summing the
     results. This is the proposal's recommended least-invasive multi-width
     implementation: it avoids a genuinely per-component width kernel.
+
+    ``beam_weights``, ``beam_weights_rr``, and ``beam_weights_ll`` are
+    component-indexed (one row per leaf) like ``flux``, so they are sliced
+    by the same per-level mask before being forwarded; passing them through
+    ``predict_kwargs`` unsliced would mismatch shapes against a level's
+    leaf subset for any tree with more than one level present.
     """
 
-    if not sky.leaves:
-        raise ValueError("quadtree sky has no leaves")
-    l, m = sky.centers()
-    levels = np.asarray([leaf.level for leaf in sky.leaves])
+    if not topology.leaves:
+        raise ValueError("quadtree topology has no leaves")
+    flux_array = jnp.asarray(flux)
+    if flux_array.shape != (len(topology.leaves),):
+        raise ValueError("flux must have exactly one value per leaf")
+    l, m = topology.centers()
+    levels = np.asarray([leaf.level for leaf in topology.leaves])
+    component_arrays = {
+        "beam_weights": beam_weights,
+        "beam_weights_rr": beam_weights_rr,
+        "beam_weights_ll": beam_weights_ll,
+    }
+    for name, value in component_arrays.items():
+        if value is not None and jnp.asarray(value).shape[0] != len(topology.leaves):
+            raise ValueError(f"{name} must have exactly one row per leaf")
     total: Array | None = None
     for level in sorted(set(levels.tolist())):
         mask = levels == level
+        level_kwargs = dict(predict_kwargs)
+        for name in _COMPONENT_INDEXED_KWARGS:
+            value = component_arrays[name]
+            if value is not None:
+                level_kwargs[name] = jnp.asarray(value)[mask]
         contribution = predict_stokes_i(
-            sky.flux[mask],
+            flux_array[mask],
             l[mask],
             m[mask],
             uvw_m,
@@ -242,15 +371,15 @@ def predict_quadtree_stokes_i(
             antenna2,
             correlations,
             pixel_basis=SquarePixelBasis(1.0, approximation),
-            pixel_size_rad=sky.grid.leaf_width_rad(int(level)),
-            **predict_kwargs,
+            pixel_size_rad=topology.grid.leaf_width_rad(int(level)),
+            **level_kwargs,
         )
         total = contribution if total is None else total + contribution
     assert total is not None
     return total
 
 
-def wide_field_error_bounds(sky: QuadtreeSky, max_w_wavelengths: float) -> np.ndarray:
+def wide_field_error_bounds(topology: QuadtreeTopology, max_w_wavelengths: float) -> np.ndarray:
     """Per-leaf analytic upper bound on the wide-field kernel's curvature error.
 
     Purely geometric: no visibility evaluation is needed, only each leaf's
@@ -258,13 +387,13 @@ def wide_field_error_bounds(sky: QuadtreeSky, max_w_wavelengths: float) -> np.nd
     component. See ``square_wide_field_error_bound`` for the derivation.
     """
 
-    l, m = sky.centers()
-    widths = sky.widths_rad()
+    l, m = topology.centers()
+    widths = topology.widths_rad()
     return np.asarray(square_wide_field_error_bound(widths, l, m, max_w_wavelengths))
 
 
 def leaves_exceeding_error_bound(
-    sky: QuadtreeSky, max_w_wavelengths: float, tolerance: float
+    topology: QuadtreeTopology, max_w_wavelengths: float, tolerance: float
 ) -> tuple[QuadtreeLeaf, ...]:
     """Leaves whose analytic wide-field truncation error exceeds ``tolerance``.
 
@@ -274,5 +403,7 @@ def leaves_exceeding_error_bound(
     even over sky regions with no genuine structure to resolve.
     """
 
-    bounds = wide_field_error_bounds(sky, max_w_wavelengths)
-    return tuple(leaf for leaf, bound in zip(sky.leaves, bounds, strict=True) if bound > tolerance)
+    bounds = wide_field_error_bounds(topology, max_w_wavelengths)
+    return tuple(
+        leaf for leaf, bound in zip(topology.leaves, bounds, strict=True) if bound > tolerance
+    )
