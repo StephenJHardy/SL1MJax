@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.polarization import Correlation
 from sl1mjax.quadtree import (
     QuadtreeGrid,
@@ -13,6 +14,7 @@ from sl1mjax.quadtree import (
     QuadtreeTopology,
     leaves_exceeding_error_bound,
     predict_quadtree_stokes_i,
+    predict_quadtree_stokes_i_explicit,
     quadtree_sky_from_regular_grid,
     wide_field_error_bounds,
 )
@@ -372,3 +374,48 @@ def test_topology_is_hashable_and_compares_equal_regardless_of_construction_orde
     assert topology_a == topology_b
     assert hash(topology_a) == hash(topology_b)
     assert len({topology_a, topology_b}) == 1
+
+
+def test_explicit_quadtree_prediction_and_gradient_match_autodiff() -> None:
+    sky = quadtree_sky_from_regular_grid(2, 4e-3, [1.0, 2.0, 3.0, 4.0])
+    sky = sky.split(QuadtreeLeaf(0, 0, 0), child_flux=[0.1, 0.2, 0.3, 0.4])
+    uvw_m, frequency_hz, antenna1, antenna2 = _uvw_and_frequency()
+    correlations = (Correlation.I,)
+    beam_weights = np.linspace(0.7, 1.0, len(sky.leaves))[:, None]
+    config = DirectDFTConfig(visibility_chunk_size=1, pixel_chunk_size=2)
+
+    def native_loss(flux: jax.Array) -> jax.Array:
+        prediction = predict_quadtree_stokes_i(
+            flux,
+            sky.topology,
+            uvw_m,
+            frequency_hz,
+            antenna1,
+            antenna2,
+            correlations,
+            beam_weights=beam_weights,
+        )
+        return jnp.real(jnp.vdot(prediction, prediction))
+
+    def explicit_loss(flux: jax.Array) -> jax.Array:
+        prediction = predict_quadtree_stokes_i_explicit(
+            flux,
+            sky.topology,
+            uvw_m,
+            frequency_hz,
+            antenna1,
+            antenna2,
+            correlations,
+            config=config,
+            beam_weights=beam_weights,
+        )
+        return jnp.real(jnp.vdot(prediction, prediction))
+
+    flux = jnp.asarray(sky.flux)
+    np.testing.assert_allclose(explicit_loss(flux), native_loss(flux), rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(
+        jax.grad(explicit_loss)(flux),
+        jax.grad(native_loss)(flux),
+        rtol=1e-12,
+        atol=1e-12,
+    )

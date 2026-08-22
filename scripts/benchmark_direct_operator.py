@@ -94,7 +94,7 @@ def _run_child(case: dict[str, Any]) -> dict[str, Any]:
 
     from sl1mjax.direct_operator import DirectDFTConfig, direct_scalar_visibility
     from sl1mjax.rime import _pixel_basis_kernel
-    from sl1mjax.sky import pixel_basis_from_name
+    from sl1mjax.sky import PIXEL_MODEL_NAMES, pixel_basis_from_name
 
     precision = str(case["precision"])
     real_dtype = jnp.float32 if precision == "float32" else jnp.float64
@@ -118,6 +118,7 @@ def _run_child(case: dict[str, Any]) -> dict[str, Any]:
     basis = pixel_basis_from_name(
         str(case["pixel_model"]),
         gaussian_sigma_pixels=float(case["gaussian_sigma_pixels"]),
+        square_width_pixels=float(case.get("square_width_pixels", 1.0)),
     )
     pixel_size_rad = float(case["pixel_size_rad"])
     mode = str(case["mode"])
@@ -269,6 +270,8 @@ def _write_results(
 
 
 def main() -> int:
+    from sl1mjax.sky import PIXEL_MODEL_NAMES
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=_parse_cases, default=_parse_cases(DEFAULT_CASES))
     parser.add_argument(
@@ -284,16 +287,11 @@ def main() -> int:
     parser.add_argument("--precision", choices=("float32", "float64"), default="float32")
     parser.add_argument(
         "--pixel-model",
-        choices=(
-            "delta",
-            "gaussian-paraxial",
-            "gaussian-wide-field",
-            "compound-paraxial",
-            "compound-wide-field",
-        ),
+        choices=PIXEL_MODEL_NAMES,
         default="delta",
     )
     parser.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
+    parser.add_argument("--square-width-pixels", type=float, default=1.0)
     parser.add_argument("--pixel-size-rad", type=float, default=1e-5)
     parser.add_argument("--visibility-tile-size", type=int, default=256)
     parser.add_argument("--pixel-tile-size", type=int, default=1024)
@@ -424,6 +422,7 @@ def main() -> int:
                     "precision": arguments.precision,
                     "pixel_model": arguments.pixel_model,
                     "gaussian_sigma_pixels": arguments.gaussian_sigma_pixels,
+                    "square_width_pixels": arguments.square_width_pixels,
                     "pixel_size_rad": arguments.pixel_size_rad,
                     "visibility_count": visibility_count,
                     "pixel_count": pixel_count,

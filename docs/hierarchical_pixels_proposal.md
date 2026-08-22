@@ -34,6 +34,21 @@ The recommended development order is:
 6. Only then consider a learned split policy, adaptive free-position
    components, or trans-dimensional sampling.
 
+The deterministic split path is now implemented through held-out batch
+acceptance. This includes a level-batched residual adjoint, per-level Haar
+curvature, complexity-aware Dörfler marking, warm global refits, and prefix
+backtracking. A 4,096-parent test evaluates 16,384 virtual children without a
+per-candidate predictor loop. The end-to-end driver starts from thousands of
+root pixels and writes a FITS rendering, topology table, score table, residuals,
+checkpoint, and decision summary. Merge hysteresis and repeated-seed
+validation remain to be implemented.
+
+A six-case benchmark compares every policy on the same candidates. Haar
+selects the oracle leaf in all four structured cases. The local solve has
+higher mean rank correlation but misses one anisotropic case because it cannot
+adjust the other fitted leaves. This supports Haar as a screen and local
+lookahead as a useful but conditional estimate.
+
 Under the assumptions listed below, a tested deterministic prototype is about
 three to five weeks of work for one developer. A useful reversible-jump MCMC
 prototype is more likely to take three to six months and would still need a
@@ -41,11 +56,13 @@ separate scaling programme.
 
 ## What exists now
 
-SL1MJax currently fits a positive regular Stokes-I grid. The physical image is
-obtained with a softplus transform. The data term is a weighted mean squared
-complex residual, and the sparsity term is the sum of positive integrated
-pixel fluxes. The exact direct DFT streams both the forward operation and its
-adjoint without storing the full visibility-by-pixel matrix.
+SL1MJax fits both a positive regular Stokes-I grid and the positive leaf fluxes
+of a fixed quadtree topology. The physical flux is obtained with a softplus
+transform. The data term is a weighted mean squared complex residual, and the
+sparsity term is the sum of positive integrated pixel fluxes. The exact direct
+DFT streams both the forward operation and its adjoint without storing the full
+visibility-by-pixel matrix. Quadtree topology changes remain outside the jitted
+optimizer, so each fit has fixed array shapes.
 
 Several details make an adaptive hierarchy practical:
 
@@ -63,15 +80,57 @@ Several details make an adaptive hierarchy practical:
 - Train/holdout UV-cell splits and residual dirty-image diagnostics already
   exist. They can test whether refinement explains unseen visibilities rather
   than training noise.
+- `infer_quadtree` fits one fixed topology with either the autodiff or streamed
+  explicit operator. It accepts physical-flux warm starts, evaluates the
+  primary beam at leaf centres, returns the fitted visibility residual, and
+  records an explicit per-leaf topology penalty for comparisons between trees.
+- `baseline_split_scores` reports parent flux, surface brightness, and
+  scale-normalized image gradient and Laplacian scores. The accompanying
+  exhaustive oracle flux-conservingly splits each candidate and globally
+  refits all leaves. It can reset Optax or enumerate active sets for an exact
+  small-problem solution, and reports train-objective and holdout changes.
+- `residual_haar_scores` projects the weighted training residual onto the
+  three zero-sum child-detail responses. It normalizes the gradient with the
+  local 3x3 Gauss--Newton matrix and reports the predicted data-objective
+  reduction, eigenvalues, condition ratio, ridge, and eligibility gates.
+  `compare_haar_to_oracle` then reports per-leaf ranks, top-choice agreement,
+  and Spearman correlation over an identical candidate set.
+- `batched_residual_haar_scores` obtains all child correlations with one
+  streamed adjoint per active level. Its shared curvature is exact for the
+  paraxial square basis without a primary beam. Wide-field or beam-weighted
+  runs must opt into approximate curvature, and the marked shortlist is then
+  rescored per parent before a topology change.
+- `select_bulk_splits` applies Dörfler-style score-mass marking with a bound on
+  splits per round. It can subtract the explicit three-leaf complexity cost
+  before ranking.
+- `refine_quadtree_batch` divides parent flux among children, globally refits
+  every active flux, and requires both penalized training objective and
+  held-out loss to improve. A rejected batch is halved to its strongest prefix
+  for a bounded number of retries.
+- `reconstruct_hierarchical` connects the initial solve, batched score,
+  marking, exact shortlist rescore, refit, validation, and stopping rules.
+- `local_four_child_lookahead` removes the actual fitted parent response and
+  solves the resulting four-child non-negative quadratic while holding all
+  other leaves fixed. It includes L1 and the three-leaf complexity increment.
+  An optional equality constraint preserves parent flux and isolates spatial
+  detail. The solver enumerates the 16 possible active child sets, so it needs
+  no general-purpose optimization dependency and gives deterministic results.
+- `solve_quadtree_flux_active_set` provides a small-problem validation fit that
+  enumerates all active leaf sets. The exhaustive oracle can use this solver to
+  remove Optax convergence error from score comparisons. Its exponential cost
+  is guarded by a maximum leaf count and is not intended for production trees.
 - The explicit adjoint can compute residual correlations for many virtual
   children in batches. This is the expensive part of a derivative-based split
   rule, but it is already the operation that the code is designed to stream.
 
 There are also four constraints:
 
-- `infer_regular_grid` and `sky_prior` assume a square dense image.
-- One `pixel_size_rad` currently applies to every component in an operator
-  call. A tree has several widths.
+- The dense-grid smoothness term in `sky_prior` has no direct meaning for
+  unequal-area leaves. Quadtree inference currently uses positive L1 flux and
+  a leaf-count penalty only.
+- A quadtree prediction is grouped by depth because one `pixel_size_rad`
+  applies to every component in an operator call. Very deep trees therefore
+  require several operator calls per objective evaluation.
 - JAX recompiles when array shapes change. Topology changes should therefore
   occur between optimization epochs, not inside a jitted optimizer step.
 - The current positive L1 term is total flux. It does **not** penalize a
@@ -210,6 +269,13 @@ Two versions are useful:
   The positive L1 term then cancels exactly.
 - Allow total child flux to vary to estimate the complete local replacement.
   Keep the L1 and complexity terms in this score.
+
+Both versions are implemented by `local_four_child_lookahead`. The complete
+replacement is the default. `conserve_parent_flux=True` selects the simplex
+version. The result includes the four non-negative child fluxes, train and
+optional holdout changes, objective terms, and a deterministic ranking. The
+companion `compare_lookahead_to_oracle` function measures rank correlation and
+top-choice agreement against exhaustive global refits.
 
 The constrained score answers the scientific split question more cleanly. The
 unconstrained score is a better predictor of the next optimized objective. A
@@ -452,6 +518,70 @@ the objective gap between the split chosen by a score and the best split.
 
 This test is more informative than showing one attractive adaptive image. It
 directly answers whether the criterion chooses the right pixel.
+
+### Current synthetic benchmark
+
+[`benchmark_hierarchical_refinement.py`](../scripts/benchmark_hierarchical_refinement.py)
+runs diagonal, horizontal, faint, anisotropic-coverage, smooth-control, and
+noise-control cases. It writes `summary.json`, `candidates.csv`,
+`policy_summary.csv`, and `aggregate.csv`. Each candidate row contains the raw
+scores, ranks, oracle train and holdout changes, Haar conditioning, and local
+child fluxes. Run it with:
+
+```console
+uv run python scripts/benchmark_hierarchical_refinement.py
+```
+
+The initial run uses one seed and four root candidates per case. The four
+structured cases all have a positive exact-oracle split. Results against that
+training oracle are:
+
+| Policy | Correct top leaf | Mean Spearman rho | Mean regret | Correct holdout top leaf |
+|---|---:|---:|---:|---:|
+| Parent flux | 0/4 | 0.35 | 1.99e-3 | 0/4 |
+| Image gradient | 0/4 | 0.30 | 1.99e-3 | 0/4 |
+| Image Laplacian | 0/4 | 0.15 | 1.99e-3 | 0/4 |
+| Residual/Haar | 4/4 | 0.70 | 0 | 4/4 |
+| Local child solve | 3/4 | 0.90 | 3.08e-4 | 3/4 |
+
+Regret is the normalized training-objective improvement lost relative to the
+best exhaustive split. The local solve's only miss is the anisotropic case. It
+ranks the correct leaf second because the frozen other leaves cannot absorb a
+strong correlated residual. The global oracle can readjust them. Haar still
+selects the correct leaf because its zero-sum detail directions are less
+sensitive to this flux coupling.
+
+The exact oracle rejects the smooth and noise controls on training data. The
+noise control still has a tiny positive held-out change of about `9e-8`, which
+is small enough to be sampling noise. A held-out acceptance rule therefore
+needs a practical effect-size threshold or repeated-split uncertainty, not only
+the sign of one holdout difference. These results are a development baseline,
+not a statistical claim: the next sweep should add seeds, noise levels, primary
+beam offsets, and larger candidate grids.
+
+### Real-data readiness checkpoint
+
+[`image_3c391_hierarchical.py`](../scripts/image_3c391_hierarchical.py) runs the
+adaptive path on one block of the portable 3C391 fixture. The default field is
+128 by 128 root pixels at 4 arcsec, so the initial model has 16,384 fitted
+fluxes. The command uses a 1,000-step ceiling with held-out early stopping.
+Shorter fixed limits produced false split acceptance because the child fit was
+also an ordinary continuation of an under-solved parent fit.
+
+A 1,024-row GPU convergence audit stopped the unchanged parent topology after
+380 steps, with the best held-out point at step 280. Starting refinement from
+that fit accepted 32 splits and reduced held-out loss from `0.3487` to `0.2722`.
+This is not yet a scientific validation. Seventy-five per cent of the selected
+parents touched the image boundary, while the established full-data regular
+reconstruction peaks in the interior. The quadtree and regular-grid coordinate
+arrays agree exactly, so an indexing mismatch has been ruled out. The current
+leading explanation is the deliberately sparse 1,024-row subset. Further
+refinement is paused pending either a same-subset regular-grid control or a run
+on all 20,542 rows.
+
+The implementation checkpoint passes Ruff, strict mypy, and 214 tests; one
+real-VLA release test remains opt-in. The focused CUDA run also passes all 32
+quadtree and refinement tests on an RTX 3080 Ti.
 
 ### Scientific and engineering metrics
 

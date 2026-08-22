@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+import numpy as np
+
+from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.direct_operator import DirectDFTConfig
+from sl1mjax.hierarchical_imaging import (
+    AdaptiveRefinementConfig,
+    reconstruct_hierarchical,
+)
+from sl1mjax.inference import InferenceConfig
+from sl1mjax.polarization import Correlation, ReceptorBasis
+from sl1mjax.quadtree import (
+    QuadtreeLeaf,
+    predict_quadtree_stokes_i,
+    quadtree_sky_from_regular_grid,
+)
+from sl1mjax.sky import GaussianApproximation
+
+
+def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> None:
+    target = QuadtreeLeaf(0, 0, 1)
+    root = quadtree_sky_from_regular_grid(2, 2e-4, [1.0, 0.3, 0.02, 0.01])
+    truth = root.split(target, child_flux=[0.24, 0.03, 0.02, 0.01])
+    rng = np.random.default_rng(13)
+    rows = 96
+    uvw_m = rng.uniform(-6_000.0, 6_000.0, size=(rows, 3))
+    uvw_m[:, 2] *= 0.2
+    frequency_hz = np.asarray([1.15e9, 1.158e9])
+    antenna1 = rng.integers(0, 5, rows, dtype=np.int32)
+    antenna2 = (antenna1 + rng.integers(1, 5, rows, dtype=np.int32)) % 5
+    correlations = (Correlation.I,)
+    visibility = np.asarray(
+        predict_quadtree_stokes_i(
+            truth.flux,
+            truth.topology,
+            uvw_m,
+            frequency_hz,
+            antenna1,
+            antenna2,
+            correlations,
+            approximation=GaussianApproximation.PARAXIAL,
+        )
+    )
+    block = VisibilityBlock(
+        uvw_m=uvw_m,
+        frequency_hz=frequency_hz,
+        visibility=visibility,
+        weight=np.ones_like(visibility.real),
+        flag=np.zeros_like(visibility.real, dtype=bool),
+        time_s=np.arange(rows, dtype=np.float64),
+        antenna1=antenna1,
+        antenna2=antenna2,
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.STOKES,
+    )
+    config = AdaptiveRefinementConfig(
+        root_size=2,
+        root_pixel_size_rad=2e-4,
+        inference=InferenceConfig(
+            steps=180,
+            learning_rate=0.1,
+            sparsity_weight=1e-8,
+            initial_intensity=0.05,
+            patience=220,
+            validation_interval=10,
+            operator_mode="explicit",
+            direct_dft=DirectDFTConfig(
+                visibility_chunk_size=41,
+                pixel_chunk_size=32,
+            ),
+        ),
+        split_strategy="random_row",
+        split_seed=3,
+        max_rounds=1,
+        max_depth=1,
+        leaf_penalty=1e-6,
+        max_split_fraction=0.25,
+        max_splits_per_round=1,
+    )
+
+    result = reconstruct_hierarchical(block, config)
+
+    assert result.stop_reason == "maximum_rounds"
+    assert len(result.rounds) == 1
+    assert result.rounds[0].selection.selected == (target,)
+    assert result.rounds[0].validation is not None
+    assert result.rounds[0].validation.accepted_attempt is not None
+    assert len(result.inference.topology.leaves) == 7
+    assert not np.any(result.train_mask & result.holdout_mask)
+    assert np.any(result.train_mask)
+    assert np.any(result.holdout_mask)

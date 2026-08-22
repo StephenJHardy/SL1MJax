@@ -36,6 +36,7 @@ import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
 
+from sl1mjax.direct_operator import DirectDFTConfig, predict_stokes_i_explicit
 from sl1mjax.polarization import Correlation
 from sl1mjax.rime import predict_stokes_i, square_wide_field_error_bound
 from sl1mjax.sky import GaussianApproximation, SquarePixelBasis
@@ -300,7 +301,47 @@ def quadtree_sky_from_regular_grid(
     return QuadtreeSky(grid, grid.root_leaves(), flux_array)
 
 
-_COMPONENT_INDEXED_KWARGS = ("beam_weights", "beam_weights_rr", "beam_weights_ll")
+def _prediction_inputs(
+    flux: ArrayLike,
+    topology: QuadtreeTopology,
+    beam_weights: ArrayLike | None,
+    beam_weights_rr: ArrayLike | None,
+    beam_weights_ll: ArrayLike | None,
+) -> tuple[
+    Array,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    dict[str, ArrayLike | None],
+]:
+    if not topology.leaves:
+        raise ValueError("quadtree topology has no leaves")
+    flux_array = jnp.asarray(flux)
+    if flux_array.shape != (len(topology.leaves),):
+        raise ValueError("flux must have exactly one value per leaf")
+    l, m = topology.centers()
+    levels = np.asarray([leaf.level for leaf in topology.leaves])
+    component_arrays = {
+        "beam_weights": beam_weights,
+        "beam_weights_rr": beam_weights_rr,
+        "beam_weights_ll": beam_weights_ll,
+    }
+    for name, value in component_arrays.items():
+        if value is not None:
+            value_array = jnp.asarray(value)
+            if value_array.ndim < 1 or value_array.shape[0] != len(topology.leaves):
+                raise ValueError(f"{name} must have exactly one row per leaf")
+    return flux_array, l, m, levels, component_arrays
+
+
+def _level_beam_kwargs(
+    component_arrays: dict[str, ArrayLike | None], mask: np.ndarray
+) -> dict[str, Array]:
+    return {
+        name: jnp.asarray(value)[mask]
+        for name, value in component_arrays.items()
+        if value is not None
+    }
 
 
 def predict_quadtree_stokes_i(
@@ -338,29 +379,18 @@ def predict_quadtree_stokes_i(
     leaf subset for any tree with more than one level present.
     """
 
-    if not topology.leaves:
-        raise ValueError("quadtree topology has no leaves")
-    flux_array = jnp.asarray(flux)
-    if flux_array.shape != (len(topology.leaves),):
-        raise ValueError("flux must have exactly one value per leaf")
-    l, m = topology.centers()
-    levels = np.asarray([leaf.level for leaf in topology.leaves])
-    component_arrays = {
-        "beam_weights": beam_weights,
-        "beam_weights_rr": beam_weights_rr,
-        "beam_weights_ll": beam_weights_ll,
-    }
-    for name, value in component_arrays.items():
-        if value is not None and jnp.asarray(value).shape[0] != len(topology.leaves):
-            raise ValueError(f"{name} must have exactly one row per leaf")
+    flux_array, l, m, levels, component_arrays = _prediction_inputs(
+        flux,
+        topology,
+        beam_weights,
+        beam_weights_rr,
+        beam_weights_ll,
+    )
     total: Array | None = None
     for level in sorted(set(levels.tolist())):
         mask = levels == level
         level_kwargs = dict(predict_kwargs)
-        for name in _COMPONENT_INDEXED_KWARGS:
-            value = component_arrays[name]
-            if value is not None:
-                level_kwargs[name] = jnp.asarray(value)[mask]
+        level_kwargs.update(_level_beam_kwargs(component_arrays, mask))
         contribution = predict_stokes_i(
             flux_array[mask],
             l[mask],
@@ -373,6 +403,60 @@ def predict_quadtree_stokes_i(
             pixel_basis=SquarePixelBasis(1.0, approximation),
             pixel_size_rad=topology.grid.leaf_width_rad(int(level)),
             **level_kwargs,
+        )
+        total = contribution if total is None else total + contribution
+    assert total is not None
+    return total
+
+
+def predict_quadtree_stokes_i_explicit(
+    flux: ArrayLike,
+    topology: QuadtreeTopology,
+    uvw_m: ArrayLike,
+    frequency_hz: ArrayLike,
+    antenna1: ArrayLike,
+    antenna2: ArrayLike,
+    correlations: tuple[Correlation, ...],
+    *,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    fixed_gains: ArrayLike | None = None,
+    config: DirectDFTConfig | None = None,
+    beam_weights: ArrayLike | None = None,
+    beam_weights_rr: ArrayLike | None = None,
+    beam_weights_ll: ArrayLike | None = None,
+) -> Array:
+    """Predict a quadtree sky with the streamed explicit DFT and adjoint.
+
+    Each level is a separate fixed-width operator call. Flux and primary-beam
+    arrays remain component-indexed and are sliced to the same level before
+    prediction. The returned sum is linear in leaf flux, so JAX combines the
+    per-level custom VJPs into one gradient over the canonical leaf vector.
+    """
+
+    flux_array, l, m, levels, component_arrays = _prediction_inputs(
+        flux,
+        topology,
+        beam_weights,
+        beam_weights_rr,
+        beam_weights_ll,
+    )
+    total: Array | None = None
+    for level in sorted(set(levels.tolist())):
+        mask = levels == level
+        contribution = predict_stokes_i_explicit(
+            flux_array[mask],
+            l[mask],
+            m[mask],
+            uvw_m,
+            frequency_hz,
+            antenna1,
+            antenna2,
+            correlations,
+            fixed_gains=fixed_gains,
+            pixel_basis=SquarePixelBasis(1.0, approximation),
+            pixel_size_rad=topology.grid.leaf_width_rad(int(level)),
+            config=config,
+            **_level_beam_kwargs(component_arrays, mask),
         )
         total = contribution if total is None else total + contribution
     assert total is not None
