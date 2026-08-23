@@ -18,6 +18,7 @@ from sl1mjax.data.canonical import VisibilityBlock, read_dataset
 from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.hierarchical_imaging import (
     AdaptiveRefinementConfig,
+    AdaptiveRefinementRound,
     HierarchicalImagingResult,
     reconstruct_hierarchical,
 )
@@ -45,11 +46,7 @@ def _select_even_rows(
     assert block.feed1 is not None
     assert block.feed2 is not None
     assert block.interval_s is not None
-    model_visibility = (
-        None
-        if block.model_visibility is None
-        else block.model_visibility[rows]
-    )
+    model_visibility = None if block.model_visibility is None else block.model_visibility[rows]
     return replace(
         block,
         uvw_m=block.uvw_m[rows],
@@ -86,19 +83,12 @@ def _round_diagnostics(result: HierarchicalImagingResult) -> list[dict[str, Any]
                 "index": round_result.index,
                 "leaf_count_before": round_result.leaf_count_before,
                 "candidate_count": len(round_result.screening_scores),
-                "eligible_count": sum(
-                    score.eligible for score in round_result.screening_scores
-                ),
+                "eligible_count": sum(score.eligible for score in round_result.screening_scores),
                 "selected": [
-                    [leaf.level, leaf.iy, leaf.ix]
-                    for leaf in round_result.selection.selected
+                    [leaf.level, leaf.iy, leaf.ix] for leaf in round_result.selection.selected
                 ],
-                "available_predicted_improvement": (
-                    round_result.selection.available_improvement
-                ),
-                "selected_predicted_improvement": (
-                    round_result.selection.selected_improvement
-                ),
+                "available_predicted_improvement": (round_result.selection.available_improvement),
+                "selected_predicted_improvement": (round_result.selection.selected_improvement),
                 "boundary_selected_fraction": (
                     boundary_selected / len(round_result.selection.selected)
                     if round_result.selection.selected
@@ -113,12 +103,8 @@ def _round_diagnostics(result: HierarchicalImagingResult) -> list[dict[str, Any]
                         "leaf_count": len(attempt.fit.topology.leaves),
                         "training_objective": attempt.metrics.objective,
                         "holdout_loss": attempt.metrics.holdout_data,
-                        "training_relative_improvement": (
-                            attempt.training_relative_improvement
-                        ),
-                        "holdout_relative_improvement": (
-                            attempt.holdout_relative_improvement
-                        ),
+                        "training_relative_improvement": (attempt.training_relative_improvement),
+                        "holdout_relative_improvement": (attempt.holdout_relative_improvement),
                         "accepted": attempt.accepted,
                         "optimizer_steps": attempt.fit.steps,
                         "optimizer_best_step": attempt.fit.best_step,
@@ -133,9 +119,49 @@ def _round_diagnostics(result: HierarchicalImagingResult) -> list[dict[str, Any]
                     None if validation is None else validation.baseline.holdout_data
                 ),
                 "accepted_split_count": 0 if accepted is None else len(accepted.selected),
+                **_merge_diagnostics(round_result),
             }
         )
     return diagnostics
+
+
+def _merge_diagnostics(round_result: AdaptiveRefinementRound) -> dict[str, Any]:
+    merge_validation = round_result.merge_validation
+    merge_accepted = None if merge_validation is None else merge_validation.accepted_attempt
+    merge_selection = round_result.merge_selection
+    return {
+        "merge_candidate_count": len(round_result.merge_evaluations),
+        "merge_evaluations": [
+            {
+                "leaf": [evaluation.leaf.level, evaluation.leaf.iy, evaluation.leaf.ix],
+                "parent_flux_jy": evaluation.parent_flux,
+                "predicted_improvement": evaluation.predicted_improvement,
+                "holdout_change": evaluation.holdout_change,
+            }
+            for evaluation in round_result.merge_evaluations
+        ],
+        "merge_selected": []
+        if merge_selection is None
+        else [[leaf.level, leaf.iy, leaf.ix] for leaf in merge_selection.selected],
+        "merge_selected_predicted_improvement": (
+            None if merge_selection is None else merge_selection.selected_improvement
+        ),
+        "merge_attempts": []
+        if merge_validation is None
+        else [
+            {
+                "merge_count": len(attempt.selected),
+                "leaf_count": len(attempt.fit.topology.leaves),
+                "training_objective": attempt.metrics.objective,
+                "holdout_loss": attempt.metrics.holdout_data,
+                "training_relative_improvement": attempt.training_relative_improvement,
+                "holdout_relative_improvement": attempt.holdout_relative_improvement,
+                "accepted": attempt.accepted,
+            }
+            for attempt in merge_validation.attempts
+        ],
+        "accepted_merge_count": 0 if merge_accepted is None else len(merge_accepted.selected),
+    }
 
 
 def _write_products(
@@ -254,6 +280,20 @@ def _write_products(
         "elapsed_s": result.elapsed_s,
         "initial_leaf_count": config.root_size**2,
         "final_leaf_count": len(result.inference.topology.leaves),
+        "accepted_merge_rounds": sum(
+            1
+            for round_result in result.rounds
+            if round_result.merge_validation is not None
+            and round_result.merge_validation.accepted_attempt is not None
+        ),
+        "final_merge_eligible_streak": [
+            [leaf.level, leaf.iy, leaf.ix, streak]
+            for leaf, streak in sorted(result.merge_hysteresis.eligible_streak.items())
+        ],
+        "final_merge_split_cooldown": [
+            [leaf.level, leaf.iy, leaf.ix, cooldown]
+            for leaf, cooldown in sorted(result.merge_hysteresis.split_cooldown.items())
+        ],
         "deepest_level": deepest_level,
         "render_shape": list(image.shape),
         "total_flux_jy": float(np.sum(result.inference.flux)),
@@ -279,11 +319,15 @@ def _write_products(
             "target_improvement_fraction": config.target_improvement_fraction,
             "max_split_fraction": config.max_split_fraction,
             "max_splits_per_round": config.max_splits_per_round,
-            "minimum_holdout_relative_improvement": (
-                config.minimum_holdout_relative_improvement
-            ),
+            "minimum_holdout_relative_improvement": (config.minimum_holdout_relative_improvement),
             "approximation": config.approximation.value,
             "precision": config.inference.direct_dft.precision,
+            "enable_merging": config.enable_merging,
+            "max_merge_fraction": config.max_merge_fraction,
+            "max_merges_per_round": config.max_merges_per_round,
+            "merge_target_improvement_fraction": (config.merge_target_improvement_fraction),
+            "merge_required_streak": config.merge_required_streak,
+            "merge_cooldown_rounds": config.merge_cooldown_rounds,
         },
         "rounds": _round_diagnostics(result),
     }
@@ -336,6 +380,16 @@ def main() -> int:
         help="Opt into shared per-level Haar curvature when it is not exact. "
         "reconstruct_hierarchical already does this for wide-field or beamed runs.",
     )
+    parser.add_argument(
+        "--disable-merging",
+        action="store_true",
+        help="Skip coarsening (shrinkage) entirely and only run split rounds.",
+    )
+    parser.add_argument("--max-merge-fraction", type=float, default=0.05)
+    parser.add_argument("--max-merges-per-round", type=int)
+    parser.add_argument("--merge-target-improvement-fraction", type=float, default=0.7)
+    parser.add_argument("--merge-required-streak", type=int, default=2)
+    parser.add_argument("--merge-cooldown-rounds", type=int, default=1)
     parser.add_argument("--primary-beam", choices=("none", "gaussian", "airy"), default="none")
     parser.add_argument("--beam-squint", action="store_true")
     parser.add_argument("--precision", choices=("float32", "float64"), default="float32")
@@ -381,12 +435,16 @@ def main() -> int:
         max_split_fraction=arguments.max_split_fraction,
         max_splits_per_round=arguments.max_splits_per_round,
         min_parent_flux=arguments.minimum_parent_flux,
-        minimum_holdout_relative_improvement=(
-            arguments.minimum_holdout_relative_improvement
-        ),
+        minimum_holdout_relative_improvement=(arguments.minimum_holdout_relative_improvement),
         max_refits_per_round=arguments.max_refits_per_round,
         approximation=approximation,
         allow_approximate_curvature=arguments.allow_approximate_curvature,
+        enable_merging=not arguments.disable_merging,
+        max_merge_fraction=arguments.max_merge_fraction,
+        max_merges_per_round=arguments.max_merges_per_round,
+        merge_target_improvement_fraction=arguments.merge_target_improvement_fraction,
+        merge_required_streak=arguments.merge_required_streak,
+        merge_cooldown_rounds=arguments.merge_cooldown_rounds,
     )
     primary_beam = primary_beam_from_name(
         arguments.primary_beam,
@@ -412,6 +470,12 @@ def main() -> int:
                 "rounds": len(result.rounds),
                 "initial_leaves": config.root_size**2,
                 "final_leaves": len(result.inference.topology.leaves),
+                "accepted_merge_rounds": sum(
+                    1
+                    for round_result in result.rounds
+                    if round_result.merge_validation is not None
+                    and round_result.merge_validation.accepted_attempt is not None
+                ),
                 "elapsed_s": result.elapsed_s,
                 "output": str(arguments.output),
             },

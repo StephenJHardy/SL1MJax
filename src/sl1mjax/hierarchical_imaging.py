@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Literal
 
@@ -11,14 +11,22 @@ import numpy as np
 from sl1mjax.beam import VLAPrimaryBeam
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.inference import InferenceConfig, QuadtreeInferenceResult, infer_quadtree
-from sl1mjax.quadtree import quadtree_sky_from_regular_grid
+from sl1mjax.quadtree import QuadtreeLeaf, quadtree_sky_from_regular_grid
 from sl1mjax.refinement import (
+    BulkMergeSelection,
     BulkSplitSelection,
+    LocalMergeEvaluation,
+    MergeHysteresisState,
     RefinementBatchResult,
     ResidualHaarScore,
+    advance_merge_hysteresis,
     batched_residual_haar_scores,
+    local_four_sibling_merge_lookahead,
+    merge_quadtree_batch,
+    mergeable_parents,
     refine_quadtree_batch,
     residual_haar_scores,
+    select_bulk_merges,
     select_bulk_splits,
 )
 from sl1mjax.sky import GaussianApproximation
@@ -55,17 +63,33 @@ class AdaptiveRefinementConfig:
     max_refits_per_round: int = 4
     approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD
     allow_approximate_curvature: bool = False
+    enable_merging: bool = True
+    max_merge_fraction: float = 0.05
+    max_merges_per_round: int | None = None
+    merge_target_improvement_fraction: float = 0.7
+    merge_required_streak: int = 2
+    merge_cooldown_rounds: int = 1
 
 
 @dataclass(frozen=True)
 class AdaptiveRefinementRound:
-    """Screening, marking, and validation record for one topology round."""
+    """Screening, marking, and validation record for one topology round.
+
+    Splits (growth) and merges (shrinkage) run within the same round with
+    independent budgets: the merge fields reflect whichever complete
+    sibling groups existed once this round's split (if any) was applied,
+    scored with the exact reverse local lookahead and gated by the
+    persistent hysteresis state carried across rounds.
+    """
 
     index: int
     leaf_count_before: int
     screening_scores: tuple[ResidualHaarScore, ...]
     selection: BulkSplitSelection
     validation: RefinementBatchResult | None
+    merge_evaluations: tuple[LocalMergeEvaluation, ...] = ()
+    merge_selection: BulkMergeSelection | None = None
+    merge_validation: RefinementBatchResult | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +102,7 @@ class HierarchicalImagingResult:
     holdout_mask: np.ndarray
     stop_reason: str
     elapsed_s: float
+    merge_hysteresis: MergeHysteresisState = field(default_factory=MergeHysteresisState.empty)
 
 
 def _validate_config(config: AdaptiveRefinementConfig) -> None:
@@ -137,9 +162,7 @@ def reconstruct_hierarchical(
     selected_config = config or AdaptiveRefinementConfig()
     _validate_config(selected_config)
     approximation = GaussianApproximation(selected_config.approximation)
-    curvature_is_exact = (
-        approximation is GaussianApproximation.PARAXIAL and primary_beam is None
-    )
+    curvature_is_exact = approximation is GaussianApproximation.PARAXIAL and primary_beam is None
     allow_approximate_curvature = (
         selected_config.allow_approximate_curvature or not curvature_is_exact
     )
@@ -164,7 +187,11 @@ def reconstruct_hierarchical(
 
     rounds: list[AdaptiveRefinementRound] = []
     stop_reason = "maximum_rounds"
+    merge_hysteresis = MergeHysteresisState.empty()
     for round_index in range(selected_config.max_rounds):
+        leaf_count_before = len(current_fit.topology.leaves)
+
+        # --- Growth: screen, mark, and validate a split batch. ---
         scores = batched_residual_haar_scores(
             block,
             current_fit,
@@ -182,17 +209,14 @@ def reconstruct_hierarchical(
         )
         selection = select_bulk_splits(
             scores,
-            len(current_fit.topology.leaves),
-            target_improvement_fraction=(
-                selected_config.target_improvement_fraction
-            ),
+            leaf_count_before,
+            target_improvement_fraction=(selected_config.target_improvement_fraction),
             max_split_fraction=selected_config.max_split_fraction,
             max_splits=selected_config.max_splits_per_round,
             split_cost=3.0 * selected_config.leaf_penalty,
         )
         if selection.selected and any(
-            score.curvature_mode.startswith("per_level_approximate")
-            for score in scores
+            score.curvature_mode.startswith("per_level_approximate") for score in scores
         ):
             exact_scores = residual_haar_scores(
                 block,
@@ -210,59 +234,147 @@ def reconstruct_hierarchical(
             )
             selection = select_bulk_splits(
                 exact_scores,
-                len(current_fit.topology.leaves),
-                target_improvement_fraction=(
-                    selected_config.target_improvement_fraction
-                ),
+                leaf_count_before,
+                target_improvement_fraction=(selected_config.target_improvement_fraction),
                 max_split_fraction=selected_config.max_split_fraction,
                 max_splits=selected_config.max_splits_per_round,
                 split_cost=3.0 * selected_config.leaf_penalty,
             )
-        if not selection.selected:
-            rounds.append(
-                AdaptiveRefinementRound(
-                    index=round_index,
-                    leaf_count_before=len(current_fit.topology.leaves),
-                    screening_scores=scores,
-                    selection=selection,
-                    validation=None,
-                )
-            )
-            stop_reason = "no_eligible_splits"
-            break
 
-        validation = refine_quadtree_batch(
-            block,
-            current_fit,
-            train_mask,
-            holdout_mask,
-            selected_config.inference,
-            selection.selected,
-            fixed_gains=fixed_gains,
-            primary_beam=primary_beam,
-            approximation=approximation,
-            minimum_training_relative_improvement=(
-                selected_config.minimum_training_relative_improvement
-            ),
-            minimum_holdout_relative_improvement=(
-                selected_config.minimum_holdout_relative_improvement
-            ),
-            max_refits=selected_config.max_refits_per_round,
-        )
+        split_validation: RefinementBatchResult | None = None
+        split_accepted = False
+        just_split: tuple[QuadtreeLeaf, ...] = ()
+        if selection.selected:
+            split_validation = refine_quadtree_batch(
+                block,
+                current_fit,
+                train_mask,
+                holdout_mask,
+                selected_config.inference,
+                selection.selected,
+                fixed_gains=fixed_gains,
+                primary_beam=primary_beam,
+                approximation=approximation,
+                minimum_training_relative_improvement=(
+                    selected_config.minimum_training_relative_improvement
+                ),
+                minimum_holdout_relative_improvement=(
+                    selected_config.minimum_holdout_relative_improvement
+                ),
+                max_refits=selected_config.max_refits_per_round,
+            )
+            split_accepted_attempt = split_validation.accepted_attempt
+            if split_accepted_attempt is not None:
+                current_fit = split_accepted_attempt.fit
+                just_split = split_accepted_attempt.selected
+                split_accepted = True
+
+        # --- Shrinkage: score, gate by hysteresis, mark, and validate a merge
+        # batch. Runs on whatever topology growth left behind this round, so
+        # split and merge share one adaptive epoch with independent budgets. ---
+        merge_candidates: tuple[QuadtreeLeaf, ...] = ()
+        merge_evaluations: tuple[LocalMergeEvaluation, ...] = ()
+        merge_selection: BulkMergeSelection | None = None
+        merge_validation: RefinementBatchResult | None = None
+        merge_accepted = False
+        if selected_config.enable_merging:
+            merge_candidates = mergeable_parents(current_fit.topology)
+            if merge_candidates:
+                merge_evaluations = local_four_sibling_merge_lookahead(
+                    block,
+                    current_fit,
+                    train_mask,
+                    selected_config.inference,
+                    holdout_mask=holdout_mask,
+                    candidates=merge_candidates,
+                    fixed_gains=fixed_gains,
+                    primary_beam=primary_beam,
+                    approximation=approximation,
+                ).evaluations
+            merge_hysteresis = advance_merge_hysteresis(
+                merge_hysteresis,
+                merge_evaluations,
+                just_split=just_split,
+                cooldown_rounds=selected_config.merge_cooldown_rounds,
+            )
+            if merge_evaluations:
+                merge_selection = select_bulk_merges(
+                    merge_evaluations,
+                    merge_hysteresis,
+                    len(current_fit.topology.leaves),
+                    required_streak=selected_config.merge_required_streak,
+                    target_improvement_fraction=(selected_config.merge_target_improvement_fraction),
+                    max_merge_fraction=selected_config.max_merge_fraction,
+                    max_merges=selected_config.max_merges_per_round,
+                )
+                if merge_selection.selected:
+                    merge_validation = merge_quadtree_batch(
+                        block,
+                        current_fit,
+                        train_mask,
+                        holdout_mask,
+                        selected_config.inference,
+                        merge_selection.selected,
+                        fixed_gains=fixed_gains,
+                        primary_beam=primary_beam,
+                        approximation=approximation,
+                        minimum_training_relative_improvement=(
+                            selected_config.minimum_training_relative_improvement
+                        ),
+                        minimum_holdout_relative_improvement=(
+                            selected_config.minimum_holdout_relative_improvement
+                        ),
+                        max_refits=selected_config.max_refits_per_round,
+                    )
+                    merge_accepted_attempt = merge_validation.accepted_attempt
+                    if merge_accepted_attempt is not None:
+                        current_fit = merge_accepted_attempt.fit
+                        merge_accepted = True
+
         rounds.append(
             AdaptiveRefinementRound(
                 index=round_index,
-                leaf_count_before=len(current_fit.topology.leaves),
+                leaf_count_before=leaf_count_before,
                 screening_scores=scores,
                 selection=selection,
-                validation=validation,
+                validation=split_validation,
+                merge_evaluations=merge_evaluations,
+                merge_selection=merge_selection,
+                merge_validation=merge_validation,
             )
         )
-        accepted = validation.accepted_attempt
-        if accepted is None:
-            stop_reason = "validation_rejected"
-            break
-        current_fit = accepted.fit
+
+        # A rejected proposal on one side is a normal outcome, not evidence
+        # that the other side is exhausted (local merge lookahead is
+        # optimistic about other leaves staying fixed, and a rejected split
+        # batch says nothing about whether coarsening elsewhere is still
+        # worthwhile). Stop only once nothing happened this round and
+        # neither side has anything left to offer, now or in a later round:
+        # a merge candidate still building its hysteresis streak (or still
+        # cooling down) counts as "left to offer" even though nothing was
+        # selected this round.
+        split_rejected = bool(selection.selected) and not split_accepted
+        merge_rejected = bool(merge_selection is not None and merge_selection.selected) and (
+            not merge_accepted
+        )
+        merge_pending = (
+            bool(merge_candidates)
+            or bool(merge_hysteresis.eligible_streak)
+            or bool(merge_hysteresis.split_cooldown)
+        )
+        if not split_accepted and not merge_accepted:
+            if split_rejected and merge_rejected:
+                stop_reason = "split_and_merge_validation_rejected"
+                break
+            if split_rejected and not merge_pending:
+                stop_reason = "split_validation_rejected"
+                break
+            if merge_rejected and not selection.selected:
+                stop_reason = "merge_validation_rejected"
+                break
+            if not selection.selected and not merge_pending:
+                stop_reason = "no_eligible_changes"
+                break
 
     return HierarchicalImagingResult(
         inference=current_fit,
@@ -271,4 +383,5 @@ def reconstruct_hierarchical(
         holdout_mask=holdout_mask,
         stop_reason=stop_reason,
         elapsed_s=perf_counter() - started,
+        merge_hysteresis=merge_hysteresis,
     )

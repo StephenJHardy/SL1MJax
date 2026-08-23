@@ -40,8 +40,16 @@ curvature, complexity-aware Dörfler marking, warm global refits, and prefix
 backtracking. A 4,096-parent test evaluates 16,384 virtual children without a
 per-candidate predictor loop. The end-to-end driver starts from thousands of
 root pixels and writes a FITS rendering, topology table, score table, residuals,
-checkpoint, and decision summary. Merge hysteresis and repeated-seed
-validation remain to be implemented.
+checkpoint, and decision summary.
+
+Coarsening with merge hysteresis is now implemented as the reverse of the
+split path: an exact one-variable local lookahead scores each complete
+four-sibling group, a persistent per-group state requires two consecutive
+favorable rounds plus a post-split cooldown before a candidate is eligible,
+and warm-refit batch acceptance mirrors the split path's backtracking. The
+end-to-end driver runs split and merge within the same round against
+independent growth and shrinkage budgets. Repeated-seed validation remains
+to be implemented.
 
 A six-case benchmark compares every policy on the same candidates. Haar
 selects the oracle leaf in all four structured cases. The local solve has
@@ -124,6 +132,26 @@ Several details make an adaptive hierarchy practical:
 - The explicit adjoint can compute residual correlations for many virtual
   children in batches. This is the expensive part of a derivative-based split
   rule, but it is already the operation that the code is designed to stream.
+- `mergeable_parents` finds complete four-sibling groups in the active leaf
+  set (a parent is never itself active alongside all four children, since the
+  leaf set is required to be prefix-free). `local_four_sibling_merge_lookahead`
+  is the exact reverse of the four-child split lookahead: it removes the four
+  children's fitted response from the residual and solves a one-variable
+  non-negative quadratic for the merged parent's flux, holding every other
+  leaf fixed. `exhaustive_single_merge_oracle` and
+  `compare_merge_lookahead_to_oracle` mirror the split-side oracle and rank
+  comparison.
+- `MergeHysteresisState` and `advance_merge_hysteresis` track, per candidate
+  parent, how many consecutive rounds it has scored favorably and whether it
+  is still cooling down after its children were created by a recent accepted
+  split. `select_bulk_merges` applies the same Dörfler-style marking as the
+  split path, restricted to candidates whose hysteresis state clears the
+  required streak. `merge_quadtree_batch` warm-refits and validates a ranked
+  merge batch with the same halve-on-rejection backtracking as
+  `refine_quadtree_batch`, seeding each merged parent with the sum of its
+  children's flux. `reconstruct_hierarchical` runs both paths every round,
+  threading the hysteresis state across rounds and applying independent
+  growth (`max_split_fraction`) and shrinkage (`max_merge_fraction`) budgets.
 
 There are also four constraints:
 
@@ -685,7 +713,9 @@ The first tranche should deliver the following artifacts:
 - a component inference path with L1 and leaf-count penalties;
 - physical-flux residual/Haar scores;
 - exact four-child and four-sibling local lookahead solvers;
-- batch marking, held-out acceptance, merge hysteresis, and stopping rules;
+- batch marking, held-out acceptance, merge hysteresis, and stopping rules
+  (implemented for both split and merge; the round loop runs both against
+  independent growth and shrinkage budgets and persists hysteresis state);
 - synthetic exhaustive-oracle experiments and a machine-readable score table;
 - dense FITS rendering with explicit units and topology diagnostics;
 - a bounded 3C391 comparison only after the synthetic gates pass.

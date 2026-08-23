@@ -429,9 +429,7 @@ def _build_residual_haar_score(
     )
     maximum_eigenvalue = max(float(eigenvalues[-1]), 0.0)
     eigenvalue_ratio = (
-        max(float(eigenvalues[0]), 0.0) / maximum_eigenvalue
-        if maximum_eigenvalue > 0
-        else 0.0
+        max(float(eigenvalues[0]), 0.0) / maximum_eigenvalue if maximum_eigenvalue > 0 else 0.0
     )
     eligible = bool(
         parent_flux >= min_parent_flux
@@ -488,9 +486,7 @@ def _candidate_leaves(
     missing = [leaf for leaf in selected if leaf not in topology.leaves]
     if missing:
         raise ValueError(f"candidate leaves are not active: {missing}")
-    return tuple(
-        sorted(leaf for leaf in selected if max_depth is None or leaf.level < max_depth)
-    )
+    return tuple(sorted(leaf for leaf in selected if max_depth is None or leaf.level < max_depth))
 
 
 def _predict_quadtree_flux(
@@ -604,10 +600,7 @@ def residual_haar_scores(
 
     if train_mask.shape != block.shape:
         raise ValueError("train_mask must match the visibility block")
-    if (
-        current_fit.prediction.shape != block.shape
-        or current_fit.residual.shape != block.shape
-    ):
+    if current_fit.prediction.shape != block.shape or current_fit.residual.shape != block.shape:
         raise ValueError("current_fit predictions must match the visibility block")
     _validate_haar_parameters(
         min_parent_flux,
@@ -644,12 +637,8 @@ def residual_haar_scores(
             approximation=approximation,
         )
         weighted_responses = active_weight[:, None] * responses
-        gradient = (2.0 / weight_sum) * np.real(
-            responses.conj().T @ (active_weight * residual)
-        )
-        gram = (2.0 / weight_sum) * np.real(
-            responses.conj().T @ weighted_responses
-        )
+        gradient = (2.0 / weight_sum) * np.real(responses.conj().T @ (active_weight * residual))
+        gram = (2.0 / weight_sum) * np.real(responses.conj().T @ weighted_responses)
         parent_flux = float(flux_by_leaf[leaf])
         scores.append(
             _build_residual_haar_score(
@@ -699,10 +688,7 @@ def batched_residual_haar_scores(
         raise ValueError("batched Haar scoring requires operator_mode='explicit'")
     if train_mask.shape != block.shape:
         raise ValueError("train_mask must match the visibility block")
-    if (
-        current_fit.prediction.shape != block.shape
-        or current_fit.residual.shape != block.shape
-    ):
+    if current_fit.prediction.shape != block.shape or current_fit.residual.shape != block.shape:
         raise ValueError("current_fit predictions must match the visibility block")
     _validate_haar_parameters(
         min_parent_flux,
@@ -711,9 +697,7 @@ def batched_residual_haar_scores(
         ridge_relative,
     )
     approximation = GaussianApproximation(approximation)
-    curvature_is_exact = (
-        approximation is GaussianApproximation.PARAXIAL and primary_beam is None
-    )
+    curvature_is_exact = approximation is GaussianApproximation.PARAXIAL and primary_beam is None
     if not curvature_is_exact and not allow_approximate_curvature:
         raise ValueError(
             "shared per-level curvature is exact only for paraxial pixels without "
@@ -749,13 +733,9 @@ def batched_residual_haar_scores(
 
     for parent_level, level_leaves_list in sorted(selected_by_level.items()):
         level_leaves = tuple(level_leaves_list)
-        all_children = tuple(
-            child for leaf in level_leaves for child in leaf.children()
-        )
+        all_children = tuple(child for leaf in level_leaves for child in leaf.children())
         virtual_topology = QuadtreeTopology(current_fit.topology.grid, all_children)
-        child_index = {
-            child: index for index, child in enumerate(virtual_topology.leaves)
-        }
+        child_index = {child: index for index, child in enumerate(virtual_topology.leaves)}
         l, m = virtual_topology.centers()
         beam_i, beam_rr, beam_ll = predict_beam_weights(
             primary_beam,
@@ -764,12 +744,8 @@ def batched_residual_haar_scores(
             block.frequency_hz,
         )
         beam_i_jax = None if beam_i is None else jnp.asarray(beam_i, dtype=real_dtype)
-        beam_rr_jax = (
-            None if beam_rr is None else jnp.asarray(beam_rr, dtype=real_dtype)
-        )
-        beam_ll_jax = (
-            None if beam_ll is None else jnp.asarray(beam_ll, dtype=real_dtype)
-        )
+        beam_rr_jax = None if beam_rr is None else jnp.asarray(beam_rr, dtype=real_dtype)
+        beam_ll_jax = None if beam_ll is None else jnp.asarray(beam_ll, dtype=real_dtype)
 
         def residual_projection(
             child_flux: jax.Array,
@@ -794,9 +770,7 @@ def batched_residual_haar_scores(
                 beam_weights_rr=level_beam_rr,
                 beam_weights_ll=level_beam_ll,
             )
-            inner_product = jnp.sum(
-                weight_jax * jnp.real(jnp.conj(prediction) * residual_jax)
-            )
+            inner_product = jnp.sum(weight_jax * jnp.real(jnp.conj(prediction) * residual_jax))
             return (2.0 / weight_sum) * inner_product
 
         child_gradient = np.asarray(
@@ -815,8 +789,7 @@ def batched_residual_haar_scores(
             approximation=approximation,
         )
         representative_gram = (2.0 / weight_sum) * np.real(
-            representative_responses.conj().T
-            @ (active_weight[:, None] * representative_responses)
+            representative_responses.conj().T @ (active_weight[:, None] * representative_responses)
         )
         curvature_mode = (
             f"per_level_exact:{parent_level}"
@@ -824,9 +797,7 @@ def batched_residual_haar_scores(
             else f"per_level_approximate:{parent_level}"
         )
         for leaf in level_leaves:
-            indices = np.asarray(
-                [child_index[child] for child in leaf.haar_children()]
-            )
+            indices = np.asarray([child_index[child] for child in leaf.haar_children()])
             gradient = child_gradient[indices] @ _HAAR_CHILD_DETAILS
             score_by_leaf[leaf] = _build_residual_haar_score(
                 leaf,
@@ -877,8 +848,7 @@ def select_bulk_splits(
     eligible_scores = tuple(
         (score, score.predicted_improvement - split_cost)
         for score in scores
-        if score.eligible
-        and score.predicted_improvement - split_cost > min_improvement
+        if score.eligible and score.predicted_improvement - split_cost > min_improvement
     )
     ranked = tuple(
         sorted(
@@ -888,11 +858,7 @@ def select_bulk_splits(
     )
     available = float(sum(net_improvement for _, net_improvement in ranked))
     fractional_budget = max(1, int(np.ceil(max_split_fraction * current_leaf_count)))
-    split_budget = (
-        fractional_budget
-        if max_splits is None
-        else min(fractional_budget, max_splits)
-    )
+    split_budget = fractional_budget if max_splits is None else min(fractional_budget, max_splits)
     selected = []
     selected_improvement = 0.0
     target = target_improvement_fraction * available
@@ -1072,10 +1038,7 @@ def compare_haar_to_oracle(
     )
     oracle_order = oracle.ranked
     haar_rank = {score.leaf: rank for rank, score in enumerate(haar_order, start=1)}
-    oracle_rank = {
-        evaluation.leaf: rank
-        for rank, evaluation in enumerate(oracle_order, start=1)
-    }
+    oracle_rank = {evaluation.leaf: rank for rank, evaluation in enumerate(oracle_order, start=1)}
     entries = tuple(
         SplitRankingEntry(
             leaf=leaf,
@@ -1087,13 +1050,9 @@ def compare_haar_to_oracle(
         for leaf in sorted(score_by_leaf, key=oracle_rank.__getitem__)
     )
     count = len(entries)
-    squared_rank_difference = sum(
-        (entry.haar_rank - entry.oracle_rank) ** 2 for entry in entries
-    )
+    squared_rank_difference = sum((entry.haar_rank - entry.oracle_rank) ** 2 for entry in entries)
     spearman_rho = (
-        1.0
-        if count == 1
-        else 1.0 - 6.0 * squared_rank_difference / (count * (count**2 - 1))
+        1.0 if count == 1 else 1.0 - 6.0 * squared_rank_difference / (count * (count**2 - 1))
     )
     return HaarOracleComparison(
         entries=entries,
@@ -1140,9 +1099,7 @@ def _solve_nonnegative_quadratic(
     best_value = np.inf
     best: np.ndarray | None = None
     for bitmask in range(1 << parameter_count):
-        active = np.asarray(
-            [bool(bitmask & (1 << index)) for index in range(parameter_count)]
-        )
+        active = np.asarray([bool(bitmask & (1 << index)) for index in range(parameter_count)])
         active_count = int(np.sum(active))
         if active_count == 0:
             if total is not None and total > 0:
@@ -1173,9 +1130,7 @@ def _solve_nonnegative_quadratic(
             right_hand_side = np.concatenate((-linear[active], [total]))
             solution, _, _, _ = np.linalg.lstsq(system, right_hand_side, rcond=None)
             scale = max(1.0, float(np.linalg.norm(right_hand_side, ord=np.inf)))
-            residual_norm = float(
-                np.linalg.norm(system @ solution - right_hand_side, ord=np.inf)
-            )
+            residual_norm = float(np.linalg.norm(system @ solution - right_hand_side, ord=np.inf))
             if residual_norm > 1e-9 * scale:
                 continue
             candidate = np.zeros(parameter_count, dtype=np.float64)
@@ -1250,8 +1205,7 @@ def solve_quadtree_flux_active_set(
         raise ValueError("topology must contain at least one leaf")
     if len(topology.leaves) > max_leaves:
         raise ValueError(
-            f"active-set fit supports at most {max_leaves} leaves; "
-            f"received {len(topology.leaves)}"
+            f"active-set fit supports at most {max_leaves} leaves; received {len(topology.leaves)}"
         )
     if config.smoothness_weight != 0:
         raise ValueError("smoothness_weight is not defined for quadtree inference")
@@ -1284,9 +1238,7 @@ def solve_quadtree_flux_active_set(
     observation = np.asarray(block.visibility).reshape(-1)
     zero_model_residual = np.where(training_weight > 0, -observation, 0.0)
     weighted_responses = training_weight[:, None] * response_matrix
-    hessian = (2.0 / weight_sum) * np.real(
-        response_matrix.conj().T @ weighted_responses
-    )
+    hessian = (2.0 / weight_sum) * np.real(response_matrix.conj().T @ weighted_responses)
     hessian = 0.5 * (hessian + hessian.T)
     linear = (2.0 / weight_sum) * np.real(
         response_matrix.conj().T @ (training_weight * zero_model_residual)
@@ -1350,10 +1302,7 @@ def local_four_child_lookahead(
 
     if train_mask.shape != block.shape:
         raise ValueError("train_mask must match the visibility block")
-    if (
-        current_fit.prediction.shape != block.shape
-        or current_fit.residual.shape != block.shape
-    ):
+    if current_fit.prediction.shape != block.shape or current_fit.residual.shape != block.shape:
         raise ValueError("current_fit predictions must match the visibility block")
     if not np.isfinite(config.sparsity_weight) or config.sparsity_weight < 0:
         raise ValueError("sparsity_weight must be finite and non-negative")
@@ -1420,8 +1369,7 @@ def local_four_child_lookahead(
         )
         hessian = 0.5 * (hessian + hessian.T)
         linear = (2.0 / training_weight_sum) * np.real(
-            child_responses.conj().T
-            @ (training_weight * training_residual_without_parent)
+            child_responses.conj().T @ (training_weight * training_residual_without_parent)
         ) + config.sparsity_weight
         child_flux = _solve_nonnegative_quadratic(
             hessian,
@@ -1432,9 +1380,7 @@ def local_four_child_lookahead(
         training_data = _weighted_residual_power(candidate_residual, training_weight)
         candidate_total_flux = total_flux - parent_flux + float(np.sum(child_flux))
         sparsity = float(config.sparsity_weight * candidate_total_flux)
-        topology = float(
-            current_fit.leaf_penalty * (len(current_fit.topology.leaves) + 3)
-        )
+        topology = float(current_fit.leaf_penalty * (len(current_fit.topology.leaves) + 3))
         holdout_data = (
             None
             if holdout_weight is None
@@ -1485,9 +1431,7 @@ def compare_lookahead_to_oracle(
 
     if not lookahead.evaluations:
         raise ValueError("lookahead must contain at least one candidate")
-    local_by_leaf = {
-        evaluation.leaf: evaluation for evaluation in lookahead.evaluations
-    }
+    local_by_leaf = {evaluation.leaf: evaluation for evaluation in lookahead.evaluations}
     oracle_by_leaf = {evaluation.leaf: evaluation for evaluation in oracle.evaluations}
     if len(local_by_leaf) != len(lookahead.evaluations):
         raise ValueError("lookahead must contain unique leaves")
@@ -1498,14 +1442,8 @@ def compare_lookahead_to_oracle(
 
     local_order = lookahead.ranked
     oracle_order = oracle.ranked
-    local_rank = {
-        evaluation.leaf: rank
-        for rank, evaluation in enumerate(local_order, start=1)
-    }
-    oracle_rank = {
-        evaluation.leaf: rank
-        for rank, evaluation in enumerate(oracle_order, start=1)
-    }
+    local_rank = {evaluation.leaf: rank for rank, evaluation in enumerate(local_order, start=1)}
+    oracle_rank = {evaluation.leaf: rank for rank, evaluation in enumerate(oracle_order, start=1)}
     entries = tuple(
         LookaheadRankingEntry(
             leaf=leaf,
@@ -1521,9 +1459,7 @@ def compare_lookahead_to_oracle(
         (entry.lookahead_rank - entry.oracle_rank) ** 2 for entry in entries
     )
     spearman_rho = (
-        1.0
-        if count == 1
-        else 1.0 - 6.0 * squared_rank_difference / (count * (count**2 - 1))
+        1.0 if count == 1 else 1.0 - 6.0 * squared_rank_difference / (count * (count**2 - 1))
     )
     return LookaheadOracleComparison(
         entries=entries,
@@ -1657,3 +1593,760 @@ def exhaustive_single_split_oracle(
             )
         )
     return ExhaustiveSplitResult(baseline=baseline, evaluations=tuple(evaluations))
+
+
+# --- Coarsening (merge) with hysteresis ---
+#
+# The reverse of the split path above. A merge candidate is a complete
+# four-sibling group that could be replaced by its parent. Scoring solves
+# the exact reverse of the split lookahead's four-variable problem: a single
+# non-negative variable (the merged parent's flux) replacing the four
+# children's actual fitted response, with every other leaf held fixed.
+# Acceptance reuses `RefinementBatchResult`/`RefinementAttempt` from the
+# split path unchanged; only the batch's initial topology construction
+# differs (`sky.merge(parent)` instead of `sky.split(leaf)`).
+#
+# Two independent guards prevent split/merge oscillation, per the proposal's
+# "merge only after two rounds" rule: a candidate must score favorably for
+# `required_streak` consecutive rounds before it is eligible, and a group
+# whose parent was just split carries an explicit cooldown that overrides
+# any accumulated streak. `MergeHysteresisState` carries both across rounds;
+# `advance_merge_hysteresis` is the only place that mutates it.
+
+
+def mergeable_parents(
+    topology: QuadtreeTopology,
+    *,
+    candidates: tuple[QuadtreeLeaf, ...] | None = None,
+) -> tuple[QuadtreeLeaf, ...]:
+    """Complete four-sibling groups that can be replaced by their parent.
+
+    A parent leaf is never itself active while all four children are (the
+    topology's leaf set is prefix-free), so a candidate is identified purely
+    by all four children being present. ``candidates`` restricts the search
+    to specific parent identities and need not already be validated as
+    mergeable; non-mergeable entries are silently dropped, matching how
+    ``mergeable_parents`` is used to re-check hysteresis-tracked candidates
+    whose children may since have been split further or merged away.
+    """
+
+    leaf_set = set(topology.leaves)
+    if candidates is None:
+        parents_to_check = {leaf.parent() for leaf in topology.leaves if leaf.level > 0}
+    else:
+        if len(set(candidates)) != len(candidates):
+            raise ValueError("candidates must be unique")
+        parents_to_check = set(candidates)
+    return tuple(
+        sorted(
+            parent
+            for parent in parents_to_check
+            if all(child in leaf_set for child in parent.children())
+        )
+    )
+
+
+@dataclass(frozen=True)
+class LocalMergeEvaluation:
+    """Conditional four-sibling-to-parent replacement with all other leaves fixed."""
+
+    leaf: QuadtreeLeaf
+    children: tuple[QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf]
+    child_flux: tuple[float, float, float, float]
+    parent_flux: float
+    metrics: QuadtreeObjectiveMetrics
+    objective_change: float
+    predicted_improvement: float
+    holdout_change: float | None
+
+
+@dataclass(frozen=True)
+class LocalMergeResult:
+    """Baseline and conditional solutions for requested merge candidates."""
+
+    baseline: QuadtreeObjectiveMetrics
+    evaluations: tuple[LocalMergeEvaluation, ...]
+
+    @property
+    def ranked(self) -> tuple[LocalMergeEvaluation, ...]:
+        """Candidates from greatest to least conditional improvement."""
+
+        return tuple(
+            sorted(
+                self.evaluations,
+                key=lambda evaluation: (-evaluation.predicted_improvement, evaluation.leaf),
+            )
+        )
+
+    @property
+    def best(self) -> LocalMergeEvaluation | None:
+        """The best improving local merge, if one exists."""
+
+        ranked = self.ranked
+        if not ranked or ranked[0].predicted_improvement <= 0:
+            return None
+        return ranked[0]
+
+
+def local_four_sibling_merge_lookahead(
+    block: VisibilityBlock,
+    current_fit: QuadtreeInferenceResult,
+    train_mask: np.ndarray,
+    config: InferenceConfig,
+    *,
+    holdout_mask: np.ndarray | None = None,
+    candidates: tuple[QuadtreeLeaf, ...] | None = None,
+    fixed_gains: np.ndarray | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+) -> LocalMergeResult:
+    """Solve each exact conditional four-sibling-to-parent replacement.
+
+    The reverse of ``local_four_child_lookahead``: for every complete
+    sibling group, remove the four children's actual fitted response from
+    the residual and solve the resulting one-variable non-negative
+    quadratic for the merged parent's flux, holding every other leaf fixed.
+    This is the "exact visibility response" merge score from the proposal.
+    The solved flux is the locally optimal value, not simply the sum of the
+    children; that sum is used instead to seed the actual warm-refit in
+    ``merge_quadtree_batch``, matching how the split path seeds its
+    warm-refit with equal quarters rather than its own lookahead optimum.
+    """
+
+    if train_mask.shape != block.shape:
+        raise ValueError("train_mask must match the visibility block")
+    if current_fit.prediction.shape != block.shape or current_fit.residual.shape != block.shape:
+        raise ValueError("current_fit predictions must match the visibility block")
+    if not np.isfinite(config.sparsity_weight) or config.sparsity_weight < 0:
+        raise ValueError("sparsity_weight must be finite and non-negative")
+    approximation = GaussianApproximation(approximation)
+    selected = mergeable_parents(current_fit.topology, candidates=candidates)
+    baseline = quadtree_objective_metrics(
+        block,
+        current_fit,
+        train_mask,
+        config,
+        holdout_mask=holdout_mask,
+    )
+    flux = _aligned_flux(current_fit.topology, current_fit.flux)
+    flux_by_leaf = dict(zip(current_fit.topology.leaves, flux, strict=True))
+    total_flux = float(np.sum(flux))
+    residual = np.asarray(current_fit.residual).reshape(-1)
+    training_weight = np.asarray(
+        effective_weight(block.visibility, block.weight, ~train_mask),
+        dtype=np.float64,
+    ).reshape(-1)
+    training_weight_sum = float(np.sum(training_weight))
+    if training_weight_sum <= 0:
+        raise ValueError("train_mask must contain positive-weight finite samples")
+    holdout_weight = (
+        None
+        if holdout_mask is None
+        else np.asarray(
+            effective_weight(block.visibility, block.weight, ~holdout_mask),
+            dtype=np.float64,
+        ).reshape(-1)
+    )
+
+    evaluations = []
+    for parent in selected:
+        children = parent.children()
+        child_flux = np.asarray([flux_by_leaf[child] for child in children], dtype=np.float64)
+        _, child_responses = _child_response_matrix(
+            block,
+            current_fit.topology,
+            parent,
+            config,
+            fixed_gains=fixed_gains,
+            primary_beam=primary_beam,
+            approximation=approximation,
+        )
+        parent_topology = QuadtreeTopology(current_fit.topology.grid, (parent,))
+        parent_response = _predict_quadtree_flux(
+            block,
+            parent_topology,
+            np.ones(1, dtype=np.float64),
+            config,
+            fixed_gains=fixed_gains,
+            primary_beam=primary_beam,
+            approximation=approximation,
+        ).reshape(-1)
+        residual_without_children = residual - child_responses @ child_flux
+        training_residual_without_children = np.where(
+            training_weight > 0,
+            residual_without_children,
+            0.0,
+        )
+        hessian_scalar = (2.0 / training_weight_sum) * float(
+            np.real(np.vdot(parent_response, training_weight * parent_response))
+        )
+        linear_scalar = (2.0 / training_weight_sum) * float(
+            np.real(
+                np.vdot(
+                    parent_response,
+                    training_weight * training_residual_without_children,
+                )
+            )
+        ) + config.sparsity_weight
+        new_parent_flux = _solve_nonnegative_quadratic(
+            np.asarray([[hessian_scalar]], dtype=np.float64),
+            np.asarray([linear_scalar], dtype=np.float64),
+            total=None,
+        )
+        candidate_residual = residual_without_children + parent_response * new_parent_flux[0]
+        training_data = _weighted_residual_power(candidate_residual, training_weight)
+        candidate_total_flux = total_flux - float(np.sum(child_flux)) + float(new_parent_flux[0])
+        sparsity = float(config.sparsity_weight * candidate_total_flux)
+        topology = float(current_fit.leaf_penalty * (len(current_fit.topology.leaves) - 3))
+        holdout_data = (
+            None
+            if holdout_weight is None
+            else _weighted_residual_power(candidate_residual, holdout_weight)
+        )
+        metrics = QuadtreeObjectiveMetrics(
+            training_data=training_data,
+            sparsity=sparsity,
+            topology=topology,
+            objective=training_data + sparsity + topology,
+            holdout_data=holdout_data,
+        )
+        objective_change = metrics.objective - baseline.objective
+        holdout_change = (
+            None
+            if baseline.holdout_data is None or holdout_data is None
+            else holdout_data - baseline.holdout_data
+        )
+        evaluations.append(
+            LocalMergeEvaluation(
+                leaf=parent,
+                children=children,
+                child_flux=(
+                    float(child_flux[0]),
+                    float(child_flux[1]),
+                    float(child_flux[2]),
+                    float(child_flux[3]),
+                ),
+                parent_flux=float(new_parent_flux[0]),
+                metrics=metrics,
+                objective_change=objective_change,
+                predicted_improvement=-objective_change,
+                holdout_change=holdout_change,
+            )
+        )
+    return LocalMergeResult(baseline=baseline, evaluations=tuple(evaluations))
+
+
+@dataclass(frozen=True)
+class MergeHysteresisState:
+    """Per-parent-group streak and post-split cooldown bookkeeping.
+
+    Both mappings are keyed by the merged-parent identity (the same
+    ``QuadtreeLeaf`` returned by ``mergeable_parents``), so state persists
+    correctly across rounds regardless of how the topology changes
+    elsewhere. Construct with ``MergeHysteresisState.empty()`` at the start
+    of a run; ``advance_merge_hysteresis`` is the only function that should
+    produce a new state from an old one.
+    """
+
+    eligible_streak: dict[QuadtreeLeaf, int]
+    split_cooldown: dict[QuadtreeLeaf, int]
+
+    @staticmethod
+    def empty() -> MergeHysteresisState:
+        return MergeHysteresisState(eligible_streak={}, split_cooldown={})
+
+
+def advance_merge_hysteresis(
+    state: MergeHysteresisState,
+    evaluations: tuple[LocalMergeEvaluation, ...],
+    *,
+    just_split: tuple[QuadtreeLeaf, ...] = (),
+    cooldown_rounds: int = 1,
+) -> MergeHysteresisState:
+    """Update streak and cooldown bookkeeping for this round's gating.
+
+    A candidate's streak increments only while it scores favorably
+    (``predicted_improvement > 0``) and carries no active cooldown; any
+    other outcome (ineligible, not evaluated this round, or still cooling
+    down) resets it to zero by omission. ``just_split`` names parents whose
+    children were just created by an accepted split this round: their
+    cooldown is (re)armed to ``cooldown_rounds``, which also forces their
+    streak to zero, so an immediate reverse merge needs a fresh streak once
+    the cooldown lapses. The returned state reflects this round and is used
+    both to gate this round's merge selection and as next round's input.
+    """
+
+    if cooldown_rounds < 0:
+        raise ValueError("cooldown_rounds must be non-negative")
+    if len({evaluation.leaf for evaluation in evaluations}) != len(evaluations):
+        raise ValueError("evaluations must contain unique leaves")
+
+    improvement_by_leaf = {
+        evaluation.leaf: evaluation.predicted_improvement for evaluation in evaluations
+    }
+    tracked = (
+        set(state.eligible_streak)
+        | set(state.split_cooldown)
+        | set(improvement_by_leaf)
+        | set(just_split)
+    )
+    next_streak: dict[QuadtreeLeaf, int] = {}
+    next_cooldown: dict[QuadtreeLeaf, int] = {}
+    for candidate in tracked:
+        remaining_cooldown = max(0, state.split_cooldown.get(candidate, 0) - 1)
+        if candidate in just_split:
+            remaining_cooldown = max(remaining_cooldown, cooldown_rounds)
+        if remaining_cooldown > 0:
+            next_cooldown[candidate] = remaining_cooldown
+            continue
+        improvement = improvement_by_leaf.get(candidate)
+        if improvement is not None and improvement > 0:
+            next_streak[candidate] = state.eligible_streak.get(candidate, 0) + 1
+    return MergeHysteresisState(eligible_streak=next_streak, split_cooldown=next_cooldown)
+
+
+@dataclass(frozen=True)
+class BulkMergeSelection:
+    """Dörfler-style merge marking subject to a topology-shrink budget."""
+
+    selected: tuple[QuadtreeLeaf, ...]
+    available_improvement: float
+    selected_improvement: float
+    covered_fraction: float
+    merge_budget: int
+    removed_leaf_count: int
+
+
+def select_bulk_merges(
+    evaluations: tuple[LocalMergeEvaluation, ...],
+    hysteresis: MergeHysteresisState,
+    current_leaf_count: int,
+    *,
+    required_streak: int = 2,
+    target_improvement_fraction: float = 0.7,
+    max_merge_fraction: float = 0.05,
+    max_merges: int | None = None,
+    min_improvement: float = 0.0,
+) -> BulkMergeSelection:
+    """Select a score-dominant prefix of hysteresis-eligible merge candidates.
+
+    Each accepted merge replaces four leaves with one and therefore removes
+    three active leaves; the fractional budget applies to merge operations
+    the same way ``select_bulk_splits``'s applies to parent splits. A
+    candidate is only eligible once ``hysteresis`` shows it has scored
+    favorably for ``required_streak`` consecutive rounds with no active
+    post-split cooldown (see ``advance_merge_hysteresis``).
+    """
+
+    if current_leaf_count < 1:
+        raise ValueError("current_leaf_count must be positive")
+    if not 0 < target_improvement_fraction <= 1:
+        raise ValueError("target_improvement_fraction must be in (0, 1]")
+    if not 0 < max_merge_fraction <= 1:
+        raise ValueError("max_merge_fraction must be in (0, 1]")
+    if max_merges is not None and max_merges < 1:
+        raise ValueError("max_merges must be positive")
+    if not np.isfinite(min_improvement) or min_improvement < 0:
+        raise ValueError("min_improvement must be finite and non-negative")
+    if required_streak < 1:
+        raise ValueError("required_streak must be positive")
+    if len({evaluation.leaf for evaluation in evaluations}) != len(evaluations):
+        raise ValueError("evaluations must contain unique leaves")
+
+    eligible = tuple(
+        (evaluation, evaluation.predicted_improvement)
+        for evaluation in evaluations
+        if evaluation.predicted_improvement > min_improvement
+        and hysteresis.eligible_streak.get(evaluation.leaf, 0) >= required_streak
+        and hysteresis.split_cooldown.get(evaluation.leaf, 0) <= 0
+    )
+    ranked = tuple(sorted(eligible, key=lambda item: (-item[1], item[0].leaf)))
+    available = float(sum(improvement for _, improvement in ranked))
+    fractional_budget = max(1, int(np.ceil(max_merge_fraction * current_leaf_count)))
+    merge_budget = fractional_budget if max_merges is None else min(fractional_budget, max_merges)
+    selected = []
+    selected_improvement = 0.0
+    target = target_improvement_fraction * available
+    for evaluation, improvement in ranked[:merge_budget]:
+        selected.append(evaluation.leaf)
+        selected_improvement += improvement
+        if selected_improvement >= target:
+            break
+    covered_fraction = selected_improvement / available if available > 0 else 0.0
+    return BulkMergeSelection(
+        selected=tuple(selected),
+        available_improvement=available,
+        selected_improvement=selected_improvement,
+        covered_fraction=covered_fraction,
+        merge_budget=merge_budget,
+        removed_leaf_count=3 * len(selected),
+    )
+
+
+def _merge_batch_initial_sky(
+    current_fit: QuadtreeInferenceResult,
+    selected: tuple[QuadtreeLeaf, ...],
+) -> QuadtreeSky:
+    sky = QuadtreeSky(
+        current_fit.topology.grid,
+        current_fit.topology.leaves,
+        _aligned_flux(current_fit.topology, current_fit.flux),
+    )
+    for parent in selected:
+        sky = sky.merge(parent)
+    return sky
+
+
+def merge_quadtree_batch(
+    block: VisibilityBlock,
+    current_fit: QuadtreeInferenceResult,
+    train_mask: np.ndarray,
+    holdout_mask: np.ndarray,
+    config: InferenceConfig,
+    selected: tuple[QuadtreeLeaf, ...],
+    *,
+    fixed_gains: np.ndarray | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    minimum_training_relative_improvement: float = 0.0,
+    minimum_holdout_relative_improvement: float = 0.0,
+    max_refits: int = 4,
+) -> RefinementBatchResult:
+    """Warm-refit and validate a ranked merge batch, halving it on rejection.
+
+    The mirror of ``refine_quadtree_batch``: ``selected`` are merged-parent
+    identities (see ``mergeable_parents``), ordered strongest to weakest.
+    Every attempt starts from the same accepted fit. Each merged parent is
+    seeded with the sum of its children's flux (``QuadtreeSky.merge``'s
+    definition), then all leaf fluxes are optimized together. A proposal
+    must improve both the penalized training objective and held-out loss by
+    the requested relative tolerances. Rejected batches are backtracked to
+    their strongest half, up to ``max_refits`` global optimizations.
+    """
+
+    if not selected:
+        raise ValueError("selected must contain at least one leaf")
+    if len(set(selected)) != len(selected):
+        raise ValueError("selected leaves must be unique")
+    missing = [
+        parent
+        for parent in selected
+        if any(child not in current_fit.topology.leaves for child in parent.children())
+    ]
+    if missing:
+        raise ValueError(f"selected parents are not mergeable: {missing}")
+    if train_mask.shape != block.shape or holdout_mask.shape != block.shape:
+        raise ValueError("train_mask and holdout_mask must match the visibility block")
+    if np.any(train_mask & holdout_mask):
+        raise ValueError("train_mask and holdout_mask must be disjoint")
+    if not np.any(holdout_mask):
+        raise ValueError("holdout_mask must contain active samples")
+    tolerances = (
+        minimum_training_relative_improvement,
+        minimum_holdout_relative_improvement,
+    )
+    if any(not np.isfinite(value) or value < 0 for value in tolerances):
+        raise ValueError("relative improvement thresholds must be finite and non-negative")
+    if max_refits < 1:
+        raise ValueError("max_refits must be positive")
+
+    approximation = GaussianApproximation(approximation)
+    baseline = quadtree_objective_metrics(
+        block,
+        current_fit,
+        train_mask,
+        config,
+        holdout_mask=holdout_mask,
+    )
+    if baseline.holdout_data is None:
+        raise RuntimeError("holdout metrics were not computed")
+
+    attempts: list[RefinementAttempt] = []
+    batch_size = len(selected)
+    while len(attempts) < max_refits:
+        attempt_leaves = selected[:batch_size]
+        initial_sky = _merge_batch_initial_sky(current_fit, attempt_leaves)
+        fit = infer_quadtree(
+            block,
+            initial_sky.topology,
+            train_mask,
+            config,
+            holdout_mask=holdout_mask,
+            fixed_gains=fixed_gains,
+            primary_beam=primary_beam,
+            approximation=approximation,
+            leaf_penalty=current_fit.leaf_penalty,
+            initial_flux=initial_sky.flux,
+        )
+        metrics = quadtree_objective_metrics(
+            block,
+            fit,
+            train_mask,
+            config,
+            holdout_mask=holdout_mask,
+        )
+        if metrics.holdout_data is None:
+            raise RuntimeError("holdout metrics were not computed")
+        training_improvement = _relative_improvement(
+            baseline.objective,
+            metrics.objective,
+        )
+        holdout_improvement = _relative_improvement(
+            baseline.holdout_data,
+            metrics.holdout_data,
+        )
+        accepted = bool(
+            np.isfinite(training_improvement)
+            and np.isfinite(holdout_improvement)
+            and training_improvement > minimum_training_relative_improvement
+            and holdout_improvement > minimum_holdout_relative_improvement
+        )
+        attempts.append(
+            RefinementAttempt(
+                selected=attempt_leaves,
+                fit=fit,
+                metrics=metrics,
+                training_relative_improvement=training_improvement,
+                holdout_relative_improvement=holdout_improvement,
+                accepted=accepted,
+            )
+        )
+        if accepted or batch_size == 1:
+            break
+        batch_size = max(1, batch_size // 2)
+
+    return RefinementBatchResult(
+        baseline=baseline,
+        attempts=tuple(attempts),
+    )
+
+
+@dataclass(frozen=True)
+class SingleMergeEvaluation:
+    """Globally refitted objective after replacing one sibling group by its parent."""
+
+    leaf: QuadtreeLeaf
+    children: tuple[QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf]
+    child_flux: tuple[float, float, float, float]
+    metrics: QuadtreeObjectiveMetrics
+    fit: QuadtreeInferenceResult
+    objective_change: float
+    predicted_improvement: float
+    holdout_change: float | None
+
+
+@dataclass(frozen=True)
+class ExhaustiveMergeResult:
+    """Baseline fit and deterministic evaluations of every requested merge."""
+
+    baseline: QuadtreeObjectiveMetrics
+    evaluations: tuple[SingleMergeEvaluation, ...]
+
+    @property
+    def ranked(self) -> tuple[SingleMergeEvaluation, ...]:
+        """Candidates from greatest to least training-objective improvement."""
+
+        return tuple(
+            sorted(
+                self.evaluations,
+                key=lambda evaluation: (-evaluation.predicted_improvement, evaluation.leaf),
+            )
+        )
+
+    @property
+    def best(self) -> SingleMergeEvaluation | None:
+        """The best improving candidate, or ``None`` when every merge is worse."""
+
+        ranked = self.ranked
+        if not ranked or ranked[0].predicted_improvement <= 0:
+            return None
+        return ranked[0]
+
+
+def exhaustive_single_merge_oracle(
+    block: VisibilityBlock,
+    current_fit: QuadtreeInferenceResult,
+    train_mask: np.ndarray,
+    config: InferenceConfig,
+    *,
+    holdout_mask: np.ndarray | None = None,
+    candidates: tuple[QuadtreeLeaf, ...] | None = None,
+    fixed_gains: np.ndarray | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    solver: Literal["optax", "active_set"] = "optax",
+    active_set_max_leaves: int = 12,
+) -> ExhaustiveMergeResult:
+    """Globally refit every requested legal merge on the same data.
+
+    The mirror of ``exhaustive_single_split_oracle``: intentionally
+    expensive, intended as a small-problem validation oracle for
+    ``local_four_sibling_merge_lookahead``. Each merged parent is seeded
+    with the sum of its children's flux and then globally refit. A supplied
+    holdout mask is evaluated after fitting and does not affect the training
+    solve.
+    """
+
+    if current_fit.topology.leaves == ():
+        raise ValueError("current_fit topology must contain at least one leaf")
+    if solver not in {"optax", "active_set"}:
+        raise ValueError("solver must be optax or active_set")
+    selected = mergeable_parents(current_fit.topology, candidates=candidates)
+    if not selected:
+        raise ValueError("no complete sibling groups are available to merge")
+
+    baseline_fit = (
+        current_fit
+        if solver == "optax"
+        else solve_quadtree_flux_active_set(
+            block,
+            current_fit.topology,
+            train_mask,
+            config,
+            holdout_mask=holdout_mask,
+            fixed_gains=fixed_gains,
+            primary_beam=primary_beam,
+            approximation=approximation,
+            leaf_penalty=current_fit.leaf_penalty,
+            max_leaves=active_set_max_leaves,
+        )
+    )
+    baseline = quadtree_objective_metrics(
+        block,
+        baseline_fit,
+        train_mask,
+        config,
+        holdout_mask=holdout_mask,
+    )
+    sky = QuadtreeSky(
+        baseline_fit.topology.grid,
+        baseline_fit.topology.leaves,
+        baseline_fit.flux,
+    )
+    flux_by_leaf = dict(zip(sky.leaves, sky.flux, strict=True))
+    evaluations = []
+    for parent in selected:
+        children = parent.children()
+        merge_sky = sky.merge(parent)
+        merge_fit = (
+            infer_quadtree(
+                block,
+                merge_sky.topology,
+                train_mask,
+                config,
+                fixed_gains=fixed_gains,
+                primary_beam=primary_beam,
+                approximation=approximation,
+                leaf_penalty=current_fit.leaf_penalty,
+                initial_flux=merge_sky.flux,
+            )
+            if solver == "optax"
+            else solve_quadtree_flux_active_set(
+                block,
+                merge_sky.topology,
+                train_mask,
+                config,
+                holdout_mask=holdout_mask,
+                fixed_gains=fixed_gains,
+                primary_beam=primary_beam,
+                approximation=approximation,
+                leaf_penalty=current_fit.leaf_penalty,
+                max_leaves=active_set_max_leaves,
+            )
+        )
+        metrics = quadtree_objective_metrics(
+            block,
+            merge_fit,
+            train_mask,
+            config,
+            holdout_mask=holdout_mask,
+        )
+        objective_change = metrics.objective - baseline.objective
+        holdout_change = (
+            None
+            if baseline.holdout_data is None or metrics.holdout_data is None
+            else metrics.holdout_data - baseline.holdout_data
+        )
+        evaluations.append(
+            SingleMergeEvaluation(
+                leaf=parent,
+                children=children,
+                child_flux=(
+                    float(flux_by_leaf[children[0]]),
+                    float(flux_by_leaf[children[1]]),
+                    float(flux_by_leaf[children[2]]),
+                    float(flux_by_leaf[children[3]]),
+                ),
+                metrics=metrics,
+                fit=merge_fit,
+                objective_change=objective_change,
+                predicted_improvement=-objective_change,
+                holdout_change=holdout_change,
+            )
+        )
+    return ExhaustiveMergeResult(baseline=baseline, evaluations=tuple(evaluations))
+
+
+@dataclass(frozen=True)
+class MergeRankingEntry:
+    """One candidate's positions in local-merge-lookahead and oracle rankings."""
+
+    leaf: QuadtreeLeaf
+    lookahead_rank: int
+    oracle_rank: int
+    lookahead_improvement: float
+    oracle_improvement: float
+
+
+@dataclass(frozen=True)
+class MergeLookaheadOracleComparison:
+    """Direct rank comparison between local merge lookahead and the oracle."""
+
+    entries: tuple[MergeRankingEntry, ...]
+    spearman_rho: float
+    top1_match: bool
+
+
+def compare_merge_lookahead_to_oracle(
+    lookahead: LocalMergeResult,
+    oracle: ExhaustiveMergeResult,
+) -> MergeLookaheadOracleComparison:
+    """Compare deterministic local-merge-lookahead and global-refit oracle ranks."""
+
+    if not lookahead.evaluations:
+        raise ValueError("lookahead must contain at least one candidate")
+    local_by_leaf = {evaluation.leaf: evaluation for evaluation in lookahead.evaluations}
+    oracle_by_leaf = {evaluation.leaf: evaluation for evaluation in oracle.evaluations}
+    if len(local_by_leaf) != len(lookahead.evaluations):
+        raise ValueError("lookahead must contain unique leaves")
+    if len(oracle_by_leaf) != len(oracle.evaluations):
+        raise ValueError("oracle must contain unique leaves")
+    if set(local_by_leaf) != set(oracle_by_leaf):
+        raise ValueError("lookahead and oracle must contain the same leaves")
+
+    local_order = lookahead.ranked
+    oracle_order = oracle.ranked
+    local_rank = {evaluation.leaf: rank for rank, evaluation in enumerate(local_order, start=1)}
+    oracle_rank = {evaluation.leaf: rank for rank, evaluation in enumerate(oracle_order, start=1)}
+    entries = tuple(
+        MergeRankingEntry(
+            leaf=leaf,
+            lookahead_rank=local_rank[leaf],
+            oracle_rank=oracle_rank[leaf],
+            lookahead_improvement=local_by_leaf[leaf].predicted_improvement,
+            oracle_improvement=oracle_by_leaf[leaf].predicted_improvement,
+        )
+        for leaf in sorted(local_by_leaf, key=oracle_rank.__getitem__)
+    )
+    count = len(entries)
+    squared_rank_difference = sum(
+        (entry.lookahead_rank - entry.oracle_rank) ** 2 for entry in entries
+    )
+    spearman_rho = (
+        1.0 if count == 1 else 1.0 - 6.0 * squared_rank_difference / (count * (count**2 - 1))
+    )
+    return MergeLookaheadOracleComparison(
+        entries=entries,
+        spearman_rho=float(spearman_rho),
+        top1_match=local_order[0].leaf == oracle_order[0].leaf,
+    )
