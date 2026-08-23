@@ -600,16 +600,18 @@ fluxes. The command uses a 1,000-step ceiling with held-out early stopping.
 Shorter fixed limits produced false split acceptance because the child fit was
 also an ordinary continuation of an under-solved parent fit.
 
-A 1,024-row GPU convergence audit stopped the unchanged parent topology after
-380 steps, with the best held-out point at step 280. Starting refinement from
-that fit accepted 32 splits and reduced held-out loss from `0.3487` to `0.2722`.
-This is not yet a scientific validation. Seventy-five per cent of the selected
-parents touched the image boundary, while the established full-data regular
-reconstruction peaks in the interior. The quadtree and regular-grid coordinate
-arrays agree exactly, so an indexing mismatch has been ruled out. The current
-leading explanation is the deliberately sparse 1,024-row subset. Further
-refinement is paused pending either a same-subset regular-grid control or a run
-on all 20,542 rows.
+A 1,024-row GPU convergence audit originally accepted 32 splits, but 75% of
+their parents touched the image boundary. Full-row experiments reproduce that
+failure, so the subset itself is not the cause. The detailed investigation in
+[`3c391_corner_pixels.md`](3c391_corner_pixels.md) identifies two coupled
+problems: the default 8×8 UV-cell split removes Fourier regions much wider than
+the reciprocal image field, and softplus Adam returns strongly path-dependent,
+non-stationary fits. On the same 1,024 rows, increasing the UV partition from
+8×8 to 64×64 moves the peak from the corner to the remnant and reduces holdout
+loss from `0.3487` to `0.0141`. A full 20,542-row control similarly reduces
+holdout loss from `0.369` to `0.0167` and suppresses the corner. Hierarchical
+refinement remains paused until the validation split is field-aware and the
+fixed-topology solver has a physical-flux stationarity check.
 
 The implementation checkpoint passes Ruff, strict mypy, and 214 tests; one
 real-VLA release test remains opt-in. The focused CUDA run also passes all 32

@@ -309,6 +309,7 @@ def _write_products(
             "root_pixel_arcsec": np.rad2deg(config.root_pixel_size_rad) * 3600,
             "steps": config.inference.steps,
             "patience": config.inference.patience,
+            "initial_intensity": config.inference.initial_intensity,
             "learning_rate": config.inference.learning_rate,
             "sparsity_weight": config.inference.sparsity_weight,
             "leaf_penalty": config.leaf_penalty,
@@ -353,6 +354,7 @@ def main() -> int:
     )
     parser.add_argument("--patience", type=int, default=100)
     parser.add_argument("--learning-rate", type=float, default=0.03)
+    parser.add_argument("--initial-intensity", type=float, default=1e-3)
     parser.add_argument("--sparsity-weight", type=float, default=1e-4)
     parser.add_argument("--leaf-penalty", type=float, default=1e-7)
     parser.add_argument("--holdout-fraction", type=float, default=0.2)
@@ -418,7 +420,7 @@ def main() -> int:
             steps=arguments.steps,
             learning_rate=arguments.learning_rate,
             sparsity_weight=arguments.sparsity_weight,
-            initial_intensity=1e-3,
+            initial_intensity=arguments.initial_intensity,
             patience=arguments.patience,
             validation_interval=10,
             operator_mode="explicit",
