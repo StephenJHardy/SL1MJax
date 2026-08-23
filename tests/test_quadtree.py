@@ -53,6 +53,27 @@ def test_children_exactly_tile_parent_square() -> None:
         assert abs(child_m - parent_m) == pytest.approx(child_width / 2)
 
 
+def test_haar_children_are_northwest_northeast_southwest_southeast() -> None:
+    grid = QuadtreeGrid(root_size=4, root_pixel_size_rad=1e-3)
+    parent = QuadtreeLeaf(0, 1, 1)
+    parent_l, parent_m = grid.leaf_center_rad(parent)
+    names = []
+    for child in parent.haar_children():
+        child_l, child_m = grid.leaf_center_rad(child)
+        names.append(
+            ("N" if child_m > parent_m else "S") + ("E" if child_l > parent_l else "W")
+        )
+    assert names == ["NW", "NE", "SW", "SE"]
+    assert set(parent.haar_children()) == set(parent.children())
+    raster_names = []
+    for child in parent.children():
+        child_l, child_m = grid.leaf_center_rad(child)
+        raster_names.append(
+            ("N" if child_m > parent_m else "S") + ("E" if child_l > parent_l else "W")
+        )
+    assert raster_names == ["SE", "SW", "NE", "NW"]
+
+
 def test_split_conserves_flux_and_is_undone_by_merge() -> None:
     sky = quadtree_sky_from_regular_grid(2, 4e-3, [1.0, 2.0, 3.0, 4.0])
     leaf = QuadtreeLeaf(0, 0, 0)

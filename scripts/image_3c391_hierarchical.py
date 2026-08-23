@@ -323,8 +323,19 @@ def main() -> int:
     parser.add_argument("--max-refits-per-round", type=int, default=4)
     parser.add_argument("--minimum-holdout-relative-improvement", type=float, default=0.0)
     parser.add_argument("--minimum-parent-flux", type=float, default=0.0)
-    parser.add_argument("--approximation", choices=("paraxial", "wide-field"), default="paraxial")
-    parser.add_argument("--allow-approximate-curvature", action="store_true")
+    parser.add_argument(
+        "--approximation",
+        choices=("paraxial", "wide-field"),
+        default="wide-field",
+        help="Square-pixel kernel. Shared Haar curvature is exact only for "
+        "paraxial pixels without a primary beam.",
+    )
+    parser.add_argument(
+        "--allow-approximate-curvature",
+        action="store_true",
+        help="Opt into shared per-level Haar curvature when it is not exact. "
+        "reconstruct_hierarchical already does this for wide-field or beamed runs.",
+    )
     parser.add_argument("--primary-beam", choices=("none", "gaussian", "airy"), default="none")
     parser.add_argument("--beam-squint", action="store_true")
     parser.add_argument("--precision", choices=("float32", "float64"), default="float32")

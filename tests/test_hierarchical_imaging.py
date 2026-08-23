@@ -18,6 +18,12 @@ from sl1mjax.quadtree import (
 from sl1mjax.sky import GaussianApproximation
 
 
+def test_adaptive_refinement_defaults_to_wide_field_kernel() -> None:
+    config = AdaptiveRefinementConfig()
+    assert config.approximation is GaussianApproximation.WIDE_FIELD
+    assert config.allow_approximate_curvature is False
+
+
 def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> None:
     target = QuadtreeLeaf(0, 0, 1)
     root = quadtree_sky_from_regular_grid(2, 2e-4, [1.0, 0.3, 0.02, 0.01])
@@ -77,6 +83,7 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> No
         leaf_penalty=1e-6,
         max_split_fraction=0.25,
         max_splits_per_round=1,
+        approximation=GaussianApproximation.PARAXIAL,
     )
 
     result = reconstruct_hierarchical(block, config)

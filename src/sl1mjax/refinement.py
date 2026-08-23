@@ -393,6 +393,8 @@ def baseline_split_scores(
     return tuple(scores)
 
 
+# Rows are celestial NW, NE, SW, SE from QuadtreeLeaf.haar_children().
+# Columns are hx (east-west), hy (north-south), and hd (diagonal).
 _HAAR_CHILD_DETAILS = np.asarray(
     [
         [1.0, 1.0, 1.0],
@@ -553,7 +555,7 @@ def _child_detail_responses(
     primary_beam: VLAPrimaryBeam | None,
     approximation: GaussianApproximation,
 ) -> np.ndarray:
-    children = leaf.children()
+    children = leaf.haar_children()
     child_topology = QuadtreeTopology(topology.grid, children)
     detail_by_child = dict(zip(children, _HAAR_CHILD_DETAILS, strict=True))
     details = np.asarray(
@@ -685,11 +687,12 @@ def batched_residual_haar_scores(
 
     Child residual correlations are exact. The local Gram matrix is evaluated
     once for a representative parent at each level. This curvature is exactly
-    translation-invariant for the paraxial square basis without a primary
+    translation-invariant only for the paraxial square basis without a primary
     beam. Wide-field geometry and direction-dependent beam weights break that
-    invariance, so they require explicit opt-in until their approximation error
-    is bounded by tests. Shortlisted candidates can always be rescored with
-    :func:`residual_haar_scores` before refinement.
+    invariance, so they require ``allow_approximate_curvature=True``.
+    :func:`reconstruct_hierarchical` enables that automatically when the
+    kernel is not translation-invariant and then rescores the shortlist with
+    :func:`residual_haar_scores`.
     """
 
     if config.operator_mode != "explicit":
@@ -821,7 +824,9 @@ def batched_residual_haar_scores(
             else f"per_level_approximate:{parent_level}"
         )
         for leaf in level_leaves:
-            indices = np.asarray([child_index[child] for child in leaf.children()])
+            indices = np.asarray(
+                [child_index[child] for child in leaf.haar_children()]
+            )
             gradient = child_gradient[indices] @ _HAAR_CHILD_DETAILS
             score_by_leaf[leaf] = _build_residual_haar_score(
                 leaf,

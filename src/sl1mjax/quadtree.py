@@ -55,13 +55,30 @@ class QuadtreeLeaf:
             raise ValueError("level, iy, and ix must be non-negative")
 
     def children(self) -> tuple[QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf]:
-        """The four leaves that exactly tile this leaf's square at the next level."""
+        """The four leaves that exactly tile this leaf's square at the next level.
+
+        Order is index-raster: south row first, then east column first, matching
+        ``(2 iy, 2 ix)``, ``(2 iy, 2 ix + 1)``, ``(2 iy + 1, 2 ix)``,
+        ``(2 iy + 1, 2 ix + 1)``. On the FITS grid (``iy`` north, ``ix`` west)
+        that is sky SE, SW, NE, NW. Residual Haar scores use
+        :meth:`haar_children` instead, which is celestial NW, NE, SW, SE.
+        """
 
         return (
             QuadtreeLeaf(self.level + 1, 2 * self.iy, 2 * self.ix),
             QuadtreeLeaf(self.level + 1, 2 * self.iy, 2 * self.ix + 1),
             QuadtreeLeaf(self.level + 1, 2 * self.iy + 1, 2 * self.ix),
             QuadtreeLeaf(self.level + 1, 2 * self.iy + 1, 2 * self.ix + 1),
+        )
+
+    def haar_children(self) -> tuple[QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf, QuadtreeLeaf]:
+        """Children in celestial NW, NE, SW, SE order for residual Haar details."""
+
+        return (
+            QuadtreeLeaf(self.level + 1, 2 * self.iy + 1, 2 * self.ix + 1),
+            QuadtreeLeaf(self.level + 1, 2 * self.iy + 1, 2 * self.ix),
+            QuadtreeLeaf(self.level + 1, 2 * self.iy, 2 * self.ix + 1),
+            QuadtreeLeaf(self.level + 1, 2 * self.iy, 2 * self.ix),
         )
 
     def parent(self) -> QuadtreeLeaf:

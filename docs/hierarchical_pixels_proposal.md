@@ -96,10 +96,12 @@ Several details make an adaptive hierarchy practical:
   `compare_haar_to_oracle` then reports per-leaf ranks, top-choice agreement,
   and Spearman correlation over an identical candidate set.
 - `batched_residual_haar_scores` obtains all child correlations with one
-  streamed adjoint per active level. Its shared curvature is exact for the
-  paraxial square basis without a primary beam. Wide-field or beam-weighted
-  runs must opt into approximate curvature, and the marked shortlist is then
-  rescored per parent before a topology change.
+  streamed adjoint per active level. Its shared curvature is exact only for
+  the paraxial square basis without a primary beam. Wide-field or beam-weighted
+  screens use that Gram as an approximation; `reconstruct_hierarchical` enables
+  this automatically and rescores the marked shortlist per parent before a
+  topology change. Haar details are zipped to celestial NW, NE, SW, SE
+  (`QuadtreeLeaf.haar_children`), not the index-raster `children()` order.
 - `select_bulk_splits` applies Dörfler-style score-mass marking with a bound on
   splits per round. It can subtract the explicit three-leaf complexity cost
   before ranking.
@@ -215,9 +217,11 @@ nothing about the three spatial degrees of freedom that do not yet exist.
 
 ### Four children create three resolution degrees of freedom
 
-Order four child fluxes as north-west, north-east, south-west, and south-east.
-Their equal-flux direction controls total parent flux. Three Haar-like contrast
-directions control left-right, north-south, and diagonal structure:
+Order four child fluxes as north-west, north-east, south-west, and south-east
+(`QuadtreeLeaf.haar_children`; `children()` itself is index-raster and is sky
+SE, SW, NE, NW). Their equal-flux direction controls total parent flux. Three
+Haar-like contrast directions control left-right, north-south, and diagonal
+structure:
 
 \[
 h_x=(1,-1,1,-1),\quad

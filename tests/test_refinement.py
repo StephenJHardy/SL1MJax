@@ -14,12 +14,14 @@ from sl1mjax.inference import (
 )
 from sl1mjax.polarization import Correlation, ReceptorBasis
 from sl1mjax.quadtree import (
+    QuadtreeGrid,
     QuadtreeLeaf,
     QuadtreeSky,
     predict_quadtree_stokes_i,
     quadtree_sky_from_regular_grid,
 )
 from sl1mjax.refinement import (
+    _HAAR_CHILD_DETAILS,
     ResidualHaarScore,
     _solve_nonnegative_quadratic,
     baseline_split_scores,
@@ -184,6 +186,21 @@ def test_bulk_split_marking_covers_score_mass_with_growth_budget() -> None:
     )
     assert penalized.selected == (leaves[0],)
     assert penalized.available_improvement == pytest.approx(0.5)
+
+
+def test_haar_details_use_celestial_child_order() -> None:
+    grid = QuadtreeGrid(root_size=4, root_pixel_size_rad=1e-3)
+    parent = QuadtreeLeaf(0, 1, 1)
+    parent_l, parent_m = grid.leaf_center_rad(parent)
+    east_west = []
+    north_south = []
+    for child, row in zip(parent.haar_children(), _HAAR_CHILD_DETAILS, strict=True):
+        child_l, child_m = grid.leaf_center_rad(child)
+        east_west.append(row[0] == (1.0 if child_l < parent_l else -1.0))
+        north_south.append(row[1] == (1.0 if child_m > parent_m else -1.0))
+    assert all(east_west)
+    assert all(north_south)
+    assert set(parent.haar_children()) == set(parent.children())
 
 
 def test_batched_haar_scores_scale_to_4096_initial_leaves() -> None:

@@ -27,7 +27,11 @@ from sl1mjax.split import random_row_split, uv_cell_split
 
 @dataclass(frozen=True)
 class AdaptiveRefinementConfig:
-    """Static geometry, optimization, marking, and validation controls."""
+    """Static geometry, optimization, marking, and validation controls.
+
+    The default square kernel is wide-field. Shared Haar curvature is treated
+    as exact only for paraxial pixels without a primary beam.
+    """
 
     root_size: int = 64
     root_pixel_size_rad: float = np.deg2rad(4.0 / 3600.0)
@@ -49,7 +53,7 @@ class AdaptiveRefinementConfig:
     minimum_training_relative_improvement: float = 0.0
     minimum_holdout_relative_improvement: float = 0.0
     max_refits_per_round: int = 4
-    approximation: GaussianApproximation = GaussianApproximation.PARAXIAL
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD
     allow_approximate_curvature: bool = False
 
 
@@ -124,14 +128,21 @@ def reconstruct_hierarchical(
 
     The fast score evaluates every active leaf. A leaf-count cost of
     ``3 * leaf_penalty`` is subtracted before marking because each split adds
-    three leaves. When shared curvature is approximate, the marked shortlist
-    is rescored with the exact per-parent calculation before any topology
-    change is attempted.
+    three leaves. Shared per-level curvature is exact only for paraxial
+    squares without a primary beam. Wide-field or beam-weighted screens use
+    that shared Gram as an approximation and rescore the marked shortlist
+    with the exact per-parent calculation before any topology change.
     """
 
     selected_config = config or AdaptiveRefinementConfig()
     _validate_config(selected_config)
     approximation = GaussianApproximation(selected_config.approximation)
+    curvature_is_exact = (
+        approximation is GaussianApproximation.PARAXIAL and primary_beam is None
+    )
+    allow_approximate_curvature = (
+        selected_config.allow_approximate_curvature or not curvature_is_exact
+    )
     train_mask, holdout_mask = _split_masks(block, selected_config)
     initial_sky = quadtree_sky_from_regular_grid(
         selected_config.root_size,
@@ -167,7 +178,7 @@ def reconstruct_hierarchical(
             min_curvature=selected_config.min_curvature,
             min_eigenvalue_ratio=selected_config.min_eigenvalue_ratio,
             ridge_relative=selected_config.ridge_relative,
-            allow_approximate_curvature=selected_config.allow_approximate_curvature,
+            allow_approximate_curvature=allow_approximate_curvature,
         )
         selection = select_bulk_splits(
             scores,
