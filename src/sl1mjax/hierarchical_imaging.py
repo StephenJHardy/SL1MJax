@@ -162,9 +162,7 @@ def reconstruct_hierarchical(
     selected_config = config or AdaptiveRefinementConfig()
     _validate_config(selected_config)
     approximation = GaussianApproximation(selected_config.approximation)
-    curvature_is_exact = (
-        approximation is GaussianApproximation.PARAXIAL and primary_beam is None
-    )
+    curvature_is_exact = approximation is GaussianApproximation.PARAXIAL and primary_beam is None
     allow_approximate_curvature = (
         selected_config.allow_approximate_curvature or not curvature_is_exact
     )
@@ -346,15 +344,37 @@ def reconstruct_hierarchical(
             )
         )
 
-        if selection.selected and not split_accepted:
-            stop_reason = "split_validation_rejected"
-            break
-        if merge_selection is not None and merge_selection.selected and not merge_accepted:
-            stop_reason = "merge_validation_rejected"
-            break
-        if not selection.selected and not merge_candidates:
-            stop_reason = "no_eligible_changes"
-            break
+        # A rejected proposal on one side is a normal outcome, not evidence
+        # that the other side is exhausted (local merge lookahead is
+        # optimistic about other leaves staying fixed, and a rejected split
+        # batch says nothing about whether coarsening elsewhere is still
+        # worthwhile). Stop only once nothing happened this round and
+        # neither side has anything left to offer, now or in a later round:
+        # a merge candidate still building its hysteresis streak (or still
+        # cooling down) counts as "left to offer" even though nothing was
+        # selected this round.
+        split_rejected = bool(selection.selected) and not split_accepted
+        merge_rejected = bool(merge_selection is not None and merge_selection.selected) and (
+            not merge_accepted
+        )
+        merge_pending = (
+            bool(merge_candidates)
+            or bool(merge_hysteresis.eligible_streak)
+            or bool(merge_hysteresis.split_cooldown)
+        )
+        if not split_accepted and not merge_accepted:
+            if split_rejected and merge_rejected:
+                stop_reason = "split_and_merge_validation_rejected"
+                break
+            if split_rejected and not merge_pending:
+                stop_reason = "split_validation_rejected"
+                break
+            if merge_rejected and not selection.selected:
+                stop_reason = "merge_validation_rejected"
+                break
+            if not selection.selected and not merge_pending:
+                stop_reason = "no_eligible_changes"
+                break
 
     return HierarchicalImagingResult(
         inference=current_fit,

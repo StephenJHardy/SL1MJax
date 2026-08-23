@@ -334,6 +334,34 @@ def test_select_bulk_merges_orders_deterministically_within_shrink_budget() -> N
     assert tied_selection.selected == parents
 
 
+def test_select_bulk_merges_gates_on_cooldown_directly() -> None:
+    """A positive split_cooldown must block selection even if eligible_streak
+    is (inconsistently) already at or above the required streak. Normal use
+    through advance_merge_hysteresis never produces that combination, but
+    select_bulk_merges must not rely on callers preserving that invariant."""
+
+    parent = QuadtreeLeaf(0, 0, 0)
+    evaluation = LocalMergeEvaluation(
+        leaf=parent,
+        children=parent.children(),
+        child_flux=(0.25, 0.25, 0.25, 0.25),
+        parent_flux=1.0,
+        metrics=QuadtreeObjectiveMetrics(0.0, 0.0, 0.0, 0.0, None),
+        objective_change=-1.0,
+        predicted_improvement=1.0,
+        holdout_change=None,
+    )
+    inconsistent_state = MergeHysteresisState(
+        eligible_streak={parent: 5}, split_cooldown={parent: 1}
+    )
+
+    selection = select_bulk_merges(
+        (evaluation,), inconsistent_state, current_leaf_count=10, required_streak=2
+    )
+
+    assert selection.selected == ()
+
+
 def test_merge_quadtree_batch_accepts_and_conserves_flux() -> None:
     block, train, holdout, fit = _smooth_fit()
     config = InferenceConfig(

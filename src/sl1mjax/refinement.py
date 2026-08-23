@@ -797,9 +797,7 @@ def batched_residual_haar_scores(
             else f"per_level_approximate:{parent_level}"
         )
         for leaf in level_leaves:
-            indices = np.asarray(
-                [child_index[child] for child in leaf.haar_children()]
-            )
+            indices = np.asarray([child_index[child] for child in leaf.haar_children()])
             gradient = child_gradient[indices] @ _HAAR_CHILD_DETAILS
             score_by_leaf[leaf] = _build_residual_haar_score(
                 leaf,
@@ -1960,6 +1958,7 @@ def select_bulk_merges(
         for evaluation in evaluations
         if evaluation.predicted_improvement > min_improvement
         and hysteresis.eligible_streak.get(evaluation.leaf, 0) >= required_streak
+        and hysteresis.split_cooldown.get(evaluation.leaf, 0) <= 0
     )
     ranked = tuple(sorted(eligible, key=lambda item: (-item[1], item[0].leaf)))
     available = float(sum(improvement for _, improvement in ranked))
