@@ -324,6 +324,7 @@ def _prediction_inputs(
     beam_weights: ArrayLike | None,
     beam_weights_rr: ArrayLike | None,
     beam_weights_ll: ArrayLike | None,
+    centers_lm: tuple[ArrayLike, ArrayLike] | None = None,
 ) -> tuple[
     Array,
     np.ndarray,
@@ -336,7 +337,17 @@ def _prediction_inputs(
     flux_array = jnp.asarray(flux)
     if flux_array.shape != (len(topology.leaves),):
         raise ValueError("flux must have exactly one value per leaf")
-    l, m = topology.centers()
+    if centers_lm is None:
+        l, m = topology.centers()
+    else:
+        l = np.asarray(centers_lm[0], dtype=np.float64).ravel()
+        m = np.asarray(centers_lm[1], dtype=np.float64).ravel()
+        if l.shape != (len(topology.leaves),) or m.shape != l.shape:
+            raise ValueError("centers_lm must contain one l and m per leaf")
+        if not np.all(np.isfinite(l)) or not np.all(np.isfinite(m)):
+            raise ValueError("centers_lm must be finite")
+        if np.any(l * l + m * m >= 1):
+            raise ValueError("centers_lm must lie inside the visible hemisphere")
     levels = np.asarray([leaf.level for leaf in topology.leaves])
     component_arrays = {
         "beam_weights": beam_weights,
@@ -374,6 +385,7 @@ def predict_quadtree_stokes_i(
     beam_weights: ArrayLike | None = None,
     beam_weights_rr: ArrayLike | None = None,
     beam_weights_ll: ArrayLike | None = None,
+    centers_lm: tuple[ArrayLike, ArrayLike] | None = None,
     **predict_kwargs: Any,
 ) -> Array:
     """Predict correlations for a quadtree sky.
@@ -402,6 +414,7 @@ def predict_quadtree_stokes_i(
         beam_weights,
         beam_weights_rr,
         beam_weights_ll,
+        centers_lm,
     )
     total: Array | None = None
     for level in sorted(set(levels.tolist())):
@@ -441,6 +454,7 @@ def predict_quadtree_stokes_i_explicit(
     beam_weights: ArrayLike | None = None,
     beam_weights_rr: ArrayLike | None = None,
     beam_weights_ll: ArrayLike | None = None,
+    centers_lm: tuple[ArrayLike, ArrayLike] | None = None,
 ) -> Array:
     """Predict a quadtree sky with the streamed explicit DFT and adjoint.
 
@@ -456,6 +470,7 @@ def predict_quadtree_stokes_i_explicit(
         beam_weights,
         beam_weights_rr,
         beam_weights_ll,
+        centers_lm,
     )
     total: Array | None = None
     for level in sorted(set(levels.tolist())):

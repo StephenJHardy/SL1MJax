@@ -5,6 +5,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.inference import (
@@ -23,8 +24,10 @@ from sl1mjax.quadtree import (
 from sl1mjax.refinement import (
     _HAAR_CHILD_DETAILS,
     ResidualHaarScore,
+    _build_residual_haar_score,
     _solve_nonnegative_quadratic,
     baseline_split_scores,
+    batched_exact_residual_haar_scores,
     batched_residual_haar_scores,
     compare_haar_to_oracle,
     compare_lookahead_to_oracle,
@@ -42,6 +45,7 @@ from sl1mjax.sky import GaussianApproximation
 def _block_from_sky(
     sky: QuadtreeSky,
     *,
+    primary_beam: VLAPrimaryBeam | None = None,
     rows: int = 96,
     channels: int = 2,
     seed: int = 13,
@@ -53,6 +57,13 @@ def _block_from_sky(
     antenna1 = rng.integers(0, 5, rows, dtype=np.int32)
     antenna2 = (antenna1 + rng.integers(1, 5, rows, dtype=np.int32)) % 5
     correlations = (Correlation.I,)
+    l, m = sky.topology.centers()
+    beam_i, beam_rr, beam_ll = predict_beam_weights(
+        primary_beam,
+        l,
+        m,
+        frequency_hz,
+    )
     visibility = np.asarray(
         predict_quadtree_stokes_i(
             sky.flux,
@@ -63,6 +74,9 @@ def _block_from_sky(
             antenna2,
             correlations,
             approximation=GaussianApproximation.PARAXIAL,
+            beam_weights=beam_i,
+            beam_weights_rr=beam_rr,
+            beam_weights_ll=beam_ll,
         )
     )
     return VisibilityBlock(
@@ -112,12 +126,15 @@ def test_baseline_scores_filter_candidates_and_detect_an_edge() -> None:
     assert all(score.gradient > 0 for score in scores)
     assert all(score.laplacian > 0 for score in scores)
 
-    assert baseline_split_scores(
-        sky.topology,
-        sky.flux,
-        candidates=selected,
-        max_depth=0,
-    ) == ()
+    assert (
+        baseline_split_scores(
+            sky.topology,
+            sky.flux,
+            candidates=selected,
+            max_depth=0,
+        )
+        == ()
+    )
     with pytest.raises(ValueError, match="not active"):
         baseline_split_scores(
             sky.topology,
@@ -144,6 +161,38 @@ def test_four_child_active_set_solver_enforces_positivity_and_total_flux() -> No
     np.testing.assert_allclose(unconstrained_total, [1.0, 0.0, 2.0, 0.0])
     np.testing.assert_allclose(fixed_total, [0.0, 0.0, 1.0, 0.0], atol=1e-12)
     assert fixed_total.sum() == pytest.approx(1.0)
+
+
+def test_constrained_haar_score_restores_beam_sensitivity() -> None:
+    leaf = QuadtreeLeaf(0, 0, 0)
+    parent_flux = 0.1
+
+    def score(beam: float) -> ResidualHaarScore:
+        return _build_residual_haar_score(
+            leaf,
+            parent_flux,
+            beam * np.asarray([1.0, 0.0, 0.0]),
+            beam**2 * np.eye(3),
+            min_parent_flux=0.0,
+            min_curvature=0.0,
+            min_eigenvalue_ratio=0.0,
+            ridge_relative=1e-8,
+            constrain_child_flux=True,
+        )
+
+    central = score(1.0)
+    attenuated = score(0.01)
+
+    assert central.raw_predicted_improvement == pytest.approx(
+        attenuated.raw_predicted_improvement,
+        rel=1e-7,
+    )
+    assert attenuated.predicted_improvement < central.predicted_improvement / 50
+    for result in (central, attenuated):
+        assert result.constrained_child_flux is not None
+        assert min(result.constrained_child_flux) >= 0
+        assert sum(result.constrained_child_flux) == pytest.approx(parent_flux)
+        assert result.positivity_active
 
 
 def test_bulk_split_marking_covers_score_mass_with_growth_budget() -> None:
@@ -205,9 +254,10 @@ def test_haar_details_use_celestial_child_order() -> None:
 
 def test_batched_haar_scores_scale_to_4096_initial_leaves() -> None:
     leaf_count = 64 * 64
+    root_pixel_size_rad = np.deg2rad(16.0 / 3600.0)
     sky = quadtree_sky_from_regular_grid(
         64,
-        2e-5,
+        root_pixel_size_rad,
         np.zeros(leaf_count),
     )
     rows = 6
@@ -220,7 +270,7 @@ def test_batched_haar_scores_scale_to_4096_initial_leaves() -> None:
                 np.zeros(rows),
             )
         ),
-        frequency_hz=np.asarray([1.2e9]),
+        frequency_hz=np.asarray([4.6e9]),
         visibility=visibility,
         weight=np.ones_like(visibility.real),
         flag=np.zeros_like(visibility.real, dtype=bool),
@@ -257,16 +307,22 @@ def test_batched_haar_scores_scale_to_4096_initial_leaves() -> None:
         ),
     )
 
+    beam = VLAPrimaryBeam(kind="airy")
+    corner_l, corner_m = sky.grid.leaf_center_rad(QuadtreeLeaf(0, 0, 0))
+    assert beam.power(corner_l, corner_m, block.frequency_hz[0]) == 0
     scores = batched_residual_haar_scores(
         block,
         fit,
         block.active,
         config,
         max_depth=1,
+        primary_beam=beam,
         approximation=GaussianApproximation.PARAXIAL,
+        allow_approximate_curvature=True,
     )
 
     assert len(scores) == leaf_count
+    assert all(score.eligible for score in scores)
     assert all(np.isfinite(score.predicted_improvement) for score in scores)
     selection = select_bulk_splits(
         scores,
@@ -275,6 +331,108 @@ def test_batched_haar_scores_scale_to_4096_initial_leaves() -> None:
     )
     assert selection.split_budget == 41
     assert selection.added_leaf_count <= 3 * 41
+
+
+def test_batched_exact_haar_matches_scalar_and_is_tile_invariant() -> None:
+    target = QuadtreeLeaf(0, 0, 1)
+    root = quadtree_sky_from_regular_grid(2, 2e-4, [0.8, 0.25, 0.04, 0.01])
+    truth = root.split(target, child_flux=[0.18, 0.04, 0.02, 0.01])
+    beam = VLAPrimaryBeam(
+        kind="gaussian",
+        pointing_lm=(1.5e-4, -1.0e-4),
+    )
+    block = _block_from_sky(
+        truth,
+        primary_beam=beam,
+        rows=41,
+        channels=2,
+        seed=21,
+    )
+    config = InferenceConfig(
+        sparsity_weight=1e-8,
+        operator_mode="explicit",
+        direct_dft=DirectDFTConfig(
+            visibility_chunk_size=11,
+            pixel_chunk_size=7,
+            precision="float64",
+        ),
+    )
+    fit = solve_quadtree_flux_active_set(
+        block,
+        root.topology,
+        block.active,
+        config,
+        primary_beam=beam,
+        approximation=GaussianApproximation.PARAXIAL,
+    )
+    scalar = residual_haar_scores(
+        block,
+        fit,
+        block.active,
+        config,
+        primary_beam=beam,
+        approximation=GaussianApproximation.PARAXIAL,
+    )
+    tiled = batched_exact_residual_haar_scores(
+        block,
+        fit,
+        block.active,
+        config,
+        primary_beam=beam,
+        approximation=GaussianApproximation.PARAXIAL,
+        candidate_batch_size=1,
+        row_batch_size=13,
+        constrain_child_flux=False,
+    )
+    alternate_tiles = batched_exact_residual_haar_scores(
+        block,
+        fit,
+        block.active,
+        config,
+        primary_beam=beam,
+        approximation=GaussianApproximation.PARAXIAL,
+        candidate_batch_size=3,
+        row_batch_size=17,
+        constrain_child_flux=False,
+    )
+
+    assert tuple(score.leaf for score in tiled) == tuple(score.leaf for score in scalar)
+    for actual in (tiled, alternate_tiles):
+        np.testing.assert_allclose(
+            [score.gradient for score in actual],
+            [score.gradient for score in scalar],
+            rtol=2e-11,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            [score.gram for score in actual],
+            [score.gram for score in scalar],
+            rtol=2e-11,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            [score.predicted_improvement for score in actual],
+            [score.predicted_improvement for score in scalar],
+            rtol=2e-10,
+            atol=1e-14,
+        )
+        assert all(score.curvature_mode == "batched_exact" for score in actual)
+
+    constrained = batched_exact_residual_haar_scores(
+        block,
+        fit,
+        block.active,
+        config,
+        primary_beam=beam,
+        approximation=GaussianApproximation.PARAXIAL,
+        candidate_batch_size=2,
+        row_batch_size=19,
+    )
+    for feasible, unconstrained in zip(constrained, tiled, strict=True):
+        assert feasible.predicted_improvement <= (unconstrained.predicted_improvement + 1e-14)
+        assert feasible.constrained_child_flux is not None
+        assert min(feasible.constrained_child_flux) >= 0
+        assert sum(feasible.constrained_child_flux) == pytest.approx(feasible.parent_flux)
 
 
 def test_active_set_oracle_rejects_splits_of_an_exact_smooth_model() -> None:
@@ -406,9 +564,7 @@ def test_exhaustive_oracle_finds_faint_structure_over_bright_smooth_flux() -> No
     assert lookahead.best is not None
     assert lookahead.best.leaf == faint_structured
     assert all(flux >= 0 for flux in lookahead.best.child_flux)
-    assert lookahead.best.objective_change == pytest.approx(
-        -lookahead.best.predicted_improvement
-    )
+    assert lookahead.best.objective_change == pytest.approx(-lookahead.best.predicted_improvement)
     assert lookahead.best.metrics.topology - lookahead.baseline.topology == pytest.approx(
         3.0 * root_fit.leaf_penalty
     )
@@ -431,13 +587,9 @@ def test_exhaustive_oracle_finds_faint_structure_over_bright_smooth_flux() -> No
     assert lookahead_comparison.spearman_rho >= comparison.spearman_rho
     assert lookahead_comparison.entries[0].lookahead_rank == 1
 
-    proposed_flux = dict(
-        zip(root_fit.topology.leaves, root_fit.flux, strict=True)
-    )
+    proposed_flux = dict(zip(root_fit.topology.leaves, root_fit.flux, strict=True))
     del proposed_flux[faint_structured]
-    proposed_flux.update(
-        zip(lookahead.best.children, lookahead.best.child_flux, strict=True)
-    )
+    proposed_flux.update(zip(lookahead.best.children, lookahead.best.child_flux, strict=True))
     proposed_sky = QuadtreeSky(
         root_fit.topology.grid,
         tuple(proposed_flux),
@@ -480,9 +632,7 @@ def test_exhaustive_oracle_finds_faint_structure_over_bright_smooth_flux() -> No
         rel=0,
         abs=1e-12,
     )
-    assert conserving.evaluations[0].metrics.sparsity == pytest.approx(
-        conserving.baseline.sparsity
-    )
+    assert conserving.evaluations[0].metrics.sparsity == pytest.approx(conserving.baseline.sparsity)
 
     scaled_weight_scores = residual_haar_scores(
         replace(block, weight=7.0 * block.weight),

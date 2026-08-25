@@ -3,11 +3,14 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
+from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.hierarchical_imaging import (
     AdaptiveRefinementConfig,
+    consensus_split_leaves,
     reconstruct_hierarchical,
 )
 from sl1mjax.inference import InferenceConfig
@@ -26,7 +29,36 @@ def test_adaptive_refinement_defaults_to_wide_field_kernel() -> None:
     assert config.allow_approximate_curvature is False
 
 
-def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> None:
+def test_consensus_splits_require_fold_support_and_supported_ancestors() -> None:
+    root_a = QuadtreeLeaf(0, 0, 0)
+    root_b = QuadtreeLeaf(0, 0, 1)
+    root_c = QuadtreeLeaf(0, 1, 1)
+    child_a = root_a.children()[0]
+    orphan = root_c.children()[0]
+
+    consensus = consensus_split_leaves(
+        (
+            (root_a, root_b, root_c, child_a, orphan),
+            (root_a, child_a, orphan),
+            (root_a, root_b),
+        )
+    )
+
+    assert consensus == (root_a, root_b, child_a)
+    with pytest.raises(ValueError, match="at least one fold"):
+        consensus_split_leaves(())
+    with pytest.raises(ValueError, match="between one and the fold count"):
+        consensus_split_leaves(((root_a,),), minimum_support=2)
+
+
+@pytest.mark.parametrize(
+    ("solver", "with_beam"),
+    [("softplus_adam", False), ("fista", True)],
+)
+def test_hierarchical_reconstruction_runs_one_validated_refinement_round(
+    solver: str,
+    with_beam: bool,
+) -> None:
     target = QuadtreeLeaf(0, 0, 1)
     root = quadtree_sky_from_regular_grid(2, 2e-4, [1.0, 0.3, 0.02, 0.01])
     truth = root.split(target, child_flux=[0.24, 0.03, 0.02, 0.01])
@@ -38,6 +70,14 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> No
     antenna1 = rng.integers(0, 5, rows, dtype=np.int32)
     antenna2 = (antenna1 + rng.integers(1, 5, rows, dtype=np.int32)) % 5
     correlations = (Correlation.I,)
+    primary_beam = VLAPrimaryBeam(kind="gaussian") if with_beam else None
+    l, m = truth.topology.centers()
+    beam_i, beam_rr, beam_ll = predict_beam_weights(
+        primary_beam,
+        l,
+        m,
+        frequency_hz,
+    )
     visibility = np.asarray(
         predict_quadtree_stokes_i(
             truth.flux,
@@ -48,6 +88,9 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> No
             antenna2,
             correlations,
             approximation=GaussianApproximation.PARAXIAL,
+            beam_weights=beam_i,
+            beam_weights_rr=beam_rr,
+            beam_weights_ll=beam_ll,
         )
     )
     block = VisibilityBlock(
@@ -66,8 +109,9 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> No
         root_size=2,
         root_pixel_size_rad=2e-4,
         inference=InferenceConfig(
+            solver=solver,  # type: ignore[arg-type]
             steps=180,
-            learning_rate=0.1,
+            learning_rate=0.03 if solver == "fista" else 0.1,
             sparsity_weight=1e-8,
             initial_intensity=0.05,
             patience=220,
@@ -88,7 +132,13 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> No
         approximation=GaussianApproximation.PARAXIAL,
     )
 
-    result = reconstruct_hierarchical(block, config)
+    progress: list[str] = []
+    result = reconstruct_hierarchical(
+        block,
+        config,
+        primary_beam=primary_beam,
+        progress=progress.append,
+    )
 
     assert result.stop_reason == "maximum_rounds"
     assert len(result.rounds) == 1
@@ -102,6 +152,15 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round() -> No
     # merging defaults on, but a genuinely detailed split has nothing to merge yet
     assert result.rounds[0].merge_selection is not None
     assert result.rounds[0].merge_selection.selected == ()
+    assert progress[0].startswith("initial fit:")
+    assert any("approximate Haar screen" in message for message in progress)
+    assert any(message.startswith("split refit 1/") for message in progress)
+    assert progress[-1].startswith("round 1 complete:")
+    if with_beam:
+        assert result.rounds[0].exact_screening_scores
+        assert any("exact beam-aware constrained rescore" in message for message in progress)
+    else:
+        assert result.rounds[0].exact_screening_scores == ()
 
 
 def test_hierarchical_reconstruction_runs_split_and_merge_in_the_same_round_loop() -> None:
@@ -191,14 +250,13 @@ def test_hierarchical_reconstruction_runs_split_and_merge_in_the_same_round_loop
         assert round_record.merge_validation is None
 
 
-def test_hierarchical_reconstruction_accepts_a_merge() -> None:
-    """A single genuine point of detail can still cause the bulk split screen
-    to also flag an unrelated, truly flat leaf (sparse uv coverage makes a
-    coarse quadtree basis prone to this kind of leakage). Splitting that flat
-    leaf is a false positive: it initially clears validation riding along
-    with the genuine split, but once the hysteresis streak completes, the
-    merge path must coarsen it back while leaving the genuinely detailed
-    leaf split."""
+def test_constrained_hierarchy_does_not_split_a_zero_flux_false_positive() -> None:
+    """The positivity constraint rejects a former zero-flux false split.
+
+    The unconstrained screen allowed the empty corner to ride along with the
+    genuine split and relied on a later merge to repair it. A zero-flux parent
+    cannot be redistributed among non-negative, flux-conserving children.
+    """
 
     base_flux = [0.0] * 16
     base_flux[0] = 1.0
@@ -272,18 +330,14 @@ def test_hierarchical_reconstruction_accepts_a_merge() -> None:
 
     assert len(result.rounds) == 3
     first_round = result.rounds[0]
-    assert set(first_round.selection.selected) == {strong_leaf, spurious_leaf}
+    assert first_round.selection.selected == (strong_leaf,)
     assert first_round.validation is not None
     assert first_round.validation.accepted_attempt is not None
 
-    merge_round = result.rounds[2]
-    assert merge_round.merge_selection is not None
-    assert merge_round.merge_selection.selected == (spurious_leaf,)
-    assert merge_round.merge_validation is not None
-    assert merge_round.merge_validation.accepted_attempt is not None
-
     leaves = set(result.inference.topology.leaves)
     assert spurious_leaf in leaves
-    assert all(child not in leaves for child in spurious_leaf.children())
+    assert all(
+        spurious_leaf not in round_record.selection.selected for round_record in result.rounds
+    )
     assert strong_leaf not in leaves
     assert all(child in leaves for child in strong_leaf.children())

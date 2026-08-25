@@ -73,16 +73,21 @@ class ImagingResult:
                 "steps": self.inference.steps,
                 "best_step": self.inference.best_step,
                 "converged": self.inference.converged,
+                "solver": self.inference.solver,
+                "kkt_residual": self.inference.kkt_residual,
                 "elapsed_s": self.elapsed_s,
                 "peak_flux": float(np.max(self.image)),
                 "total_flux": float(np.sum(self.image)),
             },
             "history": {
                 "objective": list(self.inference.objective_history),
+                "objective_steps": list(self.inference.objective_steps),
                 "data": list(self.inference.data_history),
                 "prior": list(self.inference.prior_history),
                 "holdout": list(self.inference.holdout_history),
                 "holdout_steps": list(self.inference.holdout_steps),
+                "stationarity": list(self.inference.stationarity_history),
+                "stationarity_steps": list(self.inference.stationarity_steps),
             },
             "split": {
                 "strategy": (

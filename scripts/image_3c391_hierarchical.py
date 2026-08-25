@@ -95,6 +95,23 @@ def _round_diagnostics(result: HierarchicalImagingResult) -> list[dict[str, Any]
                     else 0.0
                 ),
                 "score_fraction": round_result.selection.covered_fraction,
+                "exact_rescore_count": len(round_result.exact_screening_scores),
+                "exact_scores": [
+                    {
+                        "leaf": [score.leaf.level, score.leaf.iy, score.leaf.ix],
+                        "parent_flux_jy": score.parent_flux,
+                        "gradient": list(score.gradient),
+                        "eigenvalue_ratio": score.eigenvalue_ratio,
+                        "raw_predicted_improvement": score.raw_predicted_improvement,
+                        "predicted_improvement": score.predicted_improvement,
+                        "eligible": score.eligible,
+                        "selected": score.leaf in set(round_result.selection.selected),
+                        "curvature_mode": score.curvature_mode,
+                        "constrained_child_flux_jy": score.constrained_child_flux,
+                        "positivity_active": score.positivity_active,
+                    }
+                    for score in round_result.exact_screening_scores
+                ],
                 "attempts": []
                 if validation is None
                 else [
@@ -237,6 +254,11 @@ def _write_products(
                 "eligible",
                 "selected",
                 "curvature_mode",
+                "child_nw_flux_jy",
+                "child_ne_flux_jy",
+                "child_sw_flux_jy",
+                "child_se_flux_jy",
+                "positivity_active",
             )
         )
         for round_result in result.rounds:
@@ -261,6 +283,62 @@ def _write_products(
                         score.eligible,
                         score.leaf in selected,
                         score.curvature_mode,
+                        *(score.constrained_child_flux or (None, None, None, None)),
+                        score.positivity_active,
+                    )
+                )
+
+    exact_scores_path = output / "hierarchical_exact_scores.csv"
+    with exact_scores_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(
+            (
+                "round",
+                "rank",
+                "level",
+                "iy",
+                "ix",
+                "parent_flux_jy",
+                "gradient_horizontal",
+                "gradient_vertical",
+                "gradient_diagonal",
+                "eigenvalue_ratio",
+                "raw_predicted_improvement",
+                "predicted_improvement",
+                "eligible",
+                "selected",
+                "curvature_mode",
+                "child_nw_flux_jy",
+                "child_ne_flux_jy",
+                "child_sw_flux_jy",
+                "child_se_flux_jy",
+                "positivity_active",
+            )
+        )
+        for round_result in result.rounds:
+            selected = set(round_result.selection.selected)
+            ranked = sorted(
+                round_result.exact_screening_scores,
+                key=lambda score: (-score.predicted_improvement, score.leaf),
+            )
+            for rank, score in enumerate(ranked, start=1):
+                writer.writerow(
+                    (
+                        round_result.index,
+                        rank,
+                        score.leaf.level,
+                        score.leaf.iy,
+                        score.leaf.ix,
+                        score.parent_flux,
+                        *score.gradient,
+                        score.eigenvalue_ratio,
+                        score.raw_predicted_improvement,
+                        score.predicted_improvement,
+                        score.eligible,
+                        score.leaf in selected,
+                        score.curvature_mode,
+                        *(score.constrained_child_flux or (None, None, None, None)),
+                        score.positivity_active,
                     )
                 )
 
@@ -304,6 +382,8 @@ def _write_products(
         "final_optimizer_steps": result.inference.steps,
         "final_optimizer_best_step": result.inference.best_step,
         "final_optimizer_converged": result.inference.converged,
+        "final_optimizer_solver": result.inference.solver,
+        "final_optimizer_kkt_residual": result.inference.kkt_residual,
         "configuration": {
             "root_size": config.root_size,
             "root_pixel_arcsec": np.rad2deg(config.root_pixel_size_rad) * 3600,
@@ -311,6 +391,11 @@ def _write_products(
             "patience": config.inference.patience,
             "initial_intensity": config.inference.initial_intensity,
             "learning_rate": config.inference.learning_rate,
+            "solver": config.inference.solver,
+            "batch_size_rows": config.inference.batch_size_rows,
+            "random_seed": config.inference.random_seed,
+            "hybrid_sgd_fraction": config.inference.hybrid_sgd_fraction,
+            "kkt_tolerance": config.inference.kkt_tolerance,
             "sparsity_weight": config.inference.sparsity_weight,
             "leaf_penalty": config.leaf_penalty,
             "holdout_fraction": config.holdout_fraction,
@@ -329,6 +414,8 @@ def _write_products(
             "merge_target_improvement_fraction": (config.merge_target_improvement_fraction),
             "merge_required_streak": config.merge_required_streak,
             "merge_cooldown_rounds": config.merge_cooldown_rounds,
+            "score_candidate_batch_size": config.score_candidate_batch_size,
+            "score_row_batch_size": config.score_row_batch_size,
         },
         "rounds": _round_diagnostics(result),
     }
@@ -350,10 +437,21 @@ def main() -> int:
         "--steps",
         type=int,
         default=1000,
-        help="Maximum steps per fixed-topology solve; early stopping normally ends sooner.",
+        help="Maximum updates per fixed-topology solve. Physical solvers stop on "
+        "KKT stationarity; softplus Adam uses patience.",
     )
     parser.add_argument("--patience", type=int, default=100)
     parser.add_argument("--learning-rate", type=float, default=0.03)
+    parser.add_argument(
+        "--solver",
+        choices=("softplus_adam", "fista", "proximal_sgd", "hybrid"),
+        default="softplus_adam",
+    )
+    parser.add_argument("--batch-size-rows", type=int, default=1024)
+    parser.add_argument("--random-seed", type=int, default=0)
+    parser.add_argument("--hybrid-sgd-fraction", type=float, default=0.5)
+    parser.add_argument("--kkt-tolerance", type=float, default=1e-5)
+    parser.add_argument("--validation-interval", type=int, default=10)
     parser.add_argument("--initial-intensity", type=float, default=1e-3)
     parser.add_argument("--sparsity-weight", type=float, default=1e-4)
     parser.add_argument("--leaf-penalty", type=float, default=1e-7)
@@ -367,6 +465,8 @@ def main() -> int:
     parser.add_argument("--max-split-fraction", type=float, default=0.05)
     parser.add_argument("--max-splits-per-round", type=int)
     parser.add_argument("--max-refits-per-round", type=int, default=4)
+    parser.add_argument("--score-candidate-batch-size", type=int, default=32)
+    parser.add_argument("--score-row-batch-size", type=int, default=1024)
     parser.add_argument("--minimum-holdout-relative-improvement", type=float, default=0.0)
     parser.add_argument("--minimum-parent-flux", type=float, default=0.0)
     parser.add_argument(
@@ -422,7 +522,12 @@ def main() -> int:
             sparsity_weight=arguments.sparsity_weight,
             initial_intensity=arguments.initial_intensity,
             patience=arguments.patience,
-            validation_interval=10,
+            validation_interval=arguments.validation_interval,
+            solver=arguments.solver,
+            batch_size_rows=arguments.batch_size_rows,
+            random_seed=arguments.random_seed,
+            hybrid_sgd_fraction=arguments.hybrid_sgd_fraction,
+            kkt_tolerance=arguments.kkt_tolerance,
             operator_mode="explicit",
             direct_dft=direct,
         ),
@@ -439,6 +544,8 @@ def main() -> int:
         min_parent_flux=arguments.minimum_parent_flux,
         minimum_holdout_relative_improvement=(arguments.minimum_holdout_relative_improvement),
         max_refits_per_round=arguments.max_refits_per_round,
+        score_candidate_batch_size=arguments.score_candidate_batch_size,
+        score_row_batch_size=arguments.score_row_batch_size,
         approximation=approximation,
         allow_approximate_curvature=arguments.allow_approximate_curvature,
         enable_merging=not arguments.disable_merging,
@@ -456,6 +563,7 @@ def main() -> int:
         block,
         config,
         primary_beam=primary_beam,
+        progress=lambda message: print(message, flush=True),
     )
     _write_products(
         arguments.output,

@@ -6,7 +6,11 @@ import argparse
 import json
 from pathlib import Path
 
-from image_3c391_target import _extract_target, _solve_calibration
+from image_3c391_target import (
+    _extract_corrected_target,
+    _extract_target,
+    _solve_calibration,
+)
 
 from sl1mjax.calibration_inference import CalibrationSolveConfig
 from sl1mjax.data.canonical import VisibilityDataset, write_dataset
@@ -30,44 +34,60 @@ def main() -> int:
     parser.add_argument("--time-bin-s", type=float, default=60.0)
     parser.add_argument("--chunk-rows", type=int, default=2048)
     parser.add_argument("--calibration-iterations", type=int, default=300)
+    parser.add_argument(
+        "--casa-only",
+        action="store_true",
+        help="Export only CORRECTED_DATA; this does not require the saved input flags.",
+    )
     arguments = parser.parse_args()
 
-    solve_config = CalibrationSolveConfig(
-        iterations=arguments.calibration_iterations,
-        learning_rate=0.03,
-        seed=11,
-    )
-    solution, calibration_metrics = _solve_calibration(
-        arguments.golden, solve_config
-    )
-    casa, jax_calibrated = _extract_target(
-        arguments.measurement_set,
-        solution,
-        field_id=arguments.field_id,
-        frequency_bins=arguments.frequency_bins,
-        time_bin_s=arguments.time_bin_s,
-        chunk_rows=arguments.chunk_rows,
-    )
+    if arguments.casa_only:
+        casa = _extract_corrected_target(
+            arguments.measurement_set,
+            field_id=arguments.field_id,
+            frequency_bins=arguments.frequency_bins,
+            time_bin_s=arguments.time_bin_s,
+            chunk_rows=arguments.chunk_rows,
+        )
+        blocks = (casa,)
+        case_order = ["casa_corrected"]
+        calibration_metrics = None
+    else:
+        solve_config = CalibrationSolveConfig(
+            iterations=arguments.calibration_iterations,
+            learning_rate=0.03,
+            seed=11,
+        )
+        solution, calibration_metrics = _solve_calibration(
+            arguments.golden, solve_config
+        )
+        casa, jax_calibrated = _extract_target(
+            arguments.measurement_set,
+            solution,
+            field_id=arguments.field_id,
+            frequency_bins=arguments.frequency_bins,
+            time_bin_s=arguments.time_bin_s,
+            chunk_rows=arguments.chunk_rows,
+        )
+        blocks = (casa, jax_calibrated)
+        case_order = ["casa_corrected", "jax_calibrated"]
     provenance = {
-        "fixture": "3C391 C1 averaged imaging comparison",
+        "fixture": "3C391 averaged imaging fixture",
         "measurement_set": arguments.measurement_set.name,
-        "case_order": ["casa_corrected", "jax_calibrated"],
+        "case_order": case_order,
         "field_id": arguments.field_id,
         "frequency_bins": arguments.frequency_bins,
         "time_bin_s": arguments.time_bin_s,
         "calibration": calibration_metrics,
     }
     write_dataset(
-        VisibilityDataset((casa, jax_calibrated), provenance=provenance),
+        VisibilityDataset(blocks, provenance=provenance),
         arguments.output,
     )
     summary = {
         "output": str(arguments.output),
-        "block_shapes": [list(casa.shape), list(jax_calibrated.shape)],
-        "active_samples": [
-            int(casa.active.sum()),
-            int(jax_calibrated.active.sum()),
-        ],
+        "block_shapes": [list(block.shape) for block in blocks],
+        "active_samples": [int(block.active.sum()) for block in blocks],
         "provenance": provenance,
     }
     print(json.dumps(summary, indent=2, sort_keys=True))

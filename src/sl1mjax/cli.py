@@ -72,6 +72,15 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument("--pixel-arcsec", type=float, default=5.0)
     image.add_argument("--steps", type=int, default=500)
     image.add_argument("--learning-rate", type=float, default=0.05)
+    image.add_argument(
+        "--solver",
+        choices=("softplus_adam", "fista", "proximal_sgd", "hybrid"),
+        default="softplus_adam",
+    )
+    image.add_argument("--batch-size-rows", type=int, default=1024)
+    image.add_argument("--random-seed", type=int, default=0)
+    image.add_argument("--hybrid-sgd-fraction", type=float, default=0.5)
+    image.add_argument("--kkt-tolerance", type=float, default=1e-5)
     image.add_argument("--sparsity-weight", type=float, default=1e-4)
     image.add_argument("--smoothness-weight", type=float, default=0.0)
     image.add_argument("--chunk-size", type=int, default=4096)
@@ -154,6 +163,11 @@ def main(argv: list[str] | None = None) -> int:
             chunk_size=arguments.chunk_size,
             patience=arguments.patience,
             validation_interval=arguments.validation_interval,
+            solver=arguments.solver,
+            batch_size_rows=arguments.batch_size_rows,
+            random_seed=arguments.random_seed,
+            hybrid_sgd_fraction=arguments.hybrid_sgd_fraction,
+            kkt_tolerance=arguments.kkt_tolerance,
             operator_mode=arguments.operator_mode,
             direct_dft=DirectDFTConfig(
                 visibility_chunk_size=arguments.visibility_tile_size,

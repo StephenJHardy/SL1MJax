@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -11,6 +12,7 @@ import numpy as np
 
 from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.direct_operator import predict_stokes_i_explicit
 from sl1mjax.inference import (
     InferenceConfig,
     QuadtreeInferenceResult,
@@ -24,7 +26,7 @@ from sl1mjax.quadtree import (
     predict_quadtree_stokes_i,
     predict_quadtree_stokes_i_explicit,
 )
-from sl1mjax.sky import GaussianApproximation, raw_from_intensity
+from sl1mjax.sky import GaussianApproximation, SquarePixelBasis, raw_from_intensity
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,8 @@ class ResidualHaarScore:
     predicted_improvement: float
     eligible: bool
     curvature_mode: str = "exact"
+    constrained_child_flux: tuple[float, float, float, float] | None = None
+    positivity_active: bool = False
 
 
 @dataclass(frozen=True)
@@ -417,6 +421,7 @@ def _build_residual_haar_score(
     min_eigenvalue_ratio: float,
     ridge_relative: float,
     curvature_mode: str = "exact",
+    constrain_child_flux: bool = False,
 ) -> ResidualHaarScore:
     gram = 0.5 * (gram + gram.T)
     eigenvalues = np.linalg.eigvalsh(gram)
@@ -427,6 +432,33 @@ def _build_residual_haar_score(
         0.0,
         float(0.5 * gradient @ np.linalg.solve(regularized_gram, gradient)),
     )
+    constrained_child_flux: tuple[float, float, float, float] | None = None
+    positivity_active = False
+    feasible_improvement = raw_improvement
+    if constrain_child_flux:
+        # The Haar columns are orthogonal and have zero sum.  If ``x`` is the
+        # four-child flux vector, alpha = H.T @ x / 4 and
+        # x = parent_flux / 4 + H @ alpha.  Solving in child-flux coordinates
+        # lets the existing small active-set solver enforce both positivity
+        # and exact conservation of the fitted parent flux.
+        child_hessian = (_HAAR_CHILD_DETAILS @ regularized_gram @ _HAAR_CHILD_DETAILS.T) / 16.0
+        child_linear = (_HAAR_CHILD_DETAILS @ gradient) / 4.0
+        child_flux = _solve_nonnegative_quadratic(
+            child_hessian,
+            child_linear,
+            total=parent_flux,
+        )
+        detail = (_HAAR_CHILD_DETAILS.T @ child_flux) / 4.0
+        objective_change = float(gradient @ detail + 0.5 * detail @ regularized_gram @ detail)
+        feasible_improvement = max(0.0, -objective_change)
+        constrained_child_flux = (
+            float(child_flux[0]),
+            float(child_flux[1]),
+            float(child_flux[2]),
+            float(child_flux[3]),
+        )
+        tolerance = 1e-10 * max(1.0, parent_flux)
+        positivity_active = bool(np.any(child_flux <= tolerance))
     maximum_eigenvalue = max(float(eigenvalues[-1]), 0.0)
     eigenvalue_ratio = (
         max(float(eigenvalues[0]), 0.0) / maximum_eigenvalue if maximum_eigenvalue > 0 else 0.0
@@ -449,9 +481,11 @@ def _build_residual_haar_score(
         eigenvalue_ratio=eigenvalue_ratio,
         ridge=ridge,
         raw_predicted_improvement=raw_improvement,
-        predicted_improvement=raw_improvement if eligible else 0.0,
+        predicted_improvement=feasible_improvement if eligible else 0.0,
         eligible=eligible,
         curvature_mode=curvature_mode,
+        constrained_child_flux=constrained_child_flux,
+        positivity_active=positivity_active,
     )
 
 
@@ -588,6 +622,7 @@ def residual_haar_scores(
     min_curvature: float = 0.0,
     min_eigenvalue_ratio: float = 1e-8,
     ridge_relative: float = 1e-8,
+    constrain_child_flux: bool = False,
 ) -> tuple[ResidualHaarScore, ...]:
     """Estimate improvement from each leaf's three child-detail directions.
 
@@ -650,6 +685,7 @@ def residual_haar_scores(
                 min_curvature=min_curvature,
                 min_eigenvalue_ratio=min_eigenvalue_ratio,
                 ridge_relative=ridge_relative,
+                constrain_child_flux=constrain_child_flux,
             )
         )
     return tuple(scores)
@@ -671,6 +707,7 @@ def batched_residual_haar_scores(
     min_eigenvalue_ratio: float = 1e-8,
     ridge_relative: float = 1e-8,
     allow_approximate_curvature: bool = False,
+    constrain_child_flux: bool = False,
 ) -> tuple[ResidualHaarScore, ...]:
     """Screen all candidates with one streamed residual adjoint per level.
 
@@ -779,10 +816,22 @@ def batched_residual_haar_scores(
             ),
             dtype=np.float64,
         )
+        reference_lm = (0.0, 0.0) if primary_beam is None else primary_beam.pointing_lm
+        representative_leaf = min(
+            level_leaves,
+            key=lambda leaf: sum(
+                (coordinate - reference) ** 2
+                for coordinate, reference in zip(
+                    current_fit.topology.grid.leaf_center_rad(leaf),
+                    reference_lm,
+                    strict=True,
+                )
+            ),
+        )
         representative_responses = _child_detail_responses(
             block,
             current_fit.topology,
-            level_leaves[0],
+            representative_leaf,
             config,
             fixed_gains=fixed_gains,
             primary_beam=primary_beam,
@@ -809,6 +858,225 @@ def batched_residual_haar_scores(
                 min_eigenvalue_ratio=min_eigenvalue_ratio,
                 ridge_relative=ridge_relative,
                 curvature_mode=curvature_mode,
+                constrain_child_flux=constrain_child_flux,
+            )
+    return tuple(score_by_leaf[leaf] for leaf in selected)
+
+
+def batched_exact_residual_haar_scores(
+    block: VisibilityBlock,
+    current_fit: QuadtreeInferenceResult,
+    train_mask: np.ndarray,
+    config: InferenceConfig,
+    *,
+    candidates: tuple[QuadtreeLeaf, ...] | None = None,
+    max_depth: int | None = None,
+    fixed_gains: np.ndarray | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    min_parent_flux: float = 0.0,
+    min_curvature: float = 0.0,
+    min_eigenvalue_ratio: float = 1e-8,
+    ridge_relative: float = 1e-8,
+    candidate_batch_size: int = 32,
+    row_batch_size: int = 1024,
+    constrain_child_flux: bool = True,
+    progress: Callable[[str], None] | None = None,
+) -> tuple[ResidualHaarScore, ...]:
+    """Calculate exact per-parent Haar scores in candidate and row tiles.
+
+    Unlike :func:`batched_residual_haar_scores`, this function evaluates the
+    local 3x3 Gram matrix at every parent.  Candidate tiling bounds the number
+    of simultaneous detail responses, while row tiling bounds visibility
+    memory.  With ``constrain_child_flux=True``, the local quadratic is solved
+    subject to four non-negative children whose flux sums to the fitted parent
+    flux.  The unconstrained quadratic improvement remains available as
+    ``raw_predicted_improvement``.
+    """
+
+    if config.operator_mode != "explicit":
+        raise ValueError("batched exact Haar scoring requires operator_mode='explicit'")
+    if train_mask.shape != block.shape:
+        raise ValueError("train_mask must match the visibility block")
+    if current_fit.prediction.shape != block.shape or current_fit.residual.shape != block.shape:
+        raise ValueError("current_fit predictions must match the visibility block")
+    if candidate_batch_size < 1 or row_batch_size < 1:
+        raise ValueError("candidate_batch_size and row_batch_size must be positive")
+    _validate_haar_parameters(
+        min_parent_flux,
+        min_curvature,
+        min_eigenvalue_ratio,
+        ridge_relative,
+    )
+
+    approximation = GaussianApproximation(approximation)
+    selected = _candidate_leaves(current_fit.topology, candidates, max_depth)
+    if not selected:
+        return ()
+    flux_array = _aligned_flux(current_fit.topology, current_fit.flux)
+    flux_by_leaf = dict(zip(current_fit.topology.leaves, flux_array, strict=True))
+    active_weight = np.asarray(
+        effective_weight(block.visibility, block.weight, ~train_mask),
+        dtype=np.float64,
+    )
+    weight_sum = float(np.sum(active_weight))
+    if weight_sum <= 0:
+        raise ValueError("train_mask must contain positive-weight finite samples")
+    residual = np.where(active_weight > 0, np.asarray(current_fit.residual), 0.0)
+    if not np.all(np.isfinite(residual)):
+        raise ValueError("active current_fit residual samples must be finite")
+
+    selected_by_level: dict[int, list[QuadtreeLeaf]] = {}
+    for leaf in selected:
+        selected_by_level.setdefault(leaf.level, []).append(leaf)
+    batches = tuple(
+        (level, tuple(level_leaves[start : start + candidate_batch_size]))
+        for level, level_leaves in sorted(selected_by_level.items())
+        for start in range(0, len(level_leaves), candidate_batch_size)
+    )
+    score_by_leaf: dict[QuadtreeLeaf, ResidualHaarScore] = {}
+    for batch_index, (parent_level, candidate_batch) in enumerate(batches, start=1):
+        child_coordinates = [
+            [current_fit.topology.grid.leaf_center_rad(child) for child in leaf.haar_children()]
+            for leaf in candidate_batch
+        ]
+        child_l = np.asarray(
+            [[coordinate[0] for coordinate in coordinates] for coordinates in child_coordinates]
+        )
+        child_m = np.asarray(
+            [[coordinate[1] for coordinate in coordinates] for coordinates in child_coordinates]
+        )
+        beam_i, beam_rr, beam_ll = predict_beam_weights(
+            primary_beam,
+            child_l.ravel(),
+            child_m.ravel(),
+            block.frequency_hz,
+        )
+        beam_shape = (len(candidate_batch), 4, block.shape[1])
+        beam_mode = 0 if primary_beam is None else (2 if primary_beam.apply_squint else 1)
+        dummy_beam = np.ones(beam_shape, dtype=np.float64)
+        beam_i_batch = dummy_beam if beam_i is None else beam_i.reshape(beam_shape)
+        beam_rr_batch = dummy_beam if beam_rr is None else beam_rr.reshape(beam_shape)
+        beam_ll_batch = dummy_beam if beam_ll is None else beam_ll.reshape(beam_shape)
+        child_l_jax = jnp.asarray(child_l, dtype=config.direct_dft.real_dtype)
+        child_m_jax = jnp.asarray(child_m, dtype=config.direct_dft.real_dtype)
+        beam_i_jax = jnp.asarray(beam_i_batch, dtype=config.direct_dft.real_dtype)
+        beam_rr_jax = jnp.asarray(beam_rr_batch, dtype=config.direct_dft.real_dtype)
+        beam_ll_jax = jnp.asarray(beam_ll_batch, dtype=config.direct_dft.real_dtype)
+
+        def predict_models(
+            uvw_m: jax.Array,
+            antenna1: jax.Array,
+            antenna2: jax.Array,
+            batch_l: jax.Array = child_l_jax,
+            batch_m: jax.Array = child_m_jax,
+            batch_beam_i: jax.Array = beam_i_jax,
+            batch_beam_rr: jax.Array = beam_rr_jax,
+            batch_beam_ll: jax.Array = beam_ll_jax,
+            selected_beam_mode: int = beam_mode,
+            child_width_rad: float = current_fit.topology.grid.leaf_width_rad(parent_level + 1),
+        ) -> jax.Array:
+            def predict_candidate(
+                candidate_l: jax.Array,
+                candidate_m: jax.Array,
+                candidate_beam_i: jax.Array,
+                candidate_beam_rr: jax.Array,
+                candidate_beam_ll: jax.Array,
+            ) -> jax.Array:
+                def predict_detail(model_flux: jax.Array) -> jax.Array:
+                    return predict_stokes_i_explicit(
+                        model_flux,
+                        candidate_l,
+                        candidate_m,
+                        uvw_m,
+                        block.frequency_hz,
+                        antenna1,
+                        antenna2,
+                        block.correlations,
+                        fixed_gains=fixed_gains,
+                        pixel_basis=SquarePixelBasis(1.0, approximation),
+                        pixel_size_rad=child_width_rad,
+                        config=config.direct_dft,
+                        beam_weights=(candidate_beam_i if selected_beam_mode == 1 else None),
+                        beam_weights_rr=(candidate_beam_rr if selected_beam_mode == 2 else None),
+                        beam_weights_ll=(candidate_beam_ll if selected_beam_mode == 2 else None),
+                    )
+
+                models = jnp.asarray(
+                    _HAAR_CHILD_DETAILS.T,
+                    dtype=config.direct_dft.real_dtype,
+                )
+                return jax.vmap(predict_detail)(models)
+
+            return jax.vmap(predict_candidate)(
+                batch_l,
+                batch_m,
+                batch_beam_i,
+                batch_beam_rr,
+                batch_beam_ll,
+            )
+
+        predict_models_jit = jax.jit(predict_models)
+        gradient = np.zeros((len(candidate_batch), 3), dtype=np.float64)
+        gram = np.zeros((len(candidate_batch), 3, 3), dtype=np.float64)
+        for row_start in range(0, block.shape[0], row_batch_size):
+            row_stop = min(row_start + row_batch_size, block.shape[0])
+            response_models = np.asarray(
+                predict_models_jit(
+                    block.uvw_m[row_start:row_stop],
+                    block.antenna1[row_start:row_stop],
+                    block.antenna2[row_start:row_stop],
+                )
+            )
+            responses = response_models.transpose(2, 3, 4, 0, 1).reshape(
+                -1,
+                len(candidate_batch),
+                3,
+            )
+            weights = active_weight[row_start:row_stop].reshape(-1)
+            residual_batch = residual[row_start:row_stop].reshape(-1)
+            gradient += np.real(
+                np.einsum(
+                    "scd,s,s->cd",
+                    np.conj(responses),
+                    weights,
+                    residual_batch,
+                    optimize=True,
+                )
+            )
+            gram += np.real(
+                np.einsum(
+                    "scd,s,sce->cde",
+                    np.conj(responses),
+                    weights,
+                    responses,
+                    optimize=True,
+                )
+            )
+        gradient *= 2.0 / weight_sum
+        gram *= 2.0 / weight_sum
+        score_by_leaf.update(
+            (
+                leaf,
+                _build_residual_haar_score(
+                    leaf,
+                    float(flux_by_leaf[leaf]),
+                    gradient[index],
+                    gram[index],
+                    min_parent_flux=min_parent_flux,
+                    min_curvature=min_curvature,
+                    min_eigenvalue_ratio=min_eigenvalue_ratio,
+                    ridge_relative=ridge_relative,
+                    curvature_mode="batched_exact",
+                    constrain_child_flux=constrain_child_flux,
+                ),
+            )
+            for index, leaf in enumerate(candidate_batch)
+        )
+        if progress is not None:
+            progress(
+                f"exact Haar batch {batch_index}/{len(batches)}: "
+                f"{sum(len(batch) for _, batch in batches[:batch_index])}/{len(selected)} parents"
             )
     return tuple(score_by_leaf[leaf] for leaf in selected)
 
@@ -911,6 +1179,7 @@ def refine_quadtree_batch(
     minimum_training_relative_improvement: float = 0.0,
     minimum_holdout_relative_improvement: float = 0.0,
     max_refits: int = 4,
+    progress: Callable[[str], None] | None = None,
 ) -> RefinementBatchResult:
     """Warm-refit and validate a ranked split batch, halving it on rejection.
 
@@ -960,6 +1229,11 @@ def refine_quadtree_batch(
     while len(attempts) < max_refits:
         attempt_leaves = selected[:batch_size]
         initial_sky = _split_batch_initial_sky(current_fit, attempt_leaves)
+        if progress is not None:
+            progress(
+                f"split refit {len(attempts) + 1}/{max_refits}: "
+                f"{len(attempt_leaves)} parents, {len(initial_sky.leaves)} leaves"
+            )
         fit = infer_quadtree(
             block,
             initial_sky.topology,
@@ -995,6 +1269,14 @@ def refine_quadtree_batch(
             and training_improvement > minimum_training_relative_improvement
             and holdout_improvement > minimum_holdout_relative_improvement
         )
+        if progress is not None:
+            progress(
+                f"split refit {len(attempts) + 1}: steps={fit.steps}, "
+                f"KKT={fit.kkt_residual:.3g}, "
+                f"training improvement={training_improvement:.6g}, "
+                f"holdout improvement={holdout_improvement:.6g}, "
+                f"accepted={accepted}"
+            )
         attempts.append(
             RefinementAttempt(
                 selected=attempt_leaves,
@@ -2011,6 +2293,7 @@ def merge_quadtree_batch(
     minimum_training_relative_improvement: float = 0.0,
     minimum_holdout_relative_improvement: float = 0.0,
     max_refits: int = 4,
+    progress: Callable[[str], None] | None = None,
 ) -> RefinementBatchResult:
     """Warm-refit and validate a ranked merge batch, halving it on rejection.
 
@@ -2066,6 +2349,11 @@ def merge_quadtree_batch(
     while len(attempts) < max_refits:
         attempt_leaves = selected[:batch_size]
         initial_sky = _merge_batch_initial_sky(current_fit, attempt_leaves)
+        if progress is not None:
+            progress(
+                f"merge refit {len(attempts) + 1}/{max_refits}: "
+                f"{len(attempt_leaves)} parents, {len(initial_sky.leaves)} leaves"
+            )
         fit = infer_quadtree(
             block,
             initial_sky.topology,
@@ -2101,6 +2389,14 @@ def merge_quadtree_batch(
             and training_improvement > minimum_training_relative_improvement
             and holdout_improvement > minimum_holdout_relative_improvement
         )
+        if progress is not None:
+            progress(
+                f"merge refit {len(attempts) + 1}: steps={fit.steps}, "
+                f"KKT={fit.kkt_residual:.3g}, "
+                f"training improvement={training_improvement:.6g}, "
+                f"holdout improvement={holdout_improvement:.6g}, "
+                f"accepted={accepted}"
+            )
         attempts.append(
             RefinementAttempt(
                 selected=attempt_leaves,

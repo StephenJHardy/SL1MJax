@@ -48,8 +48,17 @@ four-sibling group, a persistent per-group state requires two consecutive
 favorable rounds plus a post-split cooldown before a candidate is eligible,
 and warm-refit batch acceptance mirrors the split path's backtracking. The
 end-to-end driver runs split and merge within the same round against
-independent growth and shrinkage budgets. Repeated-seed validation remains
-to be implemented.
+independent growth and shrinkage budgets. Repeated-seed strict-majority
+topology selection and a sealed whole-scan outer test are now implemented.
+C1 and the independently exported C2 pointing both improve on their
+unrefined outer-test baselines. A seven-pointing joint fit also shares one sky
+through pointing-specific Fourier frames and Airy beams. Joint mosaic
+residual/Haar screening, exact per-parent beam-aware rescoring, warm global
+refits, inner-fold voting, and sealed whole-scan evaluation are now
+implemented. The first 104² production run completed with 240 consensus
+splits. It reduced sealed seven-pointing residual power by 40.1%, improved
+every pointing separately, and assigned no flux to the boundary or to regions
+where all beam powers are below 0.1.
 
 A six-case benchmark compares every policy on the same candidates. Haar
 selects the oracle leaf in all four structured cases. The local solve has
@@ -65,12 +74,13 @@ separate scaling programme.
 ## What exists now
 
 SL1MJax fits both a positive regular Stokes-I grid and the positive leaf fluxes
-of a fixed quadtree topology. The physical flux is obtained with a softplus
-transform. The data term is a weighted mean squared complex residual, and the
-sparsity term is the sum of positive integrated pixel fluxes. The exact direct
-DFT streams both the forward operation and its adjoint without storing the full
-visibility-by-pixel matrix. Quadtree topology changes remain outside the jitted
-optimizer, so each fit has fixed array shapes.
+of a fixed quadtree topology. Physical-flux FISTA, proximal SGD, and a hybrid
+apply the positive-L1 proximal map directly; softplus Adam remains as a
+regression control. The data term is a weighted mean squared complex residual,
+and the sparsity term is the sum of positive integrated pixel fluxes. The exact
+direct DFT streams both the forward operation and its adjoint without storing
+the full visibility-by-pixel matrix. Quadtree topology changes remain outside
+the jitted optimizer, so each fit has fixed array shapes.
 
 Several details make an adaptive hierarchy practical:
 
@@ -609,13 +619,128 @@ the reciprocal image field, and softplus Adam returns strongly path-dependent,
 non-stationary fits. On the same 1,024 rows, increasing the UV partition from
 8×8 to 64×64 moves the peak from the corner to the remnant and reduces holdout
 loss from `0.3487` to `0.0141`. A full 20,542-row control similarly reduces
-holdout loss from `0.369` to `0.0167` and suppresses the corner. Hierarchical
-refinement remains paused until the validation split is field-aware and the
-fixed-topology solver has a physical-flux stationarity check.
+holdout loss from `0.369` to `0.0167` and suppresses the corner.
 
-The implementation checkpoint passes Ruff, strict mypy, and 214 tests; one
-real-VLA release test remains opt-in. The focused CUDA run also passes all 32
-quadtree and refinement tests on an RTX 3080 Ti.
+The fixed-topology solver issue is now addressed. The inference layer has
+physical-flux FISTA, proximal SGD, and an SGD-to-FISTA hybrid. They apply the
+positive-L1 proximal map directly, create exact zeros, and report a projected
+physical KKT residual. On all 20,542 rows with the 64×64 holdout, the legacy
+300-step Adam fit has training objective `0.00824` and holdout `0.01671`.
+The corresponding physical solutions are:
+
+| solver | time | training objective | holdout | KKT residual |
+|---|---:|---:|---:|---:|
+| FISTA, 300 steps | 70.8 s | 0.003680 | 0.004361 | `1.59×10⁻⁵` |
+| proximal SGD, 5,000×1,024 rows | 39.4 s | 0.003686 | 0.004181 | `2.86×10⁻³` |
+| hybrid, 1,500 batches + 150 FISTA | 50.0 s | 0.003681 | 0.004255 | `3.19×10⁻⁵` |
+
+FISTA from exactly zero and from `10⁻³ Jy/pixel` reaches the same 1,024-row
+fit-all objective and 9.48 Jy total flux. This removes the initialization-mass
+failure that contaminated the earlier split rankings. SGD is a useful fast
+approach for large visibility sets, while FISTA supplies a deterministic finish
+and stationarity certificate.
+
+An Airy-beam repeated-fold sweep now selects `λ=3×10⁻⁴`. Mean predictive
+holdout is lowest at about 50 FISTA steps, but that iterate has KKT residual
+about `3×10⁻⁴`. A stationary topology comparison must not use that early stop:
+otherwise a warm-started child receives extra continuation work and can claim
+a false split gain. The first real split round therefore used a 500-step
+ceiling and stopped at KKT `2.57×10⁻⁵` after 200 steps.
+
+That 128² 4″-root experiment proposed two right-boundary splits. Global refits
+worsened holdout by 0.19–0.20%, so validation rejected both and retained all
+16,384 roots. The complete screen predicted only `6.3×10⁻⁷` available training
+improvement, about 0.008% of the penalized baseline objective. This is a useful
+negative result: splitting 4″ roots asks these data for unsupported 2″ detail.
+The next proposed real-data gate is a 64² grid of 8″ roots over the same field,
+with one validated split round to 4″. If that succeeds, repeat it on several
+UV folds, compare topology stability, and refit the accepted topology on all
+data. Mosaic-aware pointing beams and a field-derived UV-cell scale remain
+required before combining the seven fields.
+
+The 64² 8″ trial has now also been run on the first fold. Its 4,096-leaf
+baseline converged to KKT `2.75×10⁻⁵` and improved holdout slightly to
+0.003975. Approximate Haar screening marked 12 parents, but exact Airy-beam
+rescoring retained only one right-boundary parent. Its global refit improved
+training by 0.0091% and worsened holdout by 0.0515%, so validation correctly
+rejected it.
+
+That negative result was not a clean test of all interior detail because the
+run retained the provisional `10⁻⁷` per-leaf topology penalty. Every split
+paid `3×10⁻⁷`; exact rescoring eliminated 11 of 12 shortlisted parents after
+this charge. Exact shortlist scores are now persisted, and a zero-penalty run
+has been completed with held-out improvement as the only acceptance gate.
+
+The zero-penalty exact screen found 205 positive candidates and selected 61 to
+cover 70% of their predicted improvement. The selected set contains 31
+boundary and 30 interior parents, but the boundary contributes 65.4% of its
+score and occupies the first ten ranks. A 61-parent refit improved training by
+0.111% but worsened holdout by 0.031%. Prefix backtracking to 30, 15, and 7
+parents also worsened holdout, so the topology remained at 4,096 leaves.
+
+The result exposed a score constraint rather than a reason to prohibit edge
+splits. For a local beam factor `B`, the Haar gradient scales as `B` and
+its Gram matrix as `B²`. These factors cancel in the unconstrained Newton
+score, which can demand an arbitrarily large intrinsic contrast in a weakly
+measured parent. The score is now a positivity-constrained, flux-conserving
+three-variable quadratic. The four inferred child fluxes must be non-negative
+and sum to the fitted parent. This makes the score sensitivity-dependent once
+the finite parent-flux bound becomes active, approximately recovering the
+expected `IB` capacity without multiplying the score by an ad hoc beam
+factor.
+
+Exact gradients and 3×3 curvature matrices are now accumulated in candidate
+and visibility tiles. The first screen remains a cheap streamed adjoint, then
+the marked shortlist receives the exact constrained score. Scalar equivalence,
+tile-size invariance, positivity, and the low-beam limit have regression tests.
+The per-level approximate curvature representative is the active parent nearest
+the pointing centre rather than the first corner, which may have exactly zero
+response on a large field.
+
+A 64² grid of 16″ roots now tests a 17.1′ field with only 4,096 initial
+parameters. Four wide-field Airy-beam rounds accepted 15, 67, 98, and 108
+splits, all away from the boundary. Holdout fell from 0.008780 to 0.004992,
+0.003912, 0.003853, and 0.003815. A fifth round was rejected after all four
+backtracked prefixes worsened holdout. Validation selected 4,960 leaves:
+3,823 at 16″, 1,077 at 8″, and 60 at 4″. This is 30.3% of a uniform 128²
+8″ grid over the same field, and is 4.0% better than the narrow uniform
+8″ grid's 0.003975 holdout.
+
+The model fits 0.451 Jy intrinsic (0.121 Jy after mean beam attenuation)
+outside the old square, but only 1.6 mJy where the beam is below 0.1. No flux
+is assigned where the configured beam is exactly zero. The full run took
+311 s on the RTX 3080 Ti, including the four rejected global refits that
+selected the stopping round. Cross-fold topology stability is now the next
+real-data gate.
+
+Seeds 29 and 43 have now passed that gate. They stopped after six and five
+accepted rounds at 5,548 and 5,272 leaves. Their relative holdout reductions
+are 45.7% and 55.9%, compared with 56.6% for seed 17. No accepted split from
+any fold touches the image boundary.
+
+The first 16″→8″ round is highly reproducible: 14 parents occur in all three
+folds and 17 occur in at least two, from a 19-parent union. Over the complete
+validated paths, 310 root parents occur in at least two folds and 154 in all
+three. The majority set covers 67–85% of each fold's selected root parents.
+Fine 8″→4″ topology is less certain: 16 level-1 parents have majority support
+and only three occur in all folds. The next step is therefore an all-data
+refit of the majority topology: split the 310 supported roots and the 16
+supported level-1 leaves, then fit its 5,074 leaves on every active visibility.
+This separates topology selection from final parameter estimation and avoids
+adopting any one fold's idiosyncratic stopping depth.
+
+The all-data consensus refit is complete. Its 5,074 leaves comprise 3,786 at
+16″, 1,224 at 8″, and 64 at 4″. FISTA converged after 200 steps with KKT
+`2.28×10⁻⁵`; the full-data objective is 0.005828, with data loss 0.002645
+and 10.609 Jy total intrinsic flux. It fits 0.401 Jy intrinsic (0.108 Jy after
+mean beam attenuation) outside the old square and exactly zero flux where the
+mean beam is below 0.1. The consensus image and machine-readable topology are
+the first all-visibility hierarchical scientific products; the next benchmark
+should compare them with a uniform 128² 8″ fit over the same 17.1′ field.
+
+The implementation checkpoint passes Ruff, strict mypy, the complete local
+test suite, and focused physical-solver tests on an RTX 3080 Ti. One real-VLA
+release test remains opt-in.
 
 ### Scientific and engineering metrics
 
@@ -638,6 +763,46 @@ about a universal scientific optimum. They should be revised after the first
 synthetic sweep.
 
 ## Route to uncertainty and temporal skies
+
+### Interaction with self-calibration
+
+The fixed-topology sky problem is convex only while calibration is fixed.
+Joint sky and gain fitting is non-convex and introduces amplitude, phase, and
+time-scale degeneracies. FISTA should therefore remain a sky-block solver, not
+be applied blindly to the combined parameter vector.
+
+The first self-calibration design should use major cycles:
+
+1. hold gains fixed and update non-negative sky flux with proximal SGD or
+   FISTA;
+2. hold the sky fixed and update a constrained gain model;
+3. reset FISTA momentum and its Lipschitz estimate after every gain update;
+4. repeat until both sky KKT and calibrated residual diagnostics stabilize;
+5. run Haar screening only at a major-cycle boundary, not while gains are
+   chasing the same residual.
+
+Mini-batches make the sky step scalable, but simultaneous stochastic sky and
+gain updates are risky. A gain error produces coherent image residuals, while
+a flexible sky can absorb the same error. Alternating blocks or deliberately
+separated learning rates make that competition observable. Gain updates will
+need a reference antenna, an absolute flux scale, temporal and spectral
+smoothness, and explicit handling of the transformation
+$g\rightarrow c g$, $I\rightarrow I/|c|^2$.
+
+Validation must also be calibration-aware. A visibility used to estimate a
+gain should not be treated as an independent test of the sky predicted through
+that gain. Candidate controls include holding out complete time-baseline-UV
+groups, using calibrator scans that are not used in the target-sky fit, and
+comparing topology across several folds. Hyperparameters then include sky
+`λ`, gain smoothness, gain time resolution, number of major cycles, and the
+stochastic-to-deterministic transition. Validation can select them, but the
+final reported sky should be refitted on all accepted data with the chosen
+model and a stated gauge.
+
+For a mosaic or temporal sky, calibration and sky variability become even
+more confounded. Shared static structure, pointing-specific beam response,
+and temporal detail should be separate parameter blocks before allowing the
+quadtree topology itself to vary with time.
 
 ### Near-term uncertainty
 

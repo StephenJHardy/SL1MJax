@@ -362,6 +362,98 @@ def _extract_target(
     return casa, jax_calibrated
 
 
+def _extract_corrected_target(
+    measurement_set: Path,
+    *,
+    field_id: int,
+    frequency_bins: int,
+    time_bin_s: float,
+    chunk_rows: int,
+) -> VisibilityBlock:
+    """Extract and average one CASA-corrected target field.
+
+    Unlike ``_extract_target``, this path does not build an independently
+    calibrated DATA block, so it does not require the saved pre-calibration
+    flag-version table.
+    """
+
+    chunks: list[VisibilityBlock] = []
+    with (
+        tables.table(str(measurement_set), readonly=True, ack=False) as main,
+        tables.table(
+            str(measurement_set / "SPECTRAL_WINDOW"), readonly=True, ack=False
+        ) as spectral_window,
+        tables.table(str(measurement_set / "FIELD"), readonly=True, ack=False) as field,
+    ):
+        selected = main.query(f"FIELD_ID=={field_id}")
+        try:
+            if selected.nrows() == 0:
+                raise ValueError(f"field {field_id} has no rows")
+            frequency_hz = np.asarray(
+                spectral_window.getcell("CHAN_FREQ", 0), dtype=np.float64
+            )
+            direction = np.asarray(
+                field.getcell("PHASE_DIR", field_id), dtype=np.float64
+            ).reshape(-1, 2)[0]
+            phase_centre = (float(direction[0]), float(direction[1]))
+            for start in range(0, selected.nrows(), chunk_rows):
+                count = min(chunk_rows, selected.nrows() - start)
+                flag = np.asarray(
+                    selected.getcol("FLAG", startrow=start, nrow=count), dtype=bool
+                )
+                flag_row = np.asarray(
+                    selected.getcol("FLAG_ROW", startrow=start, nrow=count), dtype=bool
+                )
+                block = _block(
+                    visibility=np.asarray(
+                        selected.getcol(
+                            "CORRECTED_DATA", startrow=start, nrow=count
+                        )
+                    ),
+                    flag=flag,
+                    flag_row=flag_row,
+                    weight=np.asarray(
+                        selected.getcol("WEIGHT", startrow=start, nrow=count),
+                        dtype=np.float64,
+                    ),
+                    uvw_m=np.asarray(
+                        selected.getcol("UVW", startrow=start, nrow=count),
+                        dtype=np.float64,
+                    ),
+                    frequency_hz=frequency_hz,
+                    time_s=np.asarray(
+                        selected.getcol("TIME", startrow=start, nrow=count),
+                        dtype=np.float64,
+                    ),
+                    antenna1=np.asarray(
+                        selected.getcol("ANTENNA1", startrow=start, nrow=count),
+                        dtype=np.int32,
+                    ),
+                    antenna2=np.asarray(
+                        selected.getcol("ANTENNA2", startrow=start, nrow=count),
+                        dtype=np.int32,
+                    ),
+                    scan_id=np.asarray(
+                        selected.getcol("SCAN_NUMBER", startrow=start, nrow=count),
+                        dtype=np.int32,
+                    ),
+                    field_id=field_id,
+                    interval_s=np.asarray(
+                        selected.getcol("INTERVAL", startrow=start, nrow=count),
+                        dtype=np.float64,
+                    ),
+                    phase_centre_rad=phase_centre,
+                    column="CORRECTED_DATA",
+                )
+                chunks.append(average_frequency_bins(block, bin_count=frequency_bins))
+        finally:
+            selected.close()
+    return average_time_bins(
+        _concatenate(chunks, label="casa_corrected"),
+        bin_seconds=time_bin_s,
+    )
+
+
 def _image_metrics(actual: np.ndarray, reference: np.ndarray) -> dict[str, float]:
     normalized_rms = np.sqrt(
         np.sum((actual - reference) ** 2)

@@ -50,15 +50,19 @@ from sl1mjax.hierarchical_imaging import (  # noqa: E402
     AdaptiveRefinementConfig,
     AdaptiveRefinementRound,
     HierarchicalImagingResult,
+    consensus_split_leaves,
     reconstruct_hierarchical,
 )
 from sl1mjax.imaging import ImagingConfig, ImagingResult, reconstruct  # noqa: E402
 from sl1mjax.inference import (  # noqa: E402
     InferenceConfig,
     InferenceResult,
+    MosaicQuadtreeInferenceResult,
     QuadtreeInferenceResult,
+    infer_mosaic_quadtree,
     infer_quadtree,
     infer_regular_grid,
+    positive_l1_kkt_residual,
 )
 from sl1mjax.polarization import Correlation, ReceptorBasis  # noqa: E402
 from sl1mjax.quadtree import (  # noqa: E402
@@ -97,6 +101,7 @@ from sl1mjax.refinement import (  # noqa: E402
     SplitRankingEntry,
     advance_merge_hysteresis,
     baseline_split_scores,
+    batched_exact_residual_haar_scores,
     batched_residual_haar_scores,
     compare_haar_to_oracle,
     compare_lookahead_to_oracle,
@@ -156,6 +161,7 @@ __all__ = [
     "ImagingResult",
     "InferenceConfig",
     "InferenceResult",
+    "MosaicQuadtreeInferenceResult",
     "LocalMergeEvaluation",
     "LocalMergeResult",
     "LocalSplitEvaluation",
@@ -191,10 +197,12 @@ __all__ = [
     "advance_merge_hysteresis",
     "apply_calibration",
     "baseline_split_scores",
+    "batched_exact_residual_haar_scores",
     "batched_residual_haar_scores",
     "compare_haar_to_oracle",
     "compare_lookahead_to_oracle",
     "compare_merge_lookahead_to_oracle",
+    "consensus_split_leaves",
     "diagnose_calibration",
     "dirty_image_and_psf",
     "direct_scalar_adjoint",
@@ -204,7 +212,9 @@ __all__ = [
     "exhaustive_single_split_oracle",
     "gaussian_primary_beam",
     "infer_regular_grid",
+    "infer_mosaic_quadtree",
     "infer_quadtree",
+    "positive_l1_kkt_residual",
     "identity_solution",
     "leaves_exceeding_error_bound",
     "lmn_to_radec",

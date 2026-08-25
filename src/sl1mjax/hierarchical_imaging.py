@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Literal
@@ -20,12 +22,12 @@ from sl1mjax.refinement import (
     RefinementBatchResult,
     ResidualHaarScore,
     advance_merge_hysteresis,
+    batched_exact_residual_haar_scores,
     batched_residual_haar_scores,
     local_four_sibling_merge_lookahead,
     merge_quadtree_batch,
     mergeable_parents,
     refine_quadtree_batch,
-    residual_haar_scores,
     select_bulk_merges,
     select_bulk_splits,
 )
@@ -58,6 +60,8 @@ class AdaptiveRefinementConfig:
     min_curvature: float = 0.0
     min_eigenvalue_ratio: float = 1e-8
     ridge_relative: float = 1e-8
+    score_candidate_batch_size: int = 32
+    score_row_batch_size: int = 1024
     minimum_training_relative_improvement: float = 0.0
     minimum_holdout_relative_improvement: float = 0.0
     max_refits_per_round: int = 4
@@ -90,6 +94,7 @@ class AdaptiveRefinementRound:
     merge_evaluations: tuple[LocalMergeEvaluation, ...] = ()
     merge_selection: BulkMergeSelection | None = None
     merge_validation: RefinementBatchResult | None = None
+    exact_screening_scores: tuple[ResidualHaarScore, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -105,6 +110,33 @@ class HierarchicalImagingResult:
     merge_hysteresis: MergeHysteresisState = field(default_factory=MergeHysteresisState.empty)
 
 
+def consensus_split_leaves(
+    fold_splits: tuple[tuple[QuadtreeLeaf, ...], ...],
+    *,
+    minimum_support: int | None = None,
+) -> tuple[QuadtreeLeaf, ...]:
+    """Return hierarchy-consistent splits supported by several folds.
+
+    Each fold contributes at most one vote per leaf.  The default is a strict
+    majority.  A deeper leaf is retained only when every ancestor split also
+    reaches the requested support, so applying the result in sorted order
+    always constructs a valid quadtree.
+    """
+
+    if not fold_splits:
+        raise ValueError("fold_splits must contain at least one fold")
+    required = len(fold_splits) // 2 + 1 if minimum_support is None else minimum_support
+    if not 1 <= required <= len(fold_splits):
+        raise ValueError("minimum_support must be between one and the fold count")
+    support = Counter(leaf for leaves in fold_splits for leaf in set(leaves))
+    supported = {leaf for leaf, count in support.items() if count >= required}
+    return tuple(
+        leaf
+        for leaf in sorted(supported)
+        if all(ancestor in supported for ancestor in leaf.ancestors())
+    )
+
+
 def _validate_config(config: AdaptiveRefinementConfig) -> None:
     if config.root_size < 1:
         raise ValueError("root_size must be positive")
@@ -116,6 +148,8 @@ def _validate_config(config: AdaptiveRefinementConfig) -> None:
         raise ValueError("max_rounds must be non-negative")
     if config.max_depth < 1:
         raise ValueError("max_depth must be positive")
+    if config.score_candidate_batch_size < 1 or config.score_row_batch_size < 1:
+        raise ValueError("score batch sizes must be positive")
     if config.inference.operator_mode != "explicit":
         raise ValueError("adaptive quadtree imaging requires operator_mode='explicit'")
 
@@ -148,6 +182,7 @@ def reconstruct_hierarchical(
     *,
     fixed_gains: np.ndarray | None = None,
     primary_beam: VLAPrimaryBeam | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> HierarchicalImagingResult:
     """Fit an initial regular quadtree and run validated bulk refinement.
 
@@ -155,8 +190,9 @@ def reconstruct_hierarchical(
     ``3 * leaf_penalty`` is subtracted before marking because each split adds
     three leaves. Shared per-level curvature is exact only for paraxial
     squares without a primary beam. Wide-field or beam-weighted screens use
-    that shared Gram as an approximation and rescore the marked shortlist
-    with the exact per-parent calculation before any topology change.
+    that shared Gram as an approximation and rescore the marked shortlist in
+    candidate and visibility tiles. Final scores constrain the four children
+    to be non-negative and conserve their fitted parent's flux.
     """
 
     selected_config = config or AdaptiveRefinementConfig()
@@ -173,6 +209,11 @@ def reconstruct_hierarchical(
         np.zeros(selected_config.root_size**2),
     )
     started = perf_counter()
+    if progress is not None:
+        progress(
+            f"initial fit: {len(initial_sky.leaves)} leaves, "
+            f"solver={selected_config.inference.solver}"
+        )
     current_fit = infer_quadtree(
         block,
         initial_sky.topology,
@@ -184,6 +225,10 @@ def reconstruct_hierarchical(
         approximation=approximation,
         leaf_penalty=selected_config.leaf_penalty,
     )
+    if progress is not None:
+        progress(
+            f"initial fit complete: steps={current_fit.steps}, KKT={current_fit.kkt_residual:.3g}"
+        )
 
     rounds: list[AdaptiveRefinementRound] = []
     stop_reason = "maximum_rounds"
@@ -192,6 +237,11 @@ def reconstruct_hierarchical(
         leaf_count_before = len(current_fit.topology.leaves)
 
         # --- Growth: screen, mark, and validate a split batch. ---
+        if progress is not None:
+            progress(
+                f"round {round_index + 1}/{selected_config.max_rounds}: "
+                f"approximate Haar screen over {leaf_count_before} leaves"
+            )
         scores = batched_residual_haar_scores(
             block,
             current_fit,
@@ -206,6 +256,7 @@ def reconstruct_hierarchical(
             min_eigenvalue_ratio=selected_config.min_eigenvalue_ratio,
             ridge_relative=selected_config.ridge_relative,
             allow_approximate_curvature=allow_approximate_curvature,
+            constrain_child_flux=curvature_is_exact,
         )
         selection = select_bulk_splits(
             scores,
@@ -215,10 +266,23 @@ def reconstruct_hierarchical(
             max_splits=selected_config.max_splits_per_round,
             split_cost=3.0 * selected_config.leaf_penalty,
         )
+        if progress is not None:
+            progress(
+                f"round {round_index + 1}: screen complete; "
+                f"eligible={sum(score.eligible for score in scores)}, "
+                f"marked={len(selection.selected)}, "
+                f"available improvement={selection.available_improvement:.6g}"
+            )
+        exact_scores: tuple[ResidualHaarScore, ...] = ()
         if selection.selected and any(
             score.curvature_mode.startswith("per_level_approximate") for score in scores
         ):
-            exact_scores = residual_haar_scores(
+            if progress is not None:
+                progress(
+                    f"round {round_index + 1}: exact beam-aware constrained rescore of "
+                    f"{len(selection.selected)} marked parents"
+                )
+            exact_scores = batched_exact_residual_haar_scores(
                 block,
                 current_fit,
                 train_mask,
@@ -231,6 +295,10 @@ def reconstruct_hierarchical(
                 min_curvature=selected_config.min_curvature,
                 min_eigenvalue_ratio=selected_config.min_eigenvalue_ratio,
                 ridge_relative=selected_config.ridge_relative,
+                candidate_batch_size=selected_config.score_candidate_batch_size,
+                row_batch_size=selected_config.score_row_batch_size,
+                constrain_child_flux=True,
+                progress=progress,
             )
             selection = select_bulk_splits(
                 exact_scores,
@@ -240,6 +308,12 @@ def reconstruct_hierarchical(
                 max_splits=selected_config.max_splits_per_round,
                 split_cost=3.0 * selected_config.leaf_penalty,
             )
+            if progress is not None:
+                progress(
+                    f"round {round_index + 1}: exact rescore complete; "
+                    f"marked={len(selection.selected)}, "
+                    f"covered={selection.covered_fraction:.3f}"
+                )
 
         split_validation: RefinementBatchResult | None = None
         split_accepted = False
@@ -262,6 +336,7 @@ def reconstruct_hierarchical(
                     selected_config.minimum_holdout_relative_improvement
                 ),
                 max_refits=selected_config.max_refits_per_round,
+                progress=progress,
             )
             split_accepted_attempt = split_validation.accepted_attempt
             if split_accepted_attempt is not None:
@@ -280,6 +355,10 @@ def reconstruct_hierarchical(
         if selected_config.enable_merging:
             merge_candidates = mergeable_parents(current_fit.topology)
             if merge_candidates:
+                if progress is not None:
+                    progress(
+                        f"round {round_index + 1}: score {len(merge_candidates)} merge candidates"
+                    )
                 merge_evaluations = local_four_sibling_merge_lookahead(
                     block,
                     current_fit,
@@ -325,6 +404,7 @@ def reconstruct_hierarchical(
                             selected_config.minimum_holdout_relative_improvement
                         ),
                         max_refits=selected_config.max_refits_per_round,
+                        progress=progress,
                     )
                     merge_accepted_attempt = merge_validation.accepted_attempt
                     if merge_accepted_attempt is not None:
@@ -341,8 +421,15 @@ def reconstruct_hierarchical(
                 merge_evaluations=merge_evaluations,
                 merge_selection=merge_selection,
                 merge_validation=merge_validation,
+                exact_screening_scores=exact_scores,
             )
         )
+        if progress is not None:
+            progress(
+                f"round {round_index + 1} complete: leaves="
+                f"{len(current_fit.topology.leaves)}, split_accepted={split_accepted}, "
+                f"merge_accepted={merge_accepted}"
+            )
 
         # A rejected proposal on one side is a normal outcome, not evidence
         # that the other side is exhausted (local merge lookahead is
