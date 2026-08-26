@@ -105,6 +105,20 @@ def _components_with_sensitivity(
     )
 
 
+def _initial_components(
+    components: tuple[MosaicSkyComponent, ...],
+    initialization: str,
+) -> tuple[MosaicSkyComponent, ...]:
+    if initialization == "checkpoint":
+        return components
+    if initialization == "zero":
+        return tuple(
+            replace(component, flux=np.zeros_like(component.flux))
+            for component in components
+        )
+    raise ValueError(f"unsupported initialization {initialization!r}")
+
+
 def _save_result(path: Path, result: Any) -> None:
     np.savez(
         path,
@@ -140,8 +154,9 @@ def _selection(arguments: argparse.Namespace) -> dict[str, Any]:
             ),
         ),
     )
-    base_components = _components_from_checkpoint(
-        arguments.initial_checkpoint, protocol, phase_centre
+    base_components = _initial_components(
+        _components_from_checkpoint(arguments.initial_checkpoint, protocol, phase_centre),
+        arguments.initialization,
     )
     direct = DirectDFTConfig(
         visibility_chunk_size=arguments.visibility_tile_size,
@@ -210,6 +225,7 @@ def _selection(arguments: argparse.Namespace) -> dict[str, Any]:
             "reference_fixture": str(arguments.reference_fixture),
             "sky_protocol": str(arguments.sky_protocol),
             "initial_checkpoint": str(arguments.initial_checkpoint),
+            "initialization": arguments.initialization,
             "training_folds": [0, 1, 2],
             "selection_fold": 3,
             "sealed_fold": 4,
@@ -245,7 +261,10 @@ def _sealed(arguments: argparse.Namespace, summary: dict[str, Any]) -> dict[str,
             ),
         ),
     )
-    initial = _components_from_checkpoint(arguments.initial_checkpoint, protocol, phase_centre)
+    initial = _initial_components(
+        _components_from_checkpoint(arguments.initial_checkpoint, protocol, phase_centre),
+        str(summary["protocol"]["initialization"]),
+    )
     direct = DirectDFTConfig(
         visibility_chunk_size=arguments.visibility_tile_size,
         pixel_chunk_size=arguments.pixel_tile_size,
@@ -323,12 +342,18 @@ def main() -> int:
     )
     parser.add_argument("--time-bin-seconds", type=float, default=60.0)
     parser.add_argument("--lambda-l1", type=float, default=3e-4)
-    parser.add_argument("--steps", type=int, default=150)
+    parser.add_argument("--steps", type=int, default=300)
     parser.add_argument("--validation-interval", type=int, default=10)
     parser.add_argument("--kkt-tolerance", type=float, default=3e-5)
     parser.add_argument("--visibility-tile-size", type=int, default=256)
     parser.add_argument("--pixel-tile-size", type=int, default=1024)
     parser.add_argument("--precision", choices=("float32", "float64"), default="float32")
+    parser.add_argument(
+        "--initialization",
+        choices=("zero", "checkpoint"),
+        default="zero",
+        help="Zero is fold-3 blind; checkpoint is diagnostic only because it used fold 3.",
+    )
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--open-sealed", action="store_true")
     arguments = parser.parse_args()

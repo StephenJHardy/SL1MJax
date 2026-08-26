@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from sl1mjax.composite import MosaicPointComponent
 from sl1mjax.data.synthetic import simulate_calibration_case
 from sl1mjax.split import interleaved_time_folds
 
@@ -83,3 +84,19 @@ def test_common_active_mask_never_selects_recovered_rows() -> None:
 
     np.testing.assert_array_equal(embedded[: reference.shape[0]], selected)
     assert not np.any(embedded[reference.shape[0] :])
+
+
+def test_zero_initialization_removes_checkpoint_flux() -> None:
+    module = _module("fit_3c391_recovery_policies")
+    component = MosaicPointComponent(
+        "catalogue",
+        np.asarray([0.1, 0.2]),
+        np.asarray([0.3, 0.4]),
+        np.asarray([2.0, 3.0]),
+    )
+
+    zero = module._initial_components((component,), "zero")[0]
+
+    np.testing.assert_array_equal(zero.flux, 0.0)
+    np.testing.assert_array_equal(zero.l_rad, component.l_rad)
+    np.testing.assert_array_equal(zero.m_rad, component.m_rad)
