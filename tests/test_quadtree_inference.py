@@ -303,6 +303,15 @@ def test_mosaic_quadtree_validates_joint_inputs() -> None:
             (0.0, 0.0),
             InferenceConfig(solver="proximal_sgd", operator_mode="explicit"),
         )
+    with pytest.raises(ValueError, match="one value per topology leaf"):
+        infer_mosaic_quadtree(
+            (block,),
+            sky.topology,
+            (block.active,),
+            (0.0, 0.0),
+            config,
+            sparsity_weights=np.ones(2),
+        )
 
 
 def test_one_full_row_batch_matches_physical_proximal_gradient_step() -> None:

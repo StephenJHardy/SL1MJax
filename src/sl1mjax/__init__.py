@@ -28,6 +28,21 @@ from sl1mjax.calibration_terms import (  # noqa: E402
     OpacityTerm,
     RequantizerTerm,
 )
+from sl1mjax.catalog import (  # noqa: E402
+    CatalogGuardAtom,
+    RadioCatalogSource,
+    read_radio_catalog,
+    select_catalog_guard_atoms,
+    write_radio_catalog,
+)
+from sl1mjax.composite import (  # noqa: E402
+    MosaicCompositeInferenceResult,
+    MosaicPointComponent,
+    MosaicQuadtreeComponent,
+    infer_mosaic_composite,
+    mosaic_beam_sensitivity_weights,
+    predict_mosaic_composite,
+)
 from sl1mjax.coordinates import lmn_to_radec, radec_to_lmn  # noqa: E402
 from sl1mjax.data import (  # noqa: E402
     VisibilityBlock,
@@ -46,6 +61,16 @@ from sl1mjax.direct_operator import (  # noqa: E402
     direct_scalar_visibility,
     predict_stokes_i_explicit,
 )
+from sl1mjax.flagging import (  # noqa: E402
+    ExistingFlagAudit,
+    ResidualHandlingMode,
+    ResidualHandlingResult,
+    SkyCoherenceGroup,
+    SkyCoherenceResult,
+    apply_residual_handling,
+    audit_existing_flags,
+    fit_grouped_real_sky_component,
+)
 from sl1mjax.hierarchical_imaging import (  # noqa: E402
     AdaptiveRefinementConfig,
     AdaptiveRefinementRound,
@@ -63,6 +88,7 @@ from sl1mjax.inference import (  # noqa: E402
     infer_quadtree,
     infer_regular_grid,
     positive_l1_kkt_residual,
+    predict_mosaic_quadtree,
 )
 from sl1mjax.polarization import Correlation, ReceptorBasis  # noqa: E402
 from sl1mjax.quadtree import (  # noqa: E402
@@ -120,6 +146,11 @@ from sl1mjax.refinement import (  # noqa: E402
     select_bulk_splits,
     solve_quadtree_flux_active_set,
 )
+from sl1mjax.resolution import (  # noqa: E402
+    SynthesizedBeamEstimate,
+    estimate_synthesized_beam,
+    resolution_limited_max_depth,
+)
 from sl1mjax.rime import (  # noqa: E402
     predict_stokes_i,
     square_wide_field_error_bound,
@@ -134,6 +165,7 @@ from sl1mjax.sky import (  # noqa: E402
     SquarePixelBasis,
     pixel_basis_from_name,
 )
+from sl1mjax.split import interleaved_time_fold_masks  # noqa: E402
 
 __all__ = [
     "Correlation",
@@ -146,12 +178,14 @@ __all__ = [
     "CalibrationCoordinates",
     "CalibrationSolution",
     "CalibrationSolveConfig",
+    "CatalogGuardAtom",
     "COMPOUND_N4_BASIS",
     "CompoundPixelBasis",
     "DeltaPixelBasis",
     "DirectDFTConfig",
     "ExhaustiveMergeResult",
     "ExhaustiveSplitResult",
+    "ExistingFlagAudit",
     "HaarOracleComparison",
     "HierarchicalImagingResult",
     "GaussianApproximation",
@@ -162,6 +196,9 @@ __all__ = [
     "InferenceConfig",
     "InferenceResult",
     "MosaicQuadtreeInferenceResult",
+    "MosaicCompositeInferenceResult",
+    "MosaicPointComponent",
+    "MosaicQuadtreeComponent",
     "LocalMergeEvaluation",
     "LocalMergeResult",
     "LocalSplitEvaluation",
@@ -180,11 +217,14 @@ __all__ = [
     "RefinementAttempt",
     "RefinementBatchResult",
     "ReceptorBasis",
+    "RadioCatalogSource",
     "RequantizerTerm",
     "RegularGrid",
     "VLABeamCatalog",
     "VLAPrimaryBeam",
     "ResidualEvaluation",
+    "ResidualHandlingMode",
+    "ResidualHandlingResult",
     "ResidualHaarScore",
     "OpacityTerm",
     "SquarePixelBasis",
@@ -192,10 +232,15 @@ __all__ = [
     "SingleSplitEvaluation",
     "SplitBaselineScore",
     "SplitRankingEntry",
+    "SkyCoherenceGroup",
+    "SkyCoherenceResult",
+    "SynthesizedBeamEstimate",
     "VisibilityBlock",
     "VisibilityDataset",
     "advance_merge_hysteresis",
     "apply_calibration",
+    "apply_residual_handling",
+    "audit_existing_flags",
     "baseline_split_scores",
     "batched_exact_residual_haar_scores",
     "batched_residual_haar_scores",
@@ -208,12 +253,19 @@ __all__ = [
     "direct_scalar_adjoint",
     "direct_scalar_visibility",
     "evaluate_residuals",
+    "estimate_synthesized_beam",
     "exhaustive_single_merge_oracle",
     "exhaustive_single_split_oracle",
     "gaussian_primary_beam",
+    "fit_grouped_real_sky_component",
     "infer_regular_grid",
+    "infer_mosaic_composite",
     "infer_mosaic_quadtree",
+    "mosaic_beam_sensitivity_weights",
+    "predict_mosaic_composite",
+    "predict_mosaic_quadtree",
     "infer_quadtree",
+    "interleaved_time_fold_masks",
     "positive_l1_kkt_residual",
     "identity_solution",
     "leaves_exceeding_error_bound",
@@ -233,17 +285,21 @@ __all__ = [
     "refine_quadtree_batch",
     "radec_to_lmn",
     "read_dataset",
+    "read_radio_catalog",
     "reconstruct",
     "reconstruct_hierarchical",
     "render_quadtree_surface_brightness",
     "residual_haar_scores",
+    "resolution_limited_max_depth",
     "select_bulk_merges",
     "select_bulk_splits",
+    "select_catalog_guard_atoms",
     "solve_quadtree_flux_active_set",
     "solve_staged_calibration",
     "square_wide_field_error_bound",
     "wide_field_error_bounds",
     "write_dataset",
+    "write_radio_catalog",
 ]
 
 __version__ = "0.1.0"

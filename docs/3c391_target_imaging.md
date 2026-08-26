@@ -60,6 +60,22 @@ The calibration remains partly anchored by imported information: frozen CASA
 tutorial flags, the CASA 3C286 sky model and the VLA antenna-position
 correction. G, K, B, time gains and flux transfer are solved in JAX.
 
+## Gain-interpolation validation
+
+The original comparison transferred time gains by nearest neighbour. A later
+controlled sweep held the seven-pointing consensus hierarchy fixed and
+compared nearest transfer with linear interpolation of amplitude and unwrapped
+phase. Both candidates used identical post-application flags, weights,
+60-second bins, sky predictions, and complete held-out scans.
+
+Linear interpolation reduces held-out fixed-sky residual power from 0.01320 to
+0.01035, or 21.6%, and reduces normalized RMS from 0.1149 to 0.1017. It wins in
+all four frequency bins and six of seven pointings. Its normalized power
+distance from CASA `CORRECTED_DATA` is 0.00166, compared with 0.00417 for
+nearest transfer. CASA reaches 0.00908 against the same frozen sky, so a
+smaller calibration gap remains. Machine-readable results are under
+`outputs/3c391_calibration_interpolation_sweep/`.
+
 ## Next boundary
 
 The next imaging tranche should improve the shared sky model rather than tune

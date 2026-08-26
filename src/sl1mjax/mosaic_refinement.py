@@ -21,6 +21,7 @@ from sl1mjax.inference import (
     infer_mosaic_quadtree,
 )
 from sl1mjax.objective import effective_weight
+from sl1mjax.polarization import Correlation
 from sl1mjax.quadtree import (
     QuadtreeLeaf,
     QuadtreeSky,
@@ -39,6 +40,11 @@ from sl1mjax.refinement import (
     _relative_improvement,
     _validate_haar_parameters,
     select_bulk_splits,
+)
+from sl1mjax.resolution import (
+    SynthesizedBeamEstimate,
+    estimate_synthesized_beam,
+    resolution_limited_max_depth,
 )
 from sl1mjax.sky import GaussianApproximation, SquarePixelBasis
 
@@ -100,6 +106,9 @@ class MosaicHierarchicalImagingResult:
     holdout_masks: tuple[np.ndarray, ...]
     stop_reason: str
     elapsed_s: float
+    synthesized_beam: SynthesizedBeamEstimate | None = None
+    resolution_max_depth: int | None = None
+    effective_max_depth: int = 0
 
 
 def _validate_mosaic_inputs(
@@ -507,7 +516,7 @@ def batched_exact_mosaic_residual_haar_scores(
                 antenna1: jax.Array,
                 antenna2: jax.Array,
                 frequency_hz: np.ndarray = selected_frequency,
-                correlations: tuple[str, ...] = selected_correlations,
+                correlations: tuple[Correlation, ...] = selected_correlations,
                 pixel_width_rad: float = child_width,
                 beam_selection: int = selected_beam_mode,
                 batch_l: jax.Array = selected_child_l,
@@ -768,6 +777,24 @@ def reconstruct_mosaic_hierarchical(
         raise ValueError("adaptive mosaic imaging requires operator_mode='explicit'")
     if config.inference.solver != "fista":
         raise ValueError("adaptive mosaic imaging currently requires solver='fista'")
+    synthesized_beam = None
+    resolution_max_depth = None
+    effective_max_depth = config.max_depth
+    if config.maximum_pixels_per_beam is not None:
+        synthesized_beam = estimate_synthesized_beam(blocks, train_masks)
+        resolution_max_depth = resolution_limited_max_depth(
+            config.root_pixel_size_rad,
+            synthesized_beam.minor_fwhm_rad,
+            maximum_pixels_per_beam=config.maximum_pixels_per_beam,
+        )
+        effective_max_depth = min(effective_max_depth, resolution_max_depth)
+        if progress is not None:
+            progress(
+                "mosaic resolution depth cap: "
+                f"beam={np.rad2deg(synthesized_beam.major_fwhm_rad) * 3600:.3g}x"
+                f"{np.rad2deg(synthesized_beam.minor_fwhm_rad) * 3600:.3g} arcsec, "
+                f"requested={config.max_depth}, effective={effective_max_depth}"
+            )
     initial_sky = quadtree_sky_from_regular_grid(
         config.root_size,
         config.root_pixel_size_rad,
@@ -802,7 +829,7 @@ def reconstruct_mosaic_hierarchical(
             current_fit,
             train_masks,
             config.inference,
-            max_depth=config.max_depth,
+            max_depth=effective_max_depth,
             primary_beam=primary_beam,
             approximation=config.approximation,
             min_parent_flux=config.min_parent_flux,
@@ -897,4 +924,7 @@ def reconstruct_mosaic_hierarchical(
         holdout_masks=holdout_masks,
         stop_reason=stop_reason,
         elapsed_s=perf_counter() - started,
+        synthesized_beam=synthesized_beam,
+        resolution_max_depth=resolution_max_depth,
+        effective_max_depth=effective_max_depth,
     )

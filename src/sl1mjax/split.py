@@ -16,6 +16,44 @@ class VisibilitySplit:
     strategy: str
 
 
+def interleaved_time_fold_masks(
+    blocks: tuple[VisibilityBlock, ...],
+    *,
+    bin_seconds: float,
+    fold_count: int = 5,
+    validation_fold: int = 3,
+    test_fold: int = 4,
+) -> tuple[tuple[np.ndarray, ...], tuple[np.ndarray, ...], tuple[np.ndarray, ...]]:
+    """Split complete time bins into train, validation, and sealed test sets."""
+
+    if not np.isfinite(bin_seconds) or bin_seconds <= 0:
+        raise ValueError("bin_seconds must be finite and positive")
+    if fold_count < 3:
+        raise ValueError("fold_count must be at least three")
+    if not 0 <= validation_fold < fold_count or not 0 <= test_fold < fold_count:
+        raise ValueError("validation and test folds must be valid fold indices")
+    if validation_fold == test_fold:
+        raise ValueError("validation and test folds must differ")
+
+    train_masks: list[np.ndarray] = []
+    validation_masks: list[np.ndarray] = []
+    test_masks: list[np.ndarray] = []
+    for block in blocks:
+        integer_bin = np.floor(block.time_s / bin_seconds).astype(np.int64)
+        active_bins = np.unique(integer_bin[np.any(block.active, axis=(1, 2))])
+        if active_bins.size < fold_count:
+            raise ValueError("each block needs at least one active time bin per fold")
+        fold_by_bin = {int(value): index % fold_count for index, value in enumerate(active_bins)}
+        row_fold = np.asarray([fold_by_bin.get(int(value), -1) for value in integer_bin])
+        validation_rows = row_fold == validation_fold
+        test_rows = row_fold == test_fold
+        train_rows = (row_fold >= 0) & ~validation_rows & ~test_rows
+        train_masks.append(block.active & train_rows[:, None, None])
+        validation_masks.append(block.active & validation_rows[:, None, None])
+        test_masks.append(block.active & test_rows[:, None, None])
+    return tuple(train_masks), tuple(validation_masks), tuple(test_masks)
+
+
 def uv_cell_split(
     block: VisibilityBlock,
     *,
@@ -65,9 +103,7 @@ def random_row_split(
         )
     )
     held_rows = np.zeros(block.shape[0], dtype=bool)
-    selected = np.random.default_rng(seed).choice(
-        active_rows, count, replace=False
-    )
+    selected = np.random.default_rng(seed).choice(active_rows, count, replace=False)
     held_rows[selected] = True
     holdout = held_rows[:, None, None] & block.active
     train = ~holdout & block.active
@@ -82,9 +118,7 @@ def _antenna_graph_connected(
 ) -> bool:
     if not expected_antennas:
         return False
-    adjacency: dict[int, set[int]] = {
-        antenna: set() for antenna in expected_antennas
-    }
+    adjacency: dict[int, set[int]] = {antenna: set() for antenna in expected_antennas}
     for row in np.flatnonzero(rows):
         first = int(antenna1[row])
         second = int(antenna2[row])
@@ -117,16 +151,10 @@ def calibration_split(
         time_rows = row_active & (block.time_s == time)
         selected = np.flatnonzero(time_rows)
         time_antennas = set(
-            np.concatenate(
-                (block.antenna1[selected], block.antenna2[selected])
-            ).astype(int)
+            np.concatenate((block.antenna1[selected], block.antenna2[selected])).astype(int)
         )
-        if not _antenna_graph_connected(
-            block.antenna1, block.antenna2, time_rows, time_antennas
-        ):
-            raise ValueError(
-                f"antenna graph is disconnected at solution time {time}"
-            )
+        if not _antenna_graph_connected(block.antenna1, block.antenna2, time_rows, time_antennas):
+            raise ValueError(f"antenna graph is disconnected at solution time {time}")
     groups: list[np.ndarray] = []
     for time in unique_times:
         rows = np.flatnonzero(row_active & (block.time_s == time))
@@ -138,9 +166,7 @@ def calibration_split(
             axis=1,
         )
         for pair in np.unique(pairs, axis=0):
-            groups.append(
-                rows[np.all(pairs == pair[None, :], axis=1)]
-            )
+            groups.append(rows[np.all(pairs == pair[None, :], axis=1)])
     rng = np.random.default_rng(seed)
     rng.shuffle(groups)
     target = max(1, round(holdout_fraction * np.sum(row_active)))
@@ -161,9 +187,7 @@ def calibration_split(
                 )
             ).astype(int)
         )
-        if _antenna_graph_connected(
-            block.antenna1, block.antenna2, time_rows, time_antennas
-        ):
+        if _antenna_graph_connected(block.antenna1, block.antenna2, time_rows, time_antennas):
             train_rows = candidate
             held_count += group.size
     if held_count == 0:

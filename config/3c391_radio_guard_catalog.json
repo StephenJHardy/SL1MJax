@@ -1,0 +1,93 @@
+{
+  "atoms": [
+    {
+      "initial_flux_jy": 0.4249946707168157,
+      "l_rad": 0.0006050056947679377,
+      "m_rad": 0.005116467465989118,
+      "maximum_apparent_flux_jy": 0.008368081731668465,
+      "maximum_beam_power": 0.019545771948119475,
+      "offset_arcmin": 17.711660781454622,
+      "source": {
+        "catalog": "VLASS QL Epoch 1 J/ApJS/255/30",
+        "dec_deg": -0.63478545,
+        "epoch": "VLASS Epoch 1 Quick Look",
+        "integrated_flux_jy": 0.5731430000000001,
+        "major_axis_arcsec": 13.1541,
+        "minor_axis_arcsec": 11.5766,
+        "name": "VLASS_J184932.56-003805.2",
+        "peak_flux_jy": 0.064744,
+        "position_angle_deg": 169.968,
+        "ra_deg": 282.38568307,
+        "reference_frequency_hz": 3000000000.0,
+        "reference_url": "https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30",
+        "spectral_index": null
+      }
+    },
+    {
+      "initial_flux_jy": 0.6910839584048372,
+      "l_rad": -0.007996351799021134,
+      "m_rad": -0.0049642683388783325,
+      "maximum_apparent_flux_jy": 0.0016285292484660115,
+      "maximum_beam_power": 0.0023736748855808796,
+      "offset_arcmin": 32.356046716516,
+      "source": {
+        "catalog": "VLASS QL Epoch 1 J/ApJS/255/30",
+        "dec_deg": -1.21234201,
+        "epoch": "VLASS Epoch 1 Quick Look",
+        "integrated_flux_jy": 0.931988,
+        "major_axis_arcsec": 9.886,
+        "minor_axis_arcsec": 8.5907,
+        "name": "VLASS_J184734.26-011244.4",
+        "peak_flux_jy": 0.067895,
+        "position_angle_deg": 103.0866,
+        "ra_deg": 281.89275199,
+        "reference_frequency_hz": 3000000000.0,
+        "reference_url": "https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30",
+        "spectral_index": null
+      }
+    },
+    {
+      "initial_flux_jy": 0.5721270051574373,
+      "l_rad": 0.0025450769488690357,
+      "m_rad": -0.010836960368075434,
+      "maximum_apparent_flux_jy": 0.0007511830580683238,
+      "maximum_beam_power": 0.0013033580392482935,
+      "offset_arcmin": 38.26833350697734,
+      "source": {
+        "catalog": "VLASS QL Epoch 1 J/ApJS/255/30",
+        "dec_deg": -1.54886013,
+        "epoch": "VLASS Epoch 1 Quick Look",
+        "integrated_flux_jy": 0.7715639999999999,
+        "major_axis_arcsec": 7.2136,
+        "minor_axis_arcsec": 1.5003,
+        "name": "VLASS_J184959.25-013255.8",
+        "peak_flux_jy": 0.449625,
+        "position_angle_deg": 136.6618,
+        "ra_deg": 282.49689229,
+        "reference_frequency_hz": 3000000000.0,
+        "reference_url": "https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30",
+        "spectral_index": null
+      }
+    }
+  ],
+  "nvss_selected_count": 3,
+  "query_result_count": 50,
+  "query_url": "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=VIII%2F65%2Fnvss&-c=282.3510166674+-0.9279388907&-c.r=1&-c.u=deg&-out.max=unlimited&S1.4=%3E%3D50&-out=NVSS%2CRAJ2000%2CDEJ2000%2CS1.4%2Ce_S1.4%2CMajAxis%2CMinAxis%2CPA",
+  "schema_version": 1,
+  "selected_count": 3,
+  "selection": {
+    "airy_max_radius_deg_at_1ghz": 4.0,
+    "beam": "extended_airy",
+    "central_half_width_arcmin": 13.866666666666667,
+    "default_spectral_index": -0.7,
+    "maximum_major_axis_arcsec": 45.0,
+    "minimum_apparent_flux_mjy": 0.5,
+    "vlass_crossmatch_radius_arcsec": 20.0
+  },
+  "vlass_crossmatch_query_urls": [
+    "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J%2FApJS%2F255%2F30%2Fcomp&-c=282.3866250000+-0.6338888889&-c.r=0.005555555556&-c.u=deg&-out.max=unlimited&-out=CompName%2CRAJ2000%2CDEJ2000%2CFtot%2CFpeak%2CSCode%2CDCMaj%2CDCMin%2CDCPA%2CNVSSdist%2CDupFlag%2CQualFlag%2CMainSample",
+    "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J%2FApJS%2F255%2F30%2Fcomp&-c=281.8925416667+-1.2118333333&-c.r=0.005555555556&-c.u=deg&-out.max=unlimited&-out=CompName%2CRAJ2000%2CDEJ2000%2CFtot%2CFpeak%2CSCode%2CDCMaj%2CDCMin%2CDCPA%2CNVSSdist%2CDupFlag%2CQualFlag%2CMainSample",
+    "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J%2FApJS%2F255%2F30%2Fcomp&-c=282.4966250000+-1.5488888889&-c.r=0.005555555556&-c.u=deg&-out.max=unlimited&-out=CompName%2CRAJ2000%2CDEJ2000%2CFtot%2CFpeak%2CSCode%2CDCMaj%2CDCMin%2CDCPA%2CNVSSdist%2CDupFlag%2CQualFlag%2CMainSample"
+  ],
+  "vlass_reliable_component_count": 6
+}

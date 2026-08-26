@@ -10,12 +10,14 @@ from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.data.synthetic import simulate_dataset
 from sl1mjax.inference import (
     InferenceConfig,
+    infer_quadtree,
     infer_regular_grid,
     load_checkpoint,
     positive_l1_kkt_residual,
     save_checkpoint,
 )
 from sl1mjax.polarization import ReceptorBasis
+from sl1mjax.quadtree import quadtree_sky_from_regular_grid
 from sl1mjax.sky import RegularGrid, raw_from_intensity
 
 
@@ -40,6 +42,19 @@ def test_positive_l1_kkt_residual_distinguishes_active_and_zero_flux() -> None:
     residual = positive_l1_kkt_residual(flux, gradient, 0.1)
 
     assert float(residual) == pytest.approx(0.2)
+
+
+def test_positive_l1_kkt_residual_accepts_per_parameter_penalties() -> None:
+    flux = jnp.asarray([2.0, 0.0, 0.0])
+    gradient = jnp.asarray([-0.1, -0.05, -0.3])
+
+    residual = positive_l1_kkt_residual(
+        flux,
+        gradient,
+        jnp.asarray([0.1, 0.02, 0.25]),
+    )
+
+    assert float(residual) == pytest.approx(0.05)
 
 
 @pytest.mark.parametrize("solver", ["fista", "hybrid"])
@@ -117,9 +132,7 @@ def test_physical_solver_checkpoint_has_no_synthetic_adam_state(
     checkpoint = tmp_path / "physical.checkpoint.npz"
 
     save_checkpoint(checkpoint, result)
-    raw, optimizer_state, step = load_checkpoint(
-        checkpoint, config, grid.size * grid.size
-    )
+    raw, optimizer_state, step = load_checkpoint(checkpoint, config, grid.size * grid.size)
 
     assert optimizer_state is None
     assert step == result.best_step
@@ -131,3 +144,50 @@ def test_physical_solver_checkpoint_has_no_synthetic_adam_state(
             InferenceConfig(solver="softplus_adam"),
             grid.size * grid.size,
         )
+
+
+def test_fista_returns_lowest_holdout_checkpoint() -> None:
+    rows = 20
+    shape = (rows, 1, 1)
+    visibility = np.ones(shape, dtype=np.complex128)
+    visibility[rows // 2 :] = 0.25
+    block = VisibilityBlock(
+        uvw_m=np.zeros((rows, 3)),
+        frequency_hz=np.asarray([1e9]),
+        visibility=visibility,
+        weight=np.ones(shape),
+        flag=np.zeros(shape, dtype=bool),
+        time_s=np.arange(rows, dtype=np.float64),
+        antenna1=np.zeros(rows, dtype=np.int32),
+        antenna2=np.ones(rows, dtype=np.int32),
+        correlations=("I",),
+        receptor_basis="stokes",
+    )
+    train_mask = np.zeros(shape, dtype=bool)
+    train_mask[: rows // 2] = True
+    holdout_mask = np.zeros(shape, dtype=bool)
+    holdout_mask[rows // 2 :] = True
+    topology = quadtree_sky_from_regular_grid(1, 1e-4, [0.0]).topology
+    config = InferenceConfig(
+        solver="fista",
+        operator_mode="explicit",
+        steps=40,
+        learning_rate=0.03,
+        sparsity_weight=0.0,
+        validation_interval=1,
+        kkt_tolerance=1e-12,
+    )
+
+    result = infer_quadtree(
+        block,
+        topology,
+        train_mask,
+        config,
+        holdout_mask=holdout_mask,
+        initial_flux=np.asarray([0.01]),
+    )
+
+    assert result.best_step == int(np.argmin(result.holdout_history)) + 1
+    assert result.flux[0] < 0.5
+    assert not result.converged
+    assert result.kkt_residual > config.kkt_tolerance

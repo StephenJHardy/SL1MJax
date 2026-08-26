@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
+from sl1mjax.coordinates import lmn_to_radec, radec_to_lmn
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.direct_operator import (
     DirectDFTConfig,
@@ -27,6 +29,17 @@ class ResidualEvaluation:
     diagnostics: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class MosaicResidualEvaluation:
+    """Joint residual adjoint and sensitivity on one celestial mosaic grid."""
+
+    natural_dirty: NDArray[np.float64]
+    sensitivity_corrected_dirty: NDArray[np.float64]
+    sensitivity: NDArray[np.float64]
+    sensitivity_fraction: NDArray[np.float64]
+    diagnostics: dict[str, Any]
+
+
 def _image_statistics(image: np.ndarray) -> dict[str, float | None]:
     values = np.asarray(image, dtype=np.float64)
     median = float(np.median(values))
@@ -35,10 +48,7 @@ def _image_statistics(image: np.ndarray) -> dict[str, float | None]:
     variance = float(np.mean(np.square(values - np.mean(values))))
     horizontal = (
         float(
-            np.mean(
-                (values[:, :-1] - np.mean(values))
-                * (values[:, 1:] - np.mean(values))
-            )
+            np.mean((values[:, :-1] - np.mean(values)) * (values[:, 1:] - np.mean(values)))
             / variance
         )
         if variance > 0
@@ -46,10 +56,7 @@ def _image_statistics(image: np.ndarray) -> dict[str, float | None]:
     )
     vertical = (
         float(
-            np.mean(
-                (values[:-1, :] - np.mean(values))
-                * (values[1:, :] - np.mean(values))
-            )
+            np.mean((values[:-1, :] - np.mean(values)) * (values[1:, :] - np.mean(values)))
             / variance
         )
         if variance > 0
@@ -65,6 +72,31 @@ def _image_statistics(image: np.ndarray) -> dict[str, float | None]:
         "peak_to_robust_rms": peak / robust_rms if robust_rms > 0 else None,
         "horizontal_lag1_correlation": horizontal,
         "vertical_lag1_correlation": vertical,
+    }
+
+
+def _finite_value_statistics(image: np.ndarray) -> dict[str, float | int | None]:
+    """Return scalar image statistics while excluding masked non-finite pixels."""
+
+    values = np.asarray(image, dtype=np.float64)
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return {
+            "finite_count": 0,
+            "mean": None,
+            "median": None,
+            "rms": None,
+            "robust_rms": None,
+            "peak_absolute": None,
+        }
+    median = float(np.median(finite))
+    return {
+        "finite_count": int(finite.size),
+        "mean": float(np.mean(finite)),
+        "median": median,
+        "rms": float(np.sqrt(np.mean(np.square(finite)))),
+        "robust_rms": float(1.4826 * np.median(np.abs(finite - median))),
+        "peak_absolute": float(np.max(np.abs(finite))),
     }
 
 
@@ -96,19 +128,13 @@ def _visibility_statistics(
     selected_residual = residual[active]
     selected_observation = observation[active]
     weight_sum = float(np.sum(selected_weight))
-    residual_power = float(
-        np.sum(selected_weight * np.abs(selected_residual) ** 2)
-    )
-    signal_power = float(
-        np.sum(selected_weight * np.abs(selected_observation) ** 2)
-    )
+    residual_power = float(np.sum(selected_weight * np.abs(selected_residual) ** 2))
+    signal_power = float(np.sum(selected_weight * np.abs(selected_observation) ** 2))
     weighted_mean = np.sum(selected_weight * selected_residual) / weight_sum
     return {
         "active_count": count,
         "weighted_complex_mse": residual_power / weight_sum,
-        "normalized_residual_power": (
-            residual_power / signal_power if signal_power > 0 else None
-        ),
+        "normalized_residual_power": (residual_power / signal_power if signal_power > 0 else None),
         "weighted_mean_real": float(weighted_mean.real),
         "weighted_mean_imag": float(weighted_mean.imag),
     }
@@ -133,22 +159,14 @@ def _binned_statistics(
         )
     )
     results: list[dict[str, Any]] = []
-    for index, (lower, upper) in enumerate(
-        zip(edges[:-1], edges[1:], strict=True)
-    ):
+    for index, (lower, upper) in enumerate(zip(edges[:-1], edges[1:], strict=True)):
         selected = mask & (coordinate >= lower)
-        selected &= (
-            coordinate <= upper
-            if index == edges.size - 2
-            else coordinate < upper
-        )
+        selected &= coordinate <= upper if index == edges.size - 2 else coordinate < upper
         results.append(
             {
                 "lower": float(lower),
                 "upper": float(upper),
-                **_visibility_statistics(
-                    observation, residual, weight, selected
-                ),
+                **_visibility_statistics(observation, residual, weight, selected),
             }
         )
     return results
@@ -160,15 +178,9 @@ def _grouped_visibility_diagnostics(
 ) -> dict[str, Any]:
     active = block.active
     uv_distance = np.linalg.norm(block.uvw_m[:, :2], axis=1)
-    uv_wavelengths = (
-        uv_distance[:, None] * block.frequency_hz[None, :] / SPEED_OF_LIGHT_M_S
-    )
-    uv_coordinate = np.broadcast_to(
-        uv_wavelengths[:, :, None], block.shape
-    )
-    time_coordinate = np.broadcast_to(
-        block.time_s[:, None, None], block.shape
-    )
+    uv_wavelengths = uv_distance[:, None] * block.frequency_hz[None, :] / SPEED_OF_LIGHT_M_S
+    uv_coordinate = np.broadcast_to(uv_wavelengths[:, :, None], block.shape)
+    time_coordinate = np.broadcast_to(block.time_s[:, None, None], block.shape)
     channels = [
         {
             "channel": index,
@@ -177,11 +189,7 @@ def _grouped_visibility_diagnostics(
                 block.visibility,
                 residual,
                 block.weight,
-                active
-                & (
-                    np.arange(block.shape[1])[None, :, None]
-                    == index
-                ),
+                active & (np.arange(block.shape[1])[None, :, None] == index),
             ),
         }
         for index, frequency in enumerate(block.frequency_hz)
@@ -193,11 +201,7 @@ def _grouped_visibility_diagnostics(
                 block.visibility,
                 residual,
                 block.weight,
-                active
-                & (
-                    np.arange(block.shape[2])[None, None, :]
-                    == index
-                ),
+                active & (np.arange(block.shape[2])[None, None, :] == index),
             ),
         }
         for index, correlation in enumerate(block.correlations)
@@ -275,9 +279,7 @@ def _adjoint_image(
     l, m = grid.coordinates
     if beam_weights is None:
         uvw_wavelengths = (
-            block.uvw_m[:, None, :]
-            * block.frequency_hz[None, :, None]
-            / SPEED_OF_LIGHT_M_S
+            block.uvw_m[:, None, :] * block.frequency_hz[None, :, None] / SPEED_OF_LIGHT_M_S
         ).reshape(-1, 3)
         image = np.asarray(
             direct_scalar_adjoint(
@@ -328,16 +330,10 @@ def evaluate_residuals(
     selected_config = config or DirectDFTConfig()
     residual = block.visibility - prediction
     full_mask = train_mask | holdout_mask
-    full_dirty = _adjoint_image(
-        block, residual, grid, full_mask, selected_config, beam_weights
-    )
-    train_dirty = _adjoint_image(
-        block, residual, grid, train_mask, selected_config, beam_weights
-    )
+    full_dirty = _adjoint_image(block, residual, grid, full_mask, selected_config, beam_weights)
+    train_dirty = _adjoint_image(block, residual, grid, train_mask, selected_config, beam_weights)
     holdout_dirty = (
-        _adjoint_image(
-            block, residual, grid, holdout_mask, selected_config, beam_weights
-        )
+        _adjoint_image(block, residual, grid, holdout_mask, selected_config, beam_weights)
         if np.any(holdout_mask & block.active)
         else np.zeros((grid.size, grid.size), dtype=np.float64)
     )
@@ -380,9 +376,7 @@ def evaluate_residuals(
                     block.weight,
                     holdout_mask,
                 ),
-                "grouped_full": _grouped_visibility_diagnostics(
-                    block, residual
-                ),
+                "grouped_full": _grouped_visibility_diagnostics(block, residual),
             },
         },
     )
@@ -398,9 +392,7 @@ def dirty_image_and_psf(
 
     if chunk_size < 1:
         raise ValueError("chunk_size must be positive")
-    factors = np.asarray(
-        stokes_i_to_correlations(1.0, block.correlations), dtype=np.complex128
-    )
+    factors = np.asarray(stokes_i_to_correlations(1.0, block.correlations), dtype=np.complex128)
     active_weight = np.where(block.active, block.weight, 0.0)
     weighted_visibility = np.sum(
         active_weight * np.conj(factors)[None, None, :] * block.visibility,
@@ -415,9 +407,7 @@ def dirty_image_and_psf(
         raise ValueError("visibility block has no active positive-weight samples")
 
     uvw_wavelengths = (
-        block.uvw_m[:, None, :]
-        * block.frequency_hz[None, :, None]
-        / SPEED_OF_LIGHT_M_S
+        block.uvw_m[:, None, :] * block.frequency_hz[None, :, None] / SPEED_OF_LIGHT_M_S
     )
     l, m = grid.coordinates
     dirty = np.empty(l.size, dtype=np.float64)
@@ -427,19 +417,170 @@ def dirty_image_and_psf(
         source_l = l[start:stop]
         source_m = m[start:stop]
         source_n = np.sqrt(1 - source_l * source_l - source_m * source_m)
-        phase = 2j * np.pi * (
-            uvw_wavelengths[..., 0, None] * source_l
-            + uvw_wavelengths[..., 1, None] * source_m
-            + uvw_wavelengths[..., 2, None] * (source_n - 1)
+        phase = (
+            2j
+            * np.pi
+            * (
+                uvw_wavelengths[..., 0, None] * source_l
+                + uvw_wavelengths[..., 1, None] * source_m
+                + uvw_wavelengths[..., 2, None] * (source_n - 1)
+            )
         )
         adjoint = np.exp(-phase)
         dirty[start:stop] = (
-            np.real(np.sum(adjoint * weighted_visibility[..., None], axis=(0, 1)))
-            / normalization
+            np.real(np.sum(adjoint * weighted_visibility[..., None], axis=(0, 1))) / normalization
         )
         psf[start:stop] = (
-            np.real(np.sum(adjoint * weighted_response[..., None], axis=(0, 1)))
-            / normalization
+            np.real(np.sum(adjoint * weighted_response[..., None], axis=(0, 1))) / normalization
         )
     shape = (grid.size, grid.size)
     return dirty.reshape(shape), psf.reshape(shape)
+
+
+def evaluate_mosaic_residuals(
+    blocks: tuple[VisibilityBlock, ...],
+    predictions: tuple[np.ndarray, ...],
+    grid: RegularGrid,
+    mosaic_phase_centre_rad: tuple[float, float],
+    *,
+    masks: tuple[np.ndarray, ...] | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
+    config: DirectDFTConfig | None = None,
+    minimum_sensitivity_fraction: float = 0.1,
+) -> MosaicResidualEvaluation:
+    """Form a pointing-aware joint dirty residual on a common sky grid.
+
+    ``natural_dirty`` applies the adjoint of every pointing and divides by one
+    global visibility-weight normalization. ``sensitivity_corrected_dirty``
+    instead divides each pixel by its local diagonal beam sensitivity, so a
+    unit point response has unit peak. Pixels below
+    ``minimum_sensitivity_fraction`` of peak sensitivity are returned as NaN
+    in the corrected image.
+    """
+
+    if not blocks:
+        raise ValueError("blocks must contain at least one visibility block")
+    if len(predictions) != len(blocks):
+        raise ValueError("predictions must contain one array per block")
+    selected_masks = tuple(block.active for block in blocks) if masks is None else masks
+    if len(selected_masks) != len(blocks):
+        raise ValueError("masks must contain one array per block")
+    if not 0 <= minimum_sensitivity_fraction < 1:
+        raise ValueError("minimum_sensitivity_fraction must be in [0, 1)")
+    if primary_beam is not None and primary_beam.apply_squint:
+        raise ValueError("joint residual imaging does not yet support beam squint")
+    selected_config = config or DirectDFTConfig()
+    global_l, global_m = grid.coordinates
+    ra, dec = lmn_to_radec(
+        mosaic_phase_centre_rad[0],
+        mosaic_phase_centre_rad[1],
+        global_l,
+        global_m,
+    )
+    numerator = np.zeros(global_l.size, dtype=np.float64)
+    sensitivity = np.zeros(global_l.size, dtype=np.float64)
+    global_normalization = 0.0
+    per_pointing = []
+
+    for index, (block, prediction, mask) in enumerate(
+        zip(blocks, predictions, selected_masks, strict=True), start=1
+    ):
+        if prediction.shape != block.shape:
+            raise ValueError(f"prediction {index} must match its block")
+        if mask.shape != block.shape:
+            raise ValueError(f"mask {index} must match its block")
+        local_l, local_m, _ = radec_to_lmn(
+            block.phase_centre_rad[0],
+            block.phase_centre_rad[1],
+            ra,
+            dec,
+        )
+        beam_i, _, _ = predict_beam_weights(
+            primary_beam,
+            local_l,
+            local_m,
+            block.frequency_hz,
+        )
+        beam = (
+            np.ones((global_l.size, block.frequency_hz.size), dtype=np.float64)
+            if beam_i is None
+            else np.asarray(beam_i, dtype=np.float64)
+        )
+        factors = np.asarray(
+            stokes_i_to_correlations(1.0, block.correlations),
+            dtype=np.complex128,
+        )
+        active_weight = np.where(mask & block.active, block.weight, 0.0)
+        residual = block.visibility - prediction
+        weighted_residual = np.sum(
+            active_weight * np.conj(factors)[None, None, :] * residual,
+            axis=2,
+        )
+        weighted_response = np.sum(
+            active_weight * np.abs(factors)[None, None, :] ** 2,
+            axis=2,
+        )
+        pointing_normalization = float(np.sum(weighted_response))
+        if pointing_normalization <= 0:
+            raise ValueError(f"mask {index} contains no positive-weight samples")
+        global_normalization += pointing_normalization
+        for channel, frequency in enumerate(block.frequency_hz):
+            uvw_wavelengths = block.uvw_m * (frequency / SPEED_OF_LIGHT_M_S)
+            adjoint = np.asarray(
+                direct_scalar_adjoint(
+                    weighted_residual[:, channel],
+                    local_l,
+                    local_m,
+                    uvw_wavelengths,
+                    config=selected_config,
+                ),
+                dtype=np.float64,
+            )
+            numerator += beam[:, channel] * adjoint
+            channel_weight = float(np.sum(weighted_response[:, channel]))
+            sensitivity += channel_weight * np.square(beam[:, channel])
+        grouped = _grouped_visibility_diagnostics(block, residual)
+        per_pointing.append(
+            {
+                "label": f"C{index}",
+                "normalization": pointing_normalization,
+                **_visibility_statistics(
+                    block.visibility,
+                    residual,
+                    block.weight,
+                    mask,
+                ),
+                "channels": grouped["channels"],
+                "uv_distance_wavelengths": grouped["uv_distance_wavelengths"],
+            }
+        )
+
+    natural = numerator / global_normalization
+    peak_sensitivity = float(np.max(sensitivity))
+    if peak_sensitivity <= 0:
+        raise ValueError("joint mosaic has zero beam sensitivity")
+    sensitivity_fraction = sensitivity / peak_sensitivity
+    corrected = np.full_like(numerator, np.nan)
+    valid = (sensitivity > 0) & (sensitivity_fraction >= minimum_sensitivity_fraction)
+    corrected[valid] = numerator[valid] / sensitivity[valid]
+    shape = (grid.size, grid.size)
+    natural_image = natural.reshape(shape)
+    corrected_image = corrected.reshape(shape)
+    sensitivity_image = sensitivity.reshape(shape)
+    fraction_image = sensitivity_fraction.reshape(shape)
+    return MosaicResidualEvaluation(
+        natural_dirty=natural_image,
+        sensitivity_corrected_dirty=corrected_image,
+        sensitivity=sensitivity_image,
+        sensitivity_fraction=fraction_image,
+        diagnostics={
+            "sign_convention": "observed_minus_model",
+            "minimum_sensitivity_fraction": minimum_sensitivity_fraction,
+            "global_normalization": global_normalization,
+            "images": {
+                "natural": _image_statistics(natural_image),
+                "sensitivity_corrected": _finite_value_statistics(corrected_image),
+            },
+            "per_pointing": per_pointing,
+        },
+    )

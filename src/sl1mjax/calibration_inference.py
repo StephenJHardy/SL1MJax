@@ -68,9 +68,7 @@ def _weighted_error(
         selected_weight = jnp.where(selected, weight[start:stop], 0.0)
         residual = observed[start:stop] - predicted[start:stop]
         numerator += jnp.sum(selected_weight * jnp.abs(residual) ** 2)
-        denominator += jnp.sum(
-            selected_weight * jnp.abs(observed[start:stop]) ** 2
-        )
+        denominator += jnp.sum(selected_weight * jnp.abs(observed[start:stop]) ** 2)
     return numerator / jnp.maximum(denominator, jnp.finfo(jnp.float64).tiny)
 
 
@@ -105,8 +103,14 @@ def _optimize(
 
 def _solution_time_indices(
     block: VisibilityBlock,
+    gain_time_s: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    times, inverse = np.unique(block.time_s, return_inverse=True)
+    coordinates = block.time_s if gain_time_s is None else np.asarray(gain_time_s)
+    if coordinates.shape != block.time_s.shape:
+        raise ValueError("gain_time_s must have one coordinate per visibility row")
+    if np.any(~np.isfinite(coordinates)):
+        raise ValueError("gain_time_s must contain only finite coordinates")
+    times, inverse = np.unique(coordinates, return_inverse=True)
     return times, inverse.astype(np.int32)
 
 
@@ -150,9 +154,7 @@ def _rms_metrics(
     split: VisibilitySplit,
     priors: CalibrationChain | None = None,
 ) -> tuple[float, float]:
-    corrected = apply_calibration(
-        block, solution, extrapolate=True, priors=priors
-    )
+    corrected = apply_calibration(block, solution, extrapolate=True, priors=priors)
     model = _require_model(block)
 
     def metric(mask: np.ndarray) -> float:
@@ -161,9 +163,7 @@ def _rms_metrics(
             corrected.weight[selected]
             * np.abs(corrected.visibility[selected] - model[selected]) ** 2
         )
-        denominator = np.sum(
-            corrected.weight[selected] * np.abs(model[selected]) ** 2
-        )
+        denominator = np.sum(corrected.weight[selected] * np.abs(model[selected]) ** 2)
         return float(np.sqrt(numerator / denominator))
 
     return metric(split.train), metric(split.holdout)
@@ -178,6 +178,7 @@ def solve_time_gains(
     phase_only: bool = False,
     channels: np.ndarray | None = None,
     priors: CalibrationChain | None = None,
+    gain_time_s: np.ndarray | None = None,
 ) -> CalibrationFitResult:
     config = CalibrationSolveConfig() if config is None else config
     split = (
@@ -190,7 +191,7 @@ def solve_time_gains(
         else split
     )
     model = _require_model(block)
-    times, time_index = _solution_time_indices(block)
+    times, time_index = _solution_time_indices(block, gain_time_s)
     antenna_count = initial_solution.antenna_count
     receptor_count = initial_solution.receptor_count
     first = jnp.asarray(block.antenna1)
@@ -204,28 +205,19 @@ def solve_time_gains(
         selected_channels = np.zeros(block.frequency_hz.size, dtype=bool)
         selected_channels[np.asarray(channels, dtype=np.int32)] = True
         train &= jnp.asarray(selected_channels[None, :, None])
-    fixed = _fixed_baseline(
-        block, initial_solution, omit="gain", priors=priors
-    )
+    fixed = _fixed_baseline(block, initial_solution, omit="gain", priors=priors)
     initial_log_amplitude = np.zeros((times.size, antenna_count, receptor_count))
     initial_phase = np.zeros_like(initial_log_amplitude)
     if not phase_only:
         for receptor in range(receptor_count):
             selected = np.asarray(train[..., receptor])
             denominator = model[..., receptor] * np.asarray(fixed[..., receptor])
-            valid = (
-                selected
-                & np.isfinite(denominator)
-                & (np.abs(denominator) > 0)
-            )
+            valid = selected & np.isfinite(denominator) & (np.abs(denominator) > 0)
             if np.any(valid):
                 baseline_amplitude = np.median(
-                    np.abs(block.visibility[..., receptor][valid])
-                    / np.abs(denominator[valid])
+                    np.abs(block.visibility[..., receptor][valid]) / np.abs(denominator[valid])
                 )
-                initial_log_amplitude[..., receptor] = 0.5 * np.log(
-                    max(baseline_amplitude, 1e-12)
-                )
+                initial_log_amplitude[..., receptor] = 0.5 * np.log(max(baseline_amplitude, 1e-12))
 
     def objective(parameters: tuple[Array, Array]) -> Array:
         log_amplitude, phase = parameters
@@ -234,9 +226,7 @@ def solve_time_gains(
         reference = initial_solution.reference_antenna
         phase = phase - phase[:, reference : reference + 1, :]
         gains = jnp.exp(log_amplitude + 1j * phase)
-        baseline = gains[row_time, first, :] * jnp.conj(
-            gains[row_time, second, :]
-        )
+        baseline = gains[row_time, first, :] * jnp.conj(gains[row_time, second, :])
         predicted = model_array * fixed * baseline[:, None, :]
         return _weighted_error(
             observed,
@@ -255,8 +245,8 @@ def solve_time_gains(
     if phase_only:
         log_amplitude.fill(0.0)
     phase -= phase[
-        :, initial_solution.reference_antenna : initial_solution.reference_antenna
-        + 1,
+        :,
+        initial_solution.reference_antenna : initial_solution.reference_antenna + 1,
         :,
     ]
     gains = np.exp(log_amplitude + 1j * phase)
@@ -274,11 +264,12 @@ def solve_time_gains(
         provenance={
             **initial_solution.provenance,
             "last_stage": "phase_gain" if phase_only else "time_gain",
+            "gain_time_coordinate": (
+                "visibility_time" if gain_time_s is None else "explicit_per_row"
+            ),
         },
     )
-    train_rms, holdout_rms = _rms_metrics(
-        block, solution, split, priors=priors
-    )
+    train_rms, holdout_rms = _rms_metrics(block, solution, split, priors=priors)
     return CalibrationFitResult(
         solution,
         train_rms,
@@ -298,29 +289,25 @@ def solve_delays(
 ) -> CalibrationFitResult:
     config = CalibrationSolveConfig() if config is None else config
     model = _require_model(block)
-    fixed = _fixed_baseline(
-        block, initial_solution, omit="delay", priors=priors
-    )
+    fixed = _fixed_baseline(block, initial_solution, omit="delay", priors=priors)
     first = jnp.asarray(block.antenna1)
     second = jnp.asarray(block.antenna2)
-    frequencies = jnp.asarray(
-        block.frequency_hz - initial_solution.reference_frequency_hz
-    )
+    frequencies = jnp.asarray(block.frequency_hz - initial_solution.reference_frequency_hz)
     observed = jnp.asarray(np.where(block.active, block.visibility, 0.0))
     model_array = jnp.asarray(np.where(np.isfinite(model), model, 0.0))
     weight = jnp.asarray(np.where(block.active, block.weight, 0.0))
     train = jnp.asarray(split.train)
 
     def objective(delay_ns: Array) -> Array:
-        delay_ns = delay_ns - delay_ns[
-            initial_solution.reference_antenna : initial_solution.reference_antenna
-            + 1,
-            :,
-        ]
-        delay = delay_ns * 1e-9
-        jones = jnp.exp(
-            -2j * jnp.pi * frequencies[None, :, None] * delay[:, None, :]
+        delay_ns = (
+            delay_ns
+            - delay_ns[
+                initial_solution.reference_antenna : initial_solution.reference_antenna + 1,
+                :,
+            ]
         )
+        delay = delay_ns * 1e-9
+        jones = jnp.exp(-2j * jnp.pi * frequencies[None, :, None] * delay[:, None, :])
         baseline = jones[first] * jnp.conj(jones[second])
         predicted = model_array * fixed * baseline
         return _weighted_error(
@@ -335,8 +322,7 @@ def solve_delays(
     delay_ns, losses = _optimize(jnp.asarray(initial_delay_ns), objective, config)
     delay_ns = np.array(delay_ns, copy=True)
     delay_ns -= delay_ns[
-        initial_solution.reference_antenna : initial_solution.reference_antenna
-        + 1,
+        initial_solution.reference_antenna : initial_solution.reference_antenna + 1,
         :,
     ]
     solution = replace(
@@ -344,9 +330,7 @@ def solve_delays(
         delays_s=delay_ns * 1e-9,
         provenance={**initial_solution.provenance, "last_stage": "delay"},
     )
-    train_rms, holdout_rms = _rms_metrics(
-        block, solution, split, priors=priors
-    )
+    train_rms, holdout_rms = _rms_metrics(block, solution, split, priors=priors)
     return CalibrationFitResult(solution, train_rms, holdout_rms, losses, "delay")
 
 
@@ -360,9 +344,7 @@ def solve_bandpass(
 ) -> CalibrationFitResult:
     config = CalibrationSolveConfig() if config is None else config
     model = _require_model(block)
-    fixed = _fixed_baseline(
-        block, initial_solution, omit="bandpass", priors=priors
-    )
+    fixed = _fixed_baseline(block, initial_solution, omit="bandpass", priors=priors)
     first = jnp.asarray(block.antenna1)
     second = jnp.asarray(block.antenna2)
     observed = jnp.asarray(np.where(block.active, block.visibility, 0.0))
@@ -370,28 +352,24 @@ def solve_bandpass(
     weight = jnp.asarray(np.where(block.active, block.weight, 0.0))
     train = jnp.asarray(split.train)
     reference_channel = int(
-        np.argmin(
-            np.abs(
-                block.frequency_hz - initial_solution.reference_frequency_hz
-            )
-        )
+        np.argmin(np.abs(block.frequency_hz - initial_solution.reference_frequency_hz))
     )
-    initial_log_amplitude = np.log(
-        np.maximum(np.abs(initial_solution.bandpass), 1e-12)
-    )
+    initial_log_amplitude = np.log(np.maximum(np.abs(initial_solution.bandpass), 1e-12))
     initial_phase = np.angle(initial_solution.bandpass)
 
     def objective(parameters: tuple[Array, Array]) -> Array:
         log_amplitude, phase = parameters
-        log_amplitude = log_amplitude - log_amplitude[
-            :, reference_channel : reference_channel + 1, :
-        ]
-        phase = phase - phase[
-            initial_solution.reference_antenna : initial_solution.reference_antenna
-            + 1,
-            :,
-            :,
-        ]
+        log_amplitude = (
+            log_amplitude - log_amplitude[:, reference_channel : reference_channel + 1, :]
+        )
+        phase = (
+            phase
+            - phase[
+                initial_solution.reference_antenna : initial_solution.reference_antenna + 1,
+                :,
+                :,
+            ]
+        )
         bandpass = jnp.exp(log_amplitude + 1j * phase)
         baseline = bandpass[first] * jnp.conj(bandpass[second])
         predicted = model_array * fixed * baseline
@@ -409,12 +387,9 @@ def solve_bandpass(
         config,
     )
     log_amplitude, phase = (np.array(value, copy=True) for value in parameters)
-    log_amplitude -= log_amplitude[
-        :, reference_channel : reference_channel + 1, :
-    ]
+    log_amplitude -= log_amplitude[:, reference_channel : reference_channel + 1, :]
     phase -= phase[
-        initial_solution.reference_antenna : initial_solution.reference_antenna
-        + 1,
+        initial_solution.reference_antenna : initial_solution.reference_antenna + 1,
         :,
         :,
     ]
@@ -423,12 +398,8 @@ def solve_bandpass(
         bandpass=np.exp(log_amplitude + 1j * phase),
         provenance={**initial_solution.provenance, "last_stage": "bandpass"},
     )
-    train_rms, holdout_rms = _rms_metrics(
-        block, solution, split, priors=priors
-    )
-    return CalibrationFitResult(
-        solution, train_rms, holdout_rms, losses, "bandpass"
-    )
+    train_rms, holdout_rms = _rms_metrics(block, solution, split, priors=priors)
+    return CalibrationFitResult(solution, train_rms, holdout_rms, losses, "bandpass")
 
 
 def solve_staged_calibration(
@@ -447,10 +418,7 @@ def solve_staged_calibration(
     )
     solution = (
         identity_solution(
-            antenna_count=max(
-                int(np.max(block.antenna1)), int(np.max(block.antenna2))
-            )
-            + 1,
+            antenna_count=max(int(np.max(block.antenna1)), int(np.max(block.antenna2))) + 1,
             correlations=block.correlations,
             frequency_hz=block.frequency_hz,
             time_s=np.unique(block.time_s),
@@ -462,16 +430,12 @@ def solve_staged_calibration(
     if (
         solution.correlations != block.correlations
         or solution.bandpass_frequency_hz.shape != block.frequency_hz.shape
-        or not np.allclose(
-            solution.bandpass_frequency_hz, block.frequency_hz, rtol=1e-12
-        )
+        or not np.allclose(solution.bandpass_frequency_hz, block.frequency_hz, rtol=1e-12)
     ):
         raise ValueError("initial solution does not match the visibility block")
     solution = replace(
         solution,
-        reference_frequency_hz=float(
-            block.frequency_hz[block.frequency_hz.size // 2]
-        ),
+        reference_frequency_hz=float(block.frequency_hz[block.frequency_hz.size // 2]),
         provenance={"solver": "sl1mjax", "staged": True},
     )
     central = np.asarray([block.frequency_hz.size // 2])
@@ -496,12 +460,8 @@ def solve_staged_calibration(
             },
         ),
     )
-    delay = solve_delays(
-        block, phase.solution, split=split, config=config, priors=priors
-    )
-    bandpass = solve_bandpass(
-        block, delay.solution, split=split, config=config, priors=priors
-    )
+    delay = solve_delays(block, phase.solution, split=split, config=config, priors=priors)
+    bandpass = solve_bandpass(block, delay.solution, split=split, config=config, priors=priors)
     gain = solve_time_gains(
         block,
         bandpass.solution,
@@ -523,9 +483,7 @@ def transfer_flux_scale(
             secondary_valid = secondary.gain_valid[:, antenna, receptor]
             if not np.any(primary_valid) or not np.any(secondary_valid):
                 continue
-            primary_amplitude = np.median(
-                np.abs(primary.gains[primary_valid, antenna, receptor])
-            )
+            primary_amplitude = np.median(np.abs(primary.gains[primary_valid, antenna, receptor]))
             secondary_amplitude = np.median(
                 np.abs(secondary.gains[secondary_valid, antenna, receptor])
             )
@@ -535,9 +493,7 @@ def transfer_flux_scale(
     return float(np.median(ratios))
 
 
-def flux_scale_solution(
-    secondary: CalibrationSolution, flux_jy: float
-) -> CalibrationSolution:
+def flux_scale_solution(secondary: CalibrationSolution, flux_jy: float) -> CalibrationSolution:
     """Remove calibrator flux absorbed by unit-model secondary gain solutions."""
 
     if not np.isfinite(flux_jy) or flux_jy <= 0:
@@ -555,9 +511,7 @@ def flux_scale_solution(
     )
 
 
-def save_calibration_checkpoint(
-    result: CalibrationFitResult, path: str | Path
-) -> None:
+def save_calibration_checkpoint(result: CalibrationFitResult, path: str | Path) -> None:
     destination = Path(path)
     write_calibration(result.solution, destination)
     destination.with_suffix(".fit.json").write_text(

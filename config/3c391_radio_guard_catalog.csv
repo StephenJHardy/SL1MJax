@@ -1,0 +1,4 @@
+name,ra_deg,dec_deg,reference_frequency_hz,integrated_flux_jy,peak_flux_jy,major_axis_arcsec,minor_axis_arcsec,position_angle_deg,spectral_index,catalog,epoch,reference_url
+VLASS_J184932.56-003805.2,282.38568307,-0.63478545,3000000000.0,0.5731430000000001,0.064744,13.1541,11.5766,169.968,,VLASS QL Epoch 1 J/ApJS/255/30,VLASS Epoch 1 Quick Look,https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30
+VLASS_J184734.26-011244.4,281.89275199,-1.21234201,3000000000.0,0.931988,0.067895,9.886,8.5907,103.0866,,VLASS QL Epoch 1 J/ApJS/255/30,VLASS Epoch 1 Quick Look,https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30
+VLASS_J184959.25-013255.8,282.49689229,-1.54886013,3000000000.0,0.7715639999999999,0.449625,7.2136,1.5003,136.6618,,VLASS QL Epoch 1 J/ApJS/255/30,VLASS Epoch 1 Quick Look,https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30

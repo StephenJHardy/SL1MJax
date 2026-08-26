@@ -29,9 +29,7 @@ def _identity(case: CalibrationSyntheticCase) -> CalibrationSolution:
         time_s=np.unique(case.block.time_s),
         reference_antenna=case.truth.reference_antenna,
     )
-    return replace(
-        solution, reference_frequency_hz=case.truth.reference_frequency_hz
-    )
+    return replace(solution, reference_frequency_hz=case.truth.reference_frequency_hz)
 
 
 def test_calibration_split_holds_out_data_and_preserves_connected_intervals() -> None:
@@ -42,9 +40,7 @@ def test_calibration_split_holds_out_data_and_preserves_connected_intervals() ->
     assert np.any(split.holdout)
     assert not np.any(split.train & split.holdout)
     for time in np.unique(case.block.time_s):
-        rows = np.flatnonzero(
-            np.any(split.train, axis=(1, 2)) & (case.block.time_s == time)
-        )
+        rows = np.flatnonzero(np.any(split.train, axis=(1, 2)) & (case.block.time_s == time))
         antennas = set(case.block.antenna1[rows]) | set(case.block.antenna2[rows])
         assert antennas == set(range(case.truth.antenna_count))
 
@@ -54,9 +50,7 @@ def test_calibration_split_rejects_disconnected_solution_interval() -> None:
     flag = case.block.flag.copy()
     first_group = np.isin(case.block.antenna1, [0, 1, 2])
     second_group = np.isin(case.block.antenna2, [3, 4, 5])
-    disconnected = (case.block.time_s == 0) & (
-        first_group & second_group
-    )
+    disconnected = (case.block.time_s == 0) & (first_group & second_group)
     flag[disconnected] = True
     block = replace(case.block, flag=flag)
 
@@ -70,21 +64,52 @@ def test_single_term_solver_recovers_noiseless_holdout(term: str) -> None:
     split = calibration_split(case.block, seed=2)
     config = CalibrationSolveConfig(iterations=220, learning_rate=0.04)
     if term == "G":
-        result = solve_time_gains(
-            case.block, _identity(case), split=split, config=config
-        )
+        result = solve_time_gains(case.block, _identity(case), split=split, config=config)
     elif term == "K":
-        result = solve_delays(
-            case.block, _identity(case), split=split, config=config
-        )
+        result = solve_delays(case.block, _identity(case), split=split, config=config)
     else:
-        result = solve_bandpass(
-            case.block, _identity(case), split=split, config=config
-        )
+        result = solve_bandpass(case.block, _identity(case), split=split, config=config)
 
     assert result.train_rms < 2e-3
     assert result.holdout_rms < 3e-3
     assert np.isfinite(result.losses).all()
+
+
+def test_time_gain_solver_accepts_explicit_shared_solution_times() -> None:
+    case = simulate_calibration_case(terms=(), time_count=4, seed=4)
+    native_times = np.unique(case.block.time_s)
+    row_gain_time = np.where(
+        case.block.time_s <= native_times[1],
+        native_times[0],
+        native_times[2],
+    )
+
+    result = solve_time_gains(
+        case.block,
+        _identity(case),
+        split=calibration_split(case.block, seed=4),
+        config=CalibrationSolveConfig(iterations=100, learning_rate=0.04),
+        gain_time_s=row_gain_time,
+    )
+
+    np.testing.assert_array_equal(
+        result.solution.gain_time_s,
+        np.array([native_times[0], native_times[2]]),
+    )
+    assert result.solution.gains.shape[0] == 2
+    assert result.holdout_rms < 3e-3
+    assert result.solution.provenance["gain_time_coordinate"] == "explicit_per_row"
+
+
+def test_time_gain_solver_rejects_misaligned_solution_times() -> None:
+    case = simulate_calibration_case(terms=(), seed=5)
+
+    with pytest.raises(ValueError, match="one coordinate per visibility row"):
+        solve_time_gains(
+            case.block,
+            _identity(case),
+            gain_time_s=np.zeros(case.block.shape[0] - 1),
+        )
 
 
 def test_staged_solver_recovers_combined_independent_parallel_hands() -> None:

@@ -200,7 +200,7 @@ def _validate_inference_inputs(
 def positive_l1_kkt_residual(
     flux: jax.Array,
     smooth_gradient: jax.Array,
-    sparsity_weight: float,
+    sparsity_weight: float | jax.Array,
 ) -> jax.Array:
     """Return the maximum physical KKT violation for positive L1 flux.
 
@@ -341,6 +341,7 @@ def _fit_physical_flux(
     has_holdout: bool,
     eligible_rows: np.ndarray,
     initial_flux: np.ndarray,
+    sparsity_weights: np.ndarray | None = None,
 ) -> _PositiveFluxFit:
     """Fit non-negative flux directly with proximal stochastic or full steps."""
 
@@ -350,6 +351,22 @@ def _fit_physical_flux(
         raise ValueError(f"initial flux has {flux.size} parameters; expected {parameter_count}")
     if not np.all(np.isfinite(np.asarray(flux))) or np.any(np.asarray(flux) < 0):
         raise ValueError("initial flux must be finite and non-negative")
+    if sparsity_weights is None:
+        proximal_penalty = jnp.asarray(config.sparsity_weight, dtype=real_dtype)
+    else:
+        selected_sparsity_weights = np.asarray(sparsity_weights, dtype=np.float64).reshape(-1)
+        if selected_sparsity_weights.shape != (parameter_count,):
+            raise ValueError(
+                "sparsity_weights must contain exactly one value per flux parameter"
+            )
+        if not np.all(np.isfinite(selected_sparsity_weights)) or np.any(
+            selected_sparsity_weights < 0
+        ):
+            raise ValueError("sparsity_weights must be finite and non-negative")
+        proximal_penalty = jnp.asarray(
+            config.sparsity_weight * selected_sparsity_weights,
+            dtype=real_dtype,
+        )
 
     row_indices = np.flatnonzero(np.asarray(eligible_rows, dtype=bool))
     if row_indices.size == 0:
@@ -374,13 +391,14 @@ def _fit_physical_flux(
 
     initial_objective, _ = evaluated_terms(flux)
     best_objective = float(initial_objective)
+    best_holdout = float(evaluated_holdout(flux)) if has_holdout else np.inf
     best_flux = flux
     best_step = 0
     converged = False
     completed_steps = 0
 
     def record_evaluation(candidate: jax.Array, step: int) -> float:
-        nonlocal best_flux, best_objective, best_step, converged
+        nonlocal best_flux, best_holdout, best_objective, best_step, converged
         objective, (data_term, prior_term) = evaluated_terms(candidate)
         objective_value = float(objective)
         objectives.append(objective_value)
@@ -388,15 +406,20 @@ def _fit_physical_flux(
         data_values.append(float(data_term))
         prior_values.append(float(prior_term))
         if has_holdout:
-            holdout_values.append(float(evaluated_holdout(candidate)))
+            holdout_value = float(evaluated_holdout(candidate))
+            holdout_values.append(holdout_value)
             holdout_steps.append(step)
         _, smooth_gradient = smooth_value_and_gradient(candidate)
         stationarity = float(
-            positive_l1_kkt_residual(candidate, smooth_gradient, config.sparsity_weight)
+            positive_l1_kkt_residual(candidate, smooth_gradient, proximal_penalty)
         )
         stationarity_values.append(stationarity)
         stationarity_steps.append(step)
-        if objective_value < best_objective:
+        if has_holdout and holdout_value < best_holdout - config.min_delta:
+            best_holdout = holdout_value
+            best_flux = candidate
+            best_step = step
+        elif not has_holdout and objective_value < best_objective:
             best_objective = objective_value
             best_flux = candidate
             best_step = step
@@ -433,7 +456,7 @@ def _fit_physical_flux(
                 jnp.asarray(valid),
             )
             current = jnp.maximum(
-                current - step_size * gradient - step_size * config.sparsity_weight,
+                current - step_size * gradient - step_size * proximal_penalty,
                 0.0,
             )
             step = start_step + local_step + 1
@@ -445,7 +468,7 @@ def _fit_physical_flux(
         return current
 
     def run_fista(current: jax.Array, step_count: int, start_step: int) -> jax.Array:
-        nonlocal best_flux, best_objective, best_step, completed_steps, converged
+        nonlocal best_flux, best_holdout, best_objective, best_step, completed_steps, converged
         if step_count == 0:
             return current
         momentum_point = current
@@ -472,7 +495,7 @@ def _fit_physical_flux(
                 candidate = jnp.maximum(
                     base
                     - gradient / local_inverse_step
-                    - config.sparsity_weight / local_inverse_step,
+                    - proximal_penalty / local_inverse_step,
                     0.0,
                 )
                 difference = candidate - base
@@ -536,12 +559,18 @@ def _fit_physical_flux(
             objective_steps.append(step)
             data_values.append(float(data_term))
             prior_values.append(float(prior_term))
-            if has_holdout and (
+            evaluated_holdout_here = has_holdout and (
                 step % config.validation_interval == 0 or local_step + 1 == step_count
-            ):
-                holdout_values.append(float(evaluated_holdout(current)))
+            )
+            if evaluated_holdout_here:
+                holdout_value = float(evaluated_holdout(current))
+                holdout_values.append(holdout_value)
                 holdout_steps.append(step)
-            if float(objective) < best_objective:
+            if evaluated_holdout_here and holdout_value < best_holdout - config.min_delta:
+                best_holdout = holdout_value
+                best_flux = current
+                best_step = step
+            elif not has_holdout and float(objective) < best_objective:
                 best_objective = float(objective)
                 best_flux = current
                 best_step = step
@@ -551,7 +580,7 @@ def _fit_physical_flux(
                     positive_l1_kkt_residual(
                         current,
                         smooth_gradient,
-                        config.sparsity_weight,
+                        proximal_penalty,
                     )
                 )
                 stationarity_values.append(stationarity)
@@ -580,9 +609,10 @@ def _fit_physical_flux(
         positive_l1_kkt_residual(
             best_flux,
             best_smooth_gradient,
-            config.sparsity_weight,
+            proximal_penalty,
         )
     )
+    selected_converged = best_kkt_residual <= config.kkt_tolerance
     best_flux_array = np.asarray(best_flux)
     return _PositiveFluxFit(
         flux=best_flux_array,
@@ -597,7 +627,7 @@ def _fit_physical_flux(
         holdout_steps=tuple(holdout_steps),
         best_step=best_step,
         steps=completed_steps,
-        converged=converged,
+        converged=selected_converged,
         solver=config.solver,
         objective_steps=tuple(objective_steps),
         stationarity_history=tuple(stationarity_values),
@@ -1166,6 +1196,7 @@ def infer_mosaic_quadtree(
     approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
     leaf_penalty: float = 0.0,
     initial_flux: np.ndarray | None = None,
+    sparsity_weights: np.ndarray | None = None,
 ) -> MosaicQuadtreeInferenceResult:
     """Fit one positive quadtree sky to several mosaic pointings.
 
@@ -1202,6 +1233,19 @@ def infer_mosaic_quadtree(
         raise ValueError("quadtree topology must contain at least one leaf")
     if not np.isfinite(leaf_penalty) or leaf_penalty < 0:
         raise ValueError("leaf_penalty must be finite and non-negative")
+    selected_sparsity_weights = (
+        np.ones(len(topology.leaves), dtype=np.float64)
+        if sparsity_weights is None
+        else np.asarray(sparsity_weights, dtype=np.float64).reshape(-1)
+    )
+    if selected_sparsity_weights.shape != (len(topology.leaves),):
+        raise ValueError(
+            "sparsity_weights must contain exactly one value per topology leaf"
+        )
+    if not np.all(np.isfinite(selected_sparsity_weights)) or np.any(
+        selected_sparsity_weights < 0
+    ):
+        raise ValueError("sparsity_weights must be finite and non-negative")
     if len(mosaic_phase_centre_rad) != 2 or not np.all(np.isfinite(mosaic_phase_centre_rad)):
         raise ValueError("mosaic_phase_centre_rad must contain finite RA and Dec")
 
@@ -1282,6 +1326,7 @@ def infer_mosaic_quadtree(
     )
     holdout_weight_sum = sum(jnp.sum(value) for value in holdout_weights)
     topology_penalty = float(leaf_penalty * len(topology.leaves))
+    sparsity_weight_array = jnp.asarray(selected_sparsity_weights, dtype=real_dtype)
 
     def predict_block(flux: jax.Array, index: int) -> jax.Array:
         return predict_quadtree_stokes_i_explicit(
@@ -1323,9 +1368,9 @@ def infer_mosaic_quadtree(
         flux: jax.Array,
     ) -> tuple[jax.Array, tuple[jax.Array, jax.Array]]:
         data_term = smooth_objective(flux)
-        prior_term = configuration.sparsity_weight * jnp.sum(flux) + jnp.asarray(
-            topology_penalty, dtype=real_dtype
-        )
+        prior_term = configuration.sparsity_weight * jnp.sum(
+            sparsity_weight_array * flux
+        ) + jnp.asarray(topology_penalty, dtype=real_dtype)
         return data_term + prior_term, (data_term, prior_term)
 
     def holdout_data(flux: jax.Array) -> jax.Array:
@@ -1358,6 +1403,7 @@ def infer_mosaic_quadtree(
         has_holdout=has_holdout,
         eligible_rows=np.ones(1, dtype=bool),
         initial_flux=physical_initial_flux,
+        sparsity_weights=selected_sparsity_weights,
     )
     fitted_flux = jnp.asarray(fit.flux, dtype=real_dtype)
     predictions = tuple(
@@ -1392,6 +1438,91 @@ def infer_mosaic_quadtree(
         stationarity_steps=fit.stationarity_steps,
         kkt_residual=fit.kkt_residual,
     )
+
+
+def predict_mosaic_quadtree(
+    blocks: tuple[VisibilityBlock, ...],
+    topology: QuadtreeTopology,
+    flux: np.ndarray,
+    mosaic_phase_centre_rad: tuple[float, float],
+    *,
+    primary_beam: VLAPrimaryBeam | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    config: DirectDFTConfig | None = None,
+) -> tuple[np.ndarray, ...]:
+    """Predict several pointing blocks from one fixed mosaic quadtree sky.
+
+    This is the non-fitting counterpart of :func:`infer_mosaic_quadtree`. It is
+    useful for evaluating held-out or already flagged samples without allowing
+    those samples to alter either topology or leaf flux.
+    """
+
+    if not blocks:
+        raise ValueError("blocks must contain at least one visibility block")
+    if not topology.leaves:
+        raise ValueError("quadtree topology must contain at least one leaf")
+    if len(mosaic_phase_centre_rad) != 2 or not np.all(
+        np.isfinite(mosaic_phase_centre_rad)
+    ):
+        raise ValueError("mosaic_phase_centre_rad must contain finite RA and Dec")
+    flux_array = np.asarray(flux, dtype=np.float64).reshape(-1)
+    if flux_array.shape != (len(topology.leaves),):
+        raise ValueError("flux must contain exactly one value per topology leaf")
+    if np.any(~np.isfinite(flux_array)) or np.any(flux_array < 0):
+        raise ValueError("flux must be finite and non-negative")
+    selected_config = config or DirectDFTConfig()
+    approximation = GaussianApproximation(approximation)
+    real_dtype = selected_config.real_dtype
+    reference_l, reference_m = topology.centers()
+    sky_ra, sky_dec = lmn_to_radec(
+        mosaic_phase_centre_rad[0],
+        mosaic_phase_centre_rad[1],
+        reference_l,
+        reference_m,
+    )
+    predictions: list[np.ndarray] = []
+    for block in blocks:
+        local_l, local_m, _ = radec_to_lmn(
+            block.phase_centre_rad[0],
+            block.phase_centre_rad[1],
+            sky_ra,
+            sky_dec,
+        )
+        beam_i, beam_rr, beam_ll = predict_beam_weights(
+            primary_beam, local_l, local_m, block.frequency_hz
+        )
+        predictions.append(
+            np.asarray(
+                predict_quadtree_stokes_i_explicit(
+                    jnp.asarray(flux_array, dtype=real_dtype),
+                    topology,
+                    jnp.asarray(block.uvw_m, dtype=real_dtype),
+                    jnp.asarray(block.frequency_hz, dtype=real_dtype),
+                    jnp.asarray(block.antenna1),
+                    jnp.asarray(block.antenna2),
+                    block.correlations,
+                    approximation=approximation,
+                    config=selected_config,
+                    beam_weights=(
+                        None
+                        if beam_i is None
+                        else jnp.asarray(beam_i, dtype=real_dtype)
+                    ),
+                    beam_weights_rr=(
+                        None
+                        if beam_rr is None
+                        else jnp.asarray(beam_rr, dtype=real_dtype)
+                    ),
+                    beam_weights_ll=(
+                        None
+                        if beam_ll is None
+                        else jnp.asarray(beam_ll, dtype=real_dtype)
+                    ),
+                    centers_lm=(local_l, local_m),
+                )
+            )
+        )
+    return tuple(predictions)
 
 
 def save_checkpoint(path: str | Path, result: InferenceResult | QuadtreeInferenceResult) -> None:

@@ -152,7 +152,11 @@ def test_hierarchical_reconstruction_runs_one_validated_refinement_round(
     # merging defaults on, but a genuinely detailed split has nothing to merge yet
     assert result.rounds[0].merge_selection is not None
     assert result.rounds[0].merge_selection.selected == ()
+    assert result.synthesized_beam is not None
+    assert result.resolution_max_depth is not None
+    assert result.effective_max_depth == 1
     assert progress[0].startswith("initial fit:")
+    assert progress[1].startswith("resolution depth cap:")
     assert any("approximate Haar screen" in message for message in progress)
     assert any(message.startswith("split refit 1/") for message in progress)
     assert progress[-1].startswith("round 1 complete:")

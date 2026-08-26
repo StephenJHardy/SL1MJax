@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -52,6 +53,20 @@ def _flags_for_rows(table: Any, rows: np.ndarray) -> tuple[np.ndarray, np.ndarra
         selected.close()
 
 
+def _input_flag_table_context(
+    measurement_set: Path,
+    raw_flag_source: Literal["calibration_input", "post_application"],
+) -> Any:
+    """Open the saved input flags only when that provenance is requested."""
+
+    if raw_flag_source == "post_application":
+        return nullcontext(None)
+    input_flag_path = (
+        Path(str(measurement_set) + ".flagversions") / "flags.sl1mjax_calibration_input"
+    )
+    return tables.table(str(input_flag_path), readonly=True, ack=False)
+
+
 def _block(
     *,
     visibility: np.ndarray,
@@ -71,12 +86,8 @@ def _block(
 ) -> VisibilityBlock:
     selected_correlations = np.asarray([0, 3])
     shape = visibility[:, :, selected_correlations].shape
-    spectral_weight = np.broadcast_to(
-        weight[:, None, selected_correlations], shape
-    ).copy()
-    effective_flag = (
-        flag[:, :, selected_correlations] | flag_row[:, None, None]
-    )
+    spectral_weight = np.broadcast_to(weight[:, None, selected_correlations], shape).copy()
+    effective_flag = flag[:, :, selected_correlations] | flag_row[:, None, None]
     return VisibilityBlock(
         uvw_m=uvw_m,
         frequency_hz=frequency_hz,
@@ -100,9 +111,7 @@ def _concatenate(blocks: list[VisibilityBlock], *, label: str) -> VisibilityBloc
     first = blocks[0]
 
     def rows(name: str) -> np.ndarray:
-        return np.concatenate(
-            [np.asarray(getattr(block, name)) for block in blocks], axis=0
-        )
+        return np.concatenate([np.asarray(getattr(block, name)) for block in blocks], axis=0)
 
     return VisibilityBlock(
         uvw_m=rows("uvw_m"),
@@ -225,9 +234,7 @@ def _solve_calibration(
             primary_result.solution, secondary_result.solution
         ),
     }
-    return flux_scale_solution(
-        secondary_result.solution, metrics["secondary_flux_jy"]
-    ), metrics
+    return flux_scale_solution(secondary_result.solution, metrics["secondary_flux_jy"]), metrics
 
 
 def _extract_target(
@@ -238,37 +245,33 @@ def _extract_target(
     frequency_bins: int,
     time_bin_s: float,
     chunk_rows: int,
+    raw_flag_source: Literal["calibration_input", "post_application"] = ("calibration_input"),
+    propagate_weights: bool = False,
 ) -> tuple[VisibilityBlock, VisibilityBlock]:
-    input_flag_path = (
-        Path(str(measurement_set) + ".flagversions")
-        / "flags.sl1mjax_calibration_input"
-    )
+    if raw_flag_source not in {"calibration_input", "post_application"}:
+        raise ValueError("raw_flag_source must be calibration_input or post_application")
+    input_flag_context = _input_flag_table_context(measurement_set, raw_flag_source)
     casa_chunks: list[VisibilityBlock] = []
     jax_chunks: list[VisibilityBlock] = []
     with (
         tables.table(str(measurement_set), readonly=True, ack=False) as main,
-        tables.table(str(input_flag_path), readonly=True, ack=False) as input_flags,
+        input_flag_context as input_flags,
         tables.table(
             str(measurement_set / "SPECTRAL_WINDOW"), readonly=True, ack=False
         ) as spectral_window,
-        tables.table(
-            str(measurement_set / "FIELD"), readonly=True, ack=False
-        ) as field,
+        tables.table(str(measurement_set / "FIELD"), readonly=True, ack=False) as field,
     ):
         selected = main.query(f"FIELD_ID=={field_id}")
         try:
             source_rows = np.asarray(selected.rownumbers(), dtype=np.int64)
-            frequency_hz = np.asarray(
-                spectral_window.getcell("CHAN_FREQ", 0), dtype=np.float64
-            )
-            direction = np.asarray(
-                field.getcell("PHASE_DIR", field_id), dtype=np.float64
-            ).reshape(-1, 2)[0]
+            frequency_hz = np.asarray(spectral_window.getcell("CHAN_FREQ", 0), dtype=np.float64)
+            direction = np.asarray(field.getcell("PHASE_DIR", field_id), dtype=np.float64).reshape(
+                -1, 2
+            )[0]
             phase_centre = (float(direction[0]), float(direction[1]))
             for start in range(0, selected.nrows(), chunk_rows):
                 count = min(chunk_rows, selected.nrows() - start)
                 rows = source_rows[start : start + count]
-                input_flag, input_flag_row = _flags_for_rows(input_flags, rows)
                 post_flag = np.asarray(
                     selected.getcol("FLAG", startrow=start, nrow=count), dtype=bool
                 )
@@ -276,6 +279,12 @@ def _extract_target(
                     selected.getcol("FLAG_ROW", startrow=start, nrow=count),
                     dtype=bool,
                 )
+                if raw_flag_source == "calibration_input":
+                    if input_flags is None:
+                        raise RuntimeError("calibration-input flag table was not opened")
+                    input_flag, input_flag_row = _flags_for_rows(input_flags, rows)
+                else:
+                    input_flag, input_flag_row = post_flag, post_flag_row
                 weight = np.asarray(
                     selected.getcol("WEIGHT", startrow=start, nrow=count),
                     dtype=np.float64,
@@ -306,9 +315,7 @@ def _extract_target(
                 )
                 casa = _block(
                     visibility=np.asarray(
-                        selected.getcol(
-                            "CORRECTED_DATA", startrow=start, nrow=count
-                        )
+                        selected.getcol("CORRECTED_DATA", startrow=start, nrow=count)
                     ),
                     flag=post_flag,
                     flag_row=post_flag_row,
@@ -325,11 +332,11 @@ def _extract_target(
                     column="CORRECTED_DATA",
                 )
                 raw = _block(
-                    visibility=np.asarray(
-                        selected.getcol("DATA", startrow=start, nrow=count)
+                    visibility=np.asarray(selected.getcol("DATA", startrow=start, nrow=count)),
+                    flag=(input_flag if raw_flag_source == "calibration_input" else post_flag),
+                    flag_row=(
+                        input_flag_row if raw_flag_source == "calibration_input" else post_flag_row
                     ),
-                    flag=input_flag,
-                    flag_row=input_flag_row,
                     weight=weight,
                     uvw_m=uvw_m,
                     frequency_hz=frequency_hz,
@@ -342,13 +349,14 @@ def _extract_target(
                     phase_centre_rad=phase_centre,
                     column="DATA",
                 )
-                calibrated = apply_calibration(raw, solution, extrapolate=True)
-                casa_chunks.append(
-                    average_frequency_bins(casa, bin_count=frequency_bins)
+                calibrated = apply_calibration(
+                    raw,
+                    solution,
+                    extrapolate=True,
+                    propagate_weights=propagate_weights,
                 )
-                jax_chunks.append(
-                    average_frequency_bins(calibrated, bin_count=frequency_bins)
-                )
+                casa_chunks.append(average_frequency_bins(casa, bin_count=frequency_bins))
+                jax_chunks.append(average_frequency_bins(calibrated, bin_count=frequency_bins))
         finally:
             selected.close()
     casa = average_time_bins(
@@ -389,26 +397,20 @@ def _extract_corrected_target(
         try:
             if selected.nrows() == 0:
                 raise ValueError(f"field {field_id} has no rows")
-            frequency_hz = np.asarray(
-                spectral_window.getcell("CHAN_FREQ", 0), dtype=np.float64
-            )
-            direction = np.asarray(
-                field.getcell("PHASE_DIR", field_id), dtype=np.float64
-            ).reshape(-1, 2)[0]
+            frequency_hz = np.asarray(spectral_window.getcell("CHAN_FREQ", 0), dtype=np.float64)
+            direction = np.asarray(field.getcell("PHASE_DIR", field_id), dtype=np.float64).reshape(
+                -1, 2
+            )[0]
             phase_centre = (float(direction[0]), float(direction[1]))
             for start in range(0, selected.nrows(), chunk_rows):
                 count = min(chunk_rows, selected.nrows() - start)
-                flag = np.asarray(
-                    selected.getcol("FLAG", startrow=start, nrow=count), dtype=bool
-                )
+                flag = np.asarray(selected.getcol("FLAG", startrow=start, nrow=count), dtype=bool)
                 flag_row = np.asarray(
                     selected.getcol("FLAG_ROW", startrow=start, nrow=count), dtype=bool
                 )
                 block = _block(
                     visibility=np.asarray(
-                        selected.getcol(
-                            "CORRECTED_DATA", startrow=start, nrow=count
-                        )
+                        selected.getcol("CORRECTED_DATA", startrow=start, nrow=count)
                     ),
                     flag=flag,
                     flag_row=flag_row,
@@ -456,8 +458,7 @@ def _extract_corrected_target(
 
 def _image_metrics(actual: np.ndarray, reference: np.ndarray) -> dict[str, float]:
     normalized_rms = np.sqrt(
-        np.sum((actual - reference) ** 2)
-        / np.maximum(np.sum(reference**2), np.finfo(float).tiny)
+        np.sum((actual - reference) ** 2) / np.maximum(np.sum(reference**2), np.finfo(float).tiny)
     )
     return {
         "normalized_rms": float(normalized_rms),
@@ -519,6 +520,12 @@ def main() -> int:
     parser.add_argument("--frequency-bins", type=int, default=4)
     parser.add_argument("--time-bin-s", type=float, default=60.0)
     parser.add_argument("--chunk-rows", type=int, default=2048)
+    parser.add_argument(
+        "--gain-interpolation",
+        choices=("nearest", "linear"),
+        default="linear",
+        help="Time interpolation used when transferring calibrator gains to 3C391.",
+    )
     parser.add_argument("--dirty-size", type=int, default=96)
     parser.add_argument("--dirty-pixel-arcsec", type=float, default=4.0)
     parser.add_argument("--reconstruction-size", type=int, default=40)
@@ -535,11 +542,15 @@ def main() -> int:
     arguments = parser.parse_args()
     arguments.output.mkdir(parents=True, exist_ok=True)
 
-    solve_config = CalibrationSolveConfig(
-        iterations=300, learning_rate=0.03, seed=11
-    )
-    solution, calibration_metrics = _solve_calibration(
-        arguments.golden, solve_config
+    solve_config = CalibrationSolveConfig(iterations=300, learning_rate=0.03, seed=11)
+    solution, calibration_metrics = _solve_calibration(arguments.golden, solve_config)
+    solution = replace(
+        solution,
+        interpolation=arguments.gain_interpolation,
+        provenance={
+            **solution.provenance,
+            "target_gain_interpolation": arguments.gain_interpolation,
+        },
     )
     casa, jax_calibrated = _extract_target(
         arguments.measurement_set,
@@ -583,14 +594,10 @@ def main() -> int:
         title="3C391 C1 naturally weighted dirty image",
     )
 
-    common_rows = np.flatnonzero(
-        np.any(casa.active & jax_calibrated.active, axis=(1, 2))
-    )
+    common_rows = np.flatnonzero(np.any(casa.active & jax_calibrated.active, axis=(1, 2)))
     reconstruction_count = min(arguments.reconstruction_rows, common_rows.size)
     reconstruction_rows = common_rows[
-        np.linspace(
-            0, common_rows.size - 1, reconstruction_count, dtype=np.int64
-        )
+        np.linspace(0, common_rows.size - 1, reconstruction_count, dtype=np.int64)
     ]
     casa_reconstruction_block = _select_rows(casa, reconstruction_rows)
     jax_reconstruction_block = _select_rows(jax_calibrated, reconstruction_rows)
@@ -612,12 +619,8 @@ def main() -> int:
         ),
         split_seed=17,
     )
-    casa_reconstruction: ImagingResult = reconstruct(
-        casa_reconstruction_block, image_config
-    )
-    jax_reconstruction: ImagingResult = reconstruct(
-        jax_reconstruction_block, image_config
-    )
+    casa_reconstruction: ImagingResult = reconstruct(casa_reconstruction_block, image_config)
+    jax_reconstruction: ImagingResult = reconstruct(jax_reconstruction_block, image_config)
     write_products(
         casa_reconstruction,
         arguments.output / "casa_corrected_reconstruction.fits",
@@ -634,16 +637,11 @@ def main() -> int:
     )
 
     common = casa.active & jax_calibrated.active
-    visibility_weight = np.where(
-        common, np.minimum(casa.weight, jax_calibrated.weight), 0.0
-    )
+    visibility_weight = np.where(common, np.minimum(casa.weight, jax_calibrated.weight), 0.0)
     visibility_metrics = {
         "normalized_rms": float(
             np.sqrt(
-                np.sum(
-                    visibility_weight
-                    * np.abs(jax_calibrated.visibility - casa.visibility) ** 2
-                )
+                np.sum(visibility_weight * np.abs(jax_calibrated.visibility - casa.visibility) ** 2)
                 / np.sum(visibility_weight * np.abs(casa.visibility) ** 2)
             )
         ),
@@ -654,6 +652,7 @@ def main() -> int:
         "measurement_set": arguments.measurement_set.name,
         "averaged_shape": list(casa.shape),
         "calibration": calibration_metrics,
+        "target_gain_interpolation": arguments.gain_interpolation,
         "visibility_comparison": visibility_metrics,
         "dirty_image_comparison": _image_metrics(jax_dirty, casa_dirty),
         "dirty_psf_comparison": _image_metrics(jax_psf, casa_psf),

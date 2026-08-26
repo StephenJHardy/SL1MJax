@@ -8,7 +8,12 @@ from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
 from sl1mjax.coordinates import lmn_to_radec, radec_to_lmn
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.direct_operator import DirectDFTConfig
-from sl1mjax.inference import InferenceConfig, infer_mosaic_quadtree, infer_quadtree
+from sl1mjax.inference import (
+    InferenceConfig,
+    infer_mosaic_quadtree,
+    infer_quadtree,
+    predict_mosaic_quadtree,
+)
 from sl1mjax.mosaic_refinement import (
     batched_exact_mosaic_residual_haar_scores,
     mosaic_quadtree_objective_metrics,
@@ -84,6 +89,34 @@ def _config() -> InferenceConfig:
             pixel_chunk_size=8,
         ),
     )
+
+
+def test_fixed_mosaic_prediction_does_not_require_a_fit() -> None:
+    sky = quadtree_sky_from_regular_grid(2, 2e-4, [0.8, 0.2, 0.1, 0.05])
+    phase_centre = (1.2, -0.3)
+    beam = VLAPrimaryBeam(kind="gaussian")
+    blocks = (
+        _block(sky, phase_centre, phase_centre, seed=20, beam=beam),
+        _block(
+            sky,
+            phase_centre,
+            (phase_centre[0] + 7e-4, phase_centre[1] - 5e-4),
+            seed=21,
+            beam=beam,
+        ),
+    )
+
+    predictions = predict_mosaic_quadtree(
+        blocks,
+        sky.topology,
+        sky.flux,
+        phase_centre,
+        primary_beam=beam,
+        config=DirectDFTConfig(visibility_chunk_size=13, pixel_chunk_size=8),
+    )
+
+    for block, prediction in zip(blocks, predictions, strict=True):
+        np.testing.assert_allclose(prediction, block.visibility, rtol=2e-12, atol=2e-12)
 
 
 def test_exact_mosaic_scores_match_a_duplicated_single_pointing() -> None:

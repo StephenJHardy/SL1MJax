@@ -8,7 +8,7 @@ import pytest
 
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.data.synthetic import PointSource, simulate_dataset
-from sl1mjax.diagnostics import evaluate_residuals
+from sl1mjax.diagnostics import evaluate_mosaic_residuals, evaluate_residuals
 from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.imaging import ImagingConfig, reconstruct
 from sl1mjax.inference import InferenceConfig
@@ -66,9 +66,7 @@ def test_missing_point_source_appears_positive_in_every_residual_map() -> None:
     assert peak_index == centre
     diagnostics = evaluation.diagnostics
     assert diagnostics["sign_convention"] == "observed_minus_model"
-    assert diagnostics["visibility"]["full"]["normalized_residual_power"] == (
-        pytest.approx(1.0)
-    )
+    assert diagnostics["visibility"]["full"]["normalized_residual_power"] == (pytest.approx(1.0))
     grouped = diagnostics["visibility"]["grouped_full"]
     assert len(grouped["channels"]) == 2
     assert len(grouped["correlations"]) == 4
@@ -94,10 +92,44 @@ def test_exact_prediction_has_zero_residual_images_and_statistics() -> None:
     np.testing.assert_allclose(evaluation.full_dirty, 0.0, atol=1e-14)
     np.testing.assert_allclose(evaluation.train_dirty, 0.0, atol=1e-14)
     np.testing.assert_allclose(evaluation.holdout_dirty, 0.0, atol=1e-14)
-    assert (
-        evaluation.diagnostics["visibility"]["full"]["weighted_complex_mse"]
-        == 0.0
+    assert evaluation.diagnostics["visibility"]["full"]["weighted_complex_mse"] == 0.0
+
+
+def test_joint_residual_adjoint_is_invariant_to_duplicating_a_pointing() -> None:
+    grid, block = _case()
+    prediction = np.zeros(block.shape, dtype=np.complex128)
+    config = DirectDFTConfig(visibility_chunk_size=16, pixel_chunk_size=32)
+
+    single = evaluate_mosaic_residuals(
+        (block,),
+        (prediction,),
+        grid,
+        block.phase_centre_rad,
+        config=config,
+        minimum_sensitivity_fraction=0.0,
     )
+    duplicated = evaluate_mosaic_residuals(
+        (block, block),
+        (prediction, prediction),
+        grid,
+        block.phase_centre_rad,
+        config=config,
+        minimum_sensitivity_fraction=0.0,
+    )
+
+    centre = (grid.size // 2, grid.size // 2)
+    assert single.natural_dirty[centre] == pytest.approx(1.0, abs=1e-12)
+    assert single.sensitivity_corrected_dirty[centre] == pytest.approx(1.0, abs=1e-12)
+    np.testing.assert_allclose(duplicated.natural_dirty, single.natural_dirty)
+    np.testing.assert_allclose(
+        duplicated.sensitivity_corrected_dirty,
+        single.sensitivity_corrected_dirty,
+    )
+    np.testing.assert_allclose(
+        duplicated.sensitivity_fraction,
+        single.sensitivity_fraction,
+    )
+    assert duplicated.diagnostics["sign_convention"] == "observed_minus_model"
 
 
 def test_standard_products_include_residual_fits_and_grouped_diagnostics(
@@ -164,6 +196,4 @@ def test_all_visibility_fit_has_no_holdout_split() -> None:
     assert diagnostics["split"]["strategy"] == "all"
     assert diagnostics["split"]["holdout_fraction"] == 0.0
     assert result.residual_evaluation is not None
-    assert result.residual_evaluation.diagnostics["visibility"]["holdout"][
-        "active_count"
-    ] == 0
+    assert result.residual_evaluation.diagnostics["visibility"]["holdout"]["active_count"] == 0

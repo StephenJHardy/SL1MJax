@@ -142,6 +142,12 @@ Several details make an adaptive hierarchy practical:
 - The explicit adjoint can compute residual correlations for many virtual
   children in batches. This is the expensive part of a derivative-based split
   rule, but it is already the operation that the code is designed to stream.
+- A wide-field catalogue guard is selected by maximum apparent flux over all
+  pointing/channel pairs, not intrinsic source flux or distance from the image
+  centre. This makes the criterion proportional to (I B) for each beam while
+  still giving the joint mosaic model one shared sky atom. Catalogue positions
+  and provenance are fixed, but fluxes are free non-negative parameters. The
+  catalogue values only initialize the fit.
 - `mergeable_parents` finds complete four-sibling groups in the active leaf
   set (a parent is never itself active alongside all four children, since the
   leaf set is required to be prefix-free). `local_four_sibling_merge_lookahead`
@@ -383,6 +389,27 @@ Three controls are worth testing:
 
 The first prototype should combine a leaf-count penalty with held-out UV-cell
 selection. A hierarchical detail penalty is the strongest second experiment.
+
+There is also a separate identifiability limit from angular resolution. The
+weighted UV second moment gives the curvature of the natural-weight dirty PSF
+at its peak. Matching that curvature to a Gaussian provides a synthesized-beam
+estimate without using visibility values or CASA metadata. Refinement now caps
+the dyadic depth so the minor-axis beam spans no more than five leaf widths:
+
+\[
+d_{\rm res}=\max\left(0,\left\lfloor
+\log_2\frac{5\,\Delta\theta_0}{\theta_{\rm min}}
+\right\rfloor\right),\qquad
+d_{\rm effective}=\min(d_{\rm requested},d_{\rm res}).
+\]
+
+Here $\Delta\theta_0$ is the root-pixel width and $\theta_{\rm min}$ is the
+minor-axis beam FWHM. This is a ceiling, not a demand to refine: Haar
+conditioning and held-out improvement still decide whether permitted splits
+are useful. The limit can be disabled explicitly for super-resolution tests.
+For 3C391, the estimate is about 20.4 by 16.9 arcsec for C1 and 20.7 by
+16.8 arcsec for the seven-pointing mosaic. A 16 arcsec root therefore stops at
+depth 2, or 4 arcsec leaves, giving about 4.2 pixels across the minor beam.
 
 ## Alternative approaches and feasibility
 
@@ -689,6 +716,51 @@ the finite parent-flux bound becomes active, approximately recovering the
 expected `IB` capacity without multiplying the score by an ad hoc beam
 factor.
 
+This constraint fixes the local split comparison, but not the global L1 bias
+on a field that includes sidelobes. Penalizing intrinsic flux uniformly makes
+an outer source with beam power (B=0.01) roughly 100 times more expensive
+than a central source with the same apparent response. Mosaic quadtree
+inference therefore now accepts per-leaf sparsity weights. The wide-field
+diagnostic uses the relative weighted beam-column norm
+
+\[
+d_j \propto \sqrt{\sum_{p,c,r} w_{pcr} B_{pcj}^2},
+\qquad R(I)=\lambda\sum_j d_j I_j,
+\]
+
+normalized to a maximum of one. This combines mosaic pointings and puts the
+threshold approximately on detectable (IB)-weighted flux. It is appropriate
+for outer-component discovery and comparison, although intrinsic flux remains
+poorly constrained in a weak sidelobe.
+
+The fixed-topology model now supports several such dictionaries in one convex
+fit. The intended 3C391 configuration is
+
+\[
+I(l,m) = I_{\rm central\ tree}(l,m)
+       + I_{\rm coarse\ outer}(l,m)
+       + \sum_k f_k\,\delta(l-l_k,m-m_k).
+\]
+
+Every pointing evaluates all groups in its own tangent plane and through its
+own primary-beam response. The flux vector is concatenated only inside the
+optimizer. Component identities, fitted fluxes, and per-pointing predictions
+remain separate in the public result. This preserves a clean path to later
+time- and frequency-indexed groups without hiding them in one dense image.
+
+Sensitivity weights are normalized globally across all groups in a candidate
+model. The current estimate includes visibility weights, masks, channels,
+correlations, pointings, and beam power. It does not yet include the
+square-pixel Fourier envelope. Models that mix very different pixel widths
+must therefore still be chosen by held-out prediction rather than by their
+penalized training objective alone.
+
+Validation now controls the returned physical-flux checkpoint. When a holdout
+is supplied, FISTA, proximal SGD, and hybrid optimization return the iterate
+with minimum recorded holdout loss. Without a holdout they return the minimum
+training objective as before. A scientific model comparison should still keep
+an outer sealed test partition that neither chooses lambda nor stopping time.
+
 Exact gradients and 3×3 curvature matrices are now accumulated in candidate
 and visibility tiles. The first screen remains a cheap streamed adjoint, then
 the marked shortlist receives the exact constrained score. Scalar equivalence,
@@ -737,6 +809,29 @@ mean beam attenuation) outside the old square and exactly zero flux where the
 mean beam is below 0.1. The consensus image and machine-readable topology are
 the first all-visibility hierarchical scientific products; the next benchmark
 should compare them with a uniform 128² 8″ fit over the same 17.1′ field.
+
+The seven-pointing mosaic gate has now also completed. Three field-aware
+64×64 UV folds selected 252, 256, and 238 splits on a 104² root grid at 16″.
+Strict-majority support gives a fixed 11,536-leaf topology. Against an
+independently sealed set of complete outer scans, it reduces normalized
+residual power by 40.1%; all seven pointings improve by 29.6--50.7%.
+
+The topology was then refitted on all 755,048 active samples. It reduces
+all-data residual power by 38.0% against the unrefined 16″ grid, with
+independent gains of 25.6--48.4% in every pointing. A pointing-aware 208²
+common-grid residual adjoint shows a 34.6% RMS reduction and a 70.4% peak
+reduction inside the 10% mosaic-sensitivity contour. No positive flux lies on
+the field boundary, outside the old central 64² footprint, or where all seven
+beam powers are at or below 0.1.
+
+This fit also defines the next engineering gate. The refined FISTA solve hit
+its 500-step ceiling with KKT `4.60×10⁻⁵`, above the configured `3×10⁻⁵`
+tolerance, and the lower residual still contains coherent large-scale
+structure. Progress reporting and checkpointing are needed before longer
+production runs. Then compare a longer deterministic finish with an
+SGD-to-FISTA finish under the same fixed topology. Spectral or calibration
+freedom should only be added after that optimizer comparison, using the
+per-channel and common-grid residuals as the decision evidence.
 
 The implementation checkpoint passes Ruff, strict mypy, the complete local
 test suite, and focused physical-solver tests on an RTX 3080 Ti. One real-VLA

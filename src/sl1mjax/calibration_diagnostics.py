@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations
+from typing import Any
 
 import numpy as np
 
@@ -56,6 +57,131 @@ class CalibrationDiagnostics:
     domains: DomainDiagnostics
 
 
+@dataclass(frozen=True)
+class FixedSkyCalibrationEvaluation:
+    """Residual metrics for one calibration candidate against a frozen sky."""
+
+    label: str
+    train: dict[str, float | int]
+    holdout: dict[str, float | int]
+    per_pointing: tuple[dict[str, Any], ...]
+    per_channel: tuple[dict[str, Any], ...]
+
+
+def _fixed_sky_residual_metrics(
+    blocks: tuple[VisibilityBlock, ...],
+    predictions: tuple[np.ndarray, ...],
+    masks: tuple[np.ndarray, ...],
+    *,
+    channel: int | None = None,
+) -> dict[str, float | int]:
+    residual_power = 0.0
+    model_power = 0.0
+    weight_sum = 0.0
+    active_count = 0
+    for block, prediction, mask in zip(blocks, predictions, masks, strict=True):
+        selected = mask & block.active
+        if channel is not None:
+            channel_mask = np.zeros(block.shape, dtype=bool)
+            channel_mask[:, channel, :] = True
+            selected &= channel_mask
+        weight = np.where(selected, block.weight, 0.0)
+        residual = block.visibility - prediction
+        residual_power += float(np.sum(weight * np.abs(residual) ** 2))
+        model_power += float(np.sum(weight * np.abs(prediction) ** 2))
+        weight_sum += float(np.sum(weight))
+        active_count += int(np.count_nonzero(selected))
+    if active_count == 0 or weight_sum <= 0:
+        raise ValueError("fixed-sky mask contains no positive-weight active samples")
+    if model_power <= 0:
+        raise ValueError("fixed-sky prediction has zero weighted power")
+    return {
+        "active_count": active_count,
+        "weight_sum": weight_sum,
+        "weighted_complex_mse": residual_power / weight_sum,
+        "normalized_residual_power": residual_power / model_power,
+        "normalized_rms": float(np.sqrt(residual_power / model_power)),
+    }
+
+
+def evaluate_fixed_sky_calibration(
+    label: str,
+    blocks: tuple[VisibilityBlock, ...],
+    predictions: tuple[np.ndarray, ...],
+    train_masks: tuple[np.ndarray, ...],
+    holdout_masks: tuple[np.ndarray, ...],
+) -> FixedSkyCalibrationEvaluation:
+    """Score calibrated visibilities without refitting the supplied sky model.
+
+    Residual power is normalized by the fixed model power rather than each
+    candidate's calibrated visibility power. This prevents an amplitude-biased
+    calibration from improving the score by rescaling its own denominator.
+    """
+
+    count = len(blocks)
+    if count == 0:
+        raise ValueError("blocks must contain at least one pointing")
+    if not (
+        len(predictions) == count and len(train_masks) == count and len(holdout_masks) == count
+    ):
+        raise ValueError("blocks, predictions, and masks must have equal lengths")
+    for index, (block, prediction, train, holdout) in enumerate(
+        zip(blocks, predictions, train_masks, holdout_masks, strict=True), start=1
+    ):
+        if prediction.shape != block.shape:
+            raise ValueError(f"prediction {index} must match its visibility block")
+        if train.shape != block.shape or holdout.shape != block.shape:
+            raise ValueError(f"masks {index} must match their visibility block")
+        if np.any(train & holdout):
+            raise ValueError(f"train and holdout masks {index} overlap")
+    channels = blocks[0].frequency_hz.size
+    if any(block.frequency_hz.size != channels for block in blocks):
+        raise ValueError("all blocks must have the same channel count")
+    per_pointing = []
+    for index in range(count):
+        per_pointing.append(
+            {
+                "label": f"C{index + 1}",
+                "train": _fixed_sky_residual_metrics(
+                    (blocks[index],),
+                    (predictions[index],),
+                    (train_masks[index],),
+                ),
+                "holdout": _fixed_sky_residual_metrics(
+                    (blocks[index],),
+                    (predictions[index],),
+                    (holdout_masks[index],),
+                ),
+            }
+        )
+    per_channel = tuple(
+        {
+            "channel": channel,
+            "frequency_hz": float(blocks[0].frequency_hz[channel]),
+            "train": _fixed_sky_residual_metrics(
+                blocks,
+                predictions,
+                train_masks,
+                channel=channel,
+            ),
+            "holdout": _fixed_sky_residual_metrics(
+                blocks,
+                predictions,
+                holdout_masks,
+                channel=channel,
+            ),
+        }
+        for channel in range(channels)
+    )
+    return FixedSkyCalibrationEvaluation(
+        label=label,
+        train=_fixed_sky_residual_metrics(blocks, predictions, train_masks),
+        holdout=_fixed_sky_residual_metrics(blocks, predictions, holdout_masks),
+        per_pointing=tuple(per_pointing),
+        per_channel=per_channel,
+    )
+
+
 def _residual_diagnostics(
     corrected: VisibilityBlock,
     model: np.ndarray,
@@ -65,8 +191,7 @@ def _residual_diagnostics(
     residual = corrected.visibility - model
     denominator = np.sum(corrected.weight[selected] * np.abs(model[selected]) ** 2)
     normalized_rms = np.sqrt(
-        np.sum(corrected.weight[selected] * np.abs(residual[selected]) ** 2)
-        / denominator
+        np.sum(corrected.weight[selected] * np.abs(residual[selected]) ** 2) / denominator
     )
     ratio = corrected.visibility[selected] / model[selected]
     amplitude_residual = np.abs(ratio) - 1.0
@@ -81,9 +206,7 @@ def _residual_diagnostics(
     )
 
 
-def _closure_diagnostics(
-    corrected: VisibilityBlock, model: np.ndarray
-) -> ClosureDiagnostics:
+def _closure_diagnostics(corrected: VisibilityBlock, model: np.ndarray) -> ClosureDiagnostics:
     ratio = np.divide(
         corrected.visibility,
         model,
@@ -99,26 +222,16 @@ def _closure_diagnostics(
             for row in rows
             if np.any(corrected.active[row])
         }
-        antennas = sorted(
-            set(corrected.antenna1[rows]) | set(corrected.antenna2[rows])
-        )
+        antennas = sorted(set(corrected.antenna1[rows]) | set(corrected.antenna2[rows]))
         for first, second, third in combinations(antennas, 3):
             keys = ((first, second), (second, third), (first, third))
             if not all(key in pair_rows for key in keys):
                 continue
             row12, row23, row13 = (pair_rows[key] for key in keys)
-            valid = (
-                corrected.active[row12]
-                & corrected.active[row23]
-                & corrected.active[row13]
-            )
-            closure = (
-                ratio[row12] * ratio[row23] * np.conj(ratio[row13])
-            )
+            valid = corrected.active[row12] & corrected.active[row23] & corrected.active[row13]
+            closure = ratio[row12] * ratio[row23] * np.conj(ratio[row13])
             phases.append(np.angle(closure)[valid])
-            log_amplitudes.append(
-                np.log(np.maximum(np.abs(closure[valid]), 1e-300))
-            )
+            log_amplitudes.append(np.log(np.maximum(np.abs(closure[valid]), 1e-300)))
     if not phases:
         return ClosureDiagnostics(np.nan, np.nan, 0)
     phase = np.concatenate(phases)
@@ -139,21 +252,14 @@ def _domain_diagnostics(
     for row in np.flatnonzero(train_rows):
         occupancy[inverse[row], block.antenna1[row]] += 1
         occupancy[inverse[row], block.antenna2[row]] += 1
-    missing = tuple(
-        (int(time), int(antenna))
-        for time, antenna in np.argwhere(occupancy == 0)
-    )
+    missing = tuple((int(time), int(antenna)) for time, antenna in np.argwhere(occupancy == 0))
     disconnected: list[int] = []
     for time_index in range(times.size):
-        active_antennas = set(
-            map(int, np.flatnonzero(occupancy[time_index] > 0))
-        )
+        active_antennas = set(map(int, np.flatnonzero(occupancy[time_index] > 0)))
         if not active_antennas:
             disconnected.append(time_index)
             continue
-        adjacency: dict[int, set[int]] = {
-            antenna: set() for antenna in active_antennas
-        }
+        adjacency: dict[int, set[int]] = {antenna: set() for antenna in active_antennas}
         for row in np.flatnonzero(train_rows & (inverse == time_index)):
             first = int(block.antenna1[row])
             second = int(block.antenna2[row])
@@ -181,9 +287,7 @@ def diagnose_calibration(
     corrected = apply_calibration(block, solution, extrapolate=True)
     return CalibrationDiagnostics(
         train=_residual_diagnostics(corrected, block.model_visibility, split.train),
-        holdout=_residual_diagnostics(
-            corrected, block.model_visibility, split.holdout
-        ),
+        holdout=_residual_diagnostics(corrected, block.model_visibility, split.holdout),
         closure=_closure_diagnostics(corrected, block.model_visibility),
         domains=_domain_diagnostics(block, split, solution.antenna_count),
     )
@@ -204,9 +308,7 @@ def compare_solutions(
     gain_phase: list[float] = []
     for antenna in range(actual.antenna_count):
         for receptor in range(actual.receptor_count):
-            actual_values = actual.gains[
-                actual.gain_valid[:, antenna, receptor], antenna, receptor
-            ]
+            actual_values = actual.gains[actual.gain_valid[:, antenna, receptor], antenna, receptor]
             expected_values = expected.gains[
                 expected.gain_valid[:, antenna, receptor], antenna, receptor
             ]
@@ -217,33 +319,18 @@ def compare_solutions(
             gain_log_amplitude.append(
                 float(np.log(np.abs(actual_median) / np.abs(expected_median)))
             )
-            gain_phase.append(
-                float(np.angle(actual_median * np.conj(expected_median)))
-            )
+            gain_phase.append(float(np.angle(actual_median * np.conj(expected_median))))
     valid_delay = actual.delay_valid & expected.delay_valid
     valid_bandpass = actual.bandpass_valid & expected.bandpass_valid
-    bandpass_ratio = actual.bandpass[valid_bandpass] / expected.bandpass[
-        valid_bandpass
-    ]
+    bandpass_ratio = actual.bandpass[valid_bandpass] / expected.bandpass[valid_bandpass]
     return SolutionComparison(
-        gain_log_amplitude_rms=float(
-            np.sqrt(np.mean(np.square(gain_log_amplitude)))
-        ),
+        gain_log_amplitude_rms=float(np.sqrt(np.mean(np.square(gain_log_amplitude)))),
         gain_phase_rms_rad=float(np.sqrt(np.mean(np.square(gain_phase)))),
         delay_rms_s=float(
-            np.sqrt(
-                np.mean(
-                    (actual.delays_s[valid_delay] - expected.delays_s[valid_delay])
-                    ** 2
-                )
-            )
+            np.sqrt(np.mean((actual.delays_s[valid_delay] - expected.delays_s[valid_delay]) ** 2))
         ),
-        bandpass_log_amplitude_rms=float(
-            np.sqrt(np.mean(np.log(np.abs(bandpass_ratio)) ** 2))
-        ),
-        bandpass_phase_rms_rad=float(
-            np.sqrt(np.mean(np.angle(bandpass_ratio) ** 2))
-        ),
+        bandpass_log_amplitude_rms=float(np.sqrt(np.mean(np.log(np.abs(bandpass_ratio)) ** 2))),
+        bandpass_phase_rms_rad=float(np.sqrt(np.mean(np.angle(bandpass_ratio) ** 2))),
     )
 
 
@@ -260,9 +347,7 @@ def propose_residual_flags(
     if block.model_visibility is None:
         raise ValueError("flag proposals require model_visibility")
     corrected = apply_calibration(block, solution, extrapolate=True)
-    residual_amplitude = np.abs(
-        corrected.visibility - block.model_visibility
-    )
+    residual_amplitude = np.abs(corrected.visibility - block.model_visibility)
     proposal = np.zeros(block.shape, dtype=bool)
     for channel in range(block.frequency_hz.size):
         for receptor in range(len(block.correlations)):
@@ -273,8 +358,7 @@ def propose_residual_flags(
             median = np.median(values)
             scale = 1.4826 * np.median(np.abs(values - median))
             threshold = median + sigma * max(scale, np.finfo(float).eps)
-            proposal[:, channel, receptor] = (
-                active
-                & (residual_amplitude[:, channel, receptor] > threshold)
+            proposal[:, channel, receptor] = active & (
+                residual_amplitude[:, channel, receptor] > threshold
             )
     return proposal

@@ -193,6 +193,18 @@ def _write_fold(
         "accepted_splits": _leaf_payload(splits),
         "final_leaf_count": len(result.inference.topology.leaves),
         "final_kkt_residual": result.inference.kkt_residual,
+        "effective_max_depth": result.effective_max_depth,
+        "resolution_max_depth": result.resolution_max_depth,
+        "synthesized_beam": (
+            None
+            if result.synthesized_beam is None
+            else {
+                "major_fwhm_arcsec": (np.rad2deg(result.synthesized_beam.major_fwhm_rad) * 3600.0),
+                "minor_fwhm_arcsec": (np.rad2deg(result.synthesized_beam.minor_fwhm_rad) * 3600.0),
+                "position_angle_deg": np.rad2deg(result.synthesized_beam.position_angle_rad),
+                "method": result.synthesized_beam.method,
+            }
+        ),
         "rounds": _round_summary(result),
     }
     (directory / "summary.json").write_text(
@@ -241,6 +253,9 @@ def _config(arguments: argparse.Namespace, *, seed: int) -> AdaptiveRefinementCo
         uv_cells_per_axis=arguments.uv_cells_per_axis,
         max_rounds=arguments.max_rounds,
         max_depth=arguments.max_depth,
+        maximum_pixels_per_beam=(
+            None if arguments.disable_resolution_depth_cap else arguments.maximum_pixels_per_beam
+        ),
         target_improvement_fraction=arguments.target_improvement_fraction,
         max_split_fraction=arguments.max_split_fraction,
         max_splits_per_round=arguments.max_splits_per_round,
@@ -364,6 +379,8 @@ def main() -> int:
     parser.add_argument("--kkt-tolerance", type=float, default=3e-5)
     parser.add_argument("--max-rounds", type=int, default=8)
     parser.add_argument("--max-depth", type=int, default=2)
+    parser.add_argument("--maximum-pixels-per-beam", type=float, default=5.0)
+    parser.add_argument("--disable-resolution-depth-cap", action="store_true")
     parser.add_argument("--uv-cells-per-axis", type=int, default=64)
     parser.add_argument("--target-improvement-fraction", type=float, default=0.7)
     parser.add_argument("--max-split-fraction", type=float, default=0.05)
@@ -417,6 +434,9 @@ def main() -> int:
         "kkt_tolerance": arguments.kkt_tolerance,
         "max_rounds": arguments.max_rounds,
         "max_depth": arguments.max_depth,
+        "maximum_pixels_per_beam": (
+            None if arguments.disable_resolution_depth_cap else arguments.maximum_pixels_per_beam
+        ),
         "inner_holdout_fraction": arguments.inner_holdout_fraction,
         "uv_cells_per_axis": arguments.uv_cells_per_axis,
         "target_improvement_fraction": arguments.target_improvement_fraction,

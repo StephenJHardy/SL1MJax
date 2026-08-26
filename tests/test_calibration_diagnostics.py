@@ -1,10 +1,12 @@
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from sl1mjax.calibration_diagnostics import (
     compare_solutions,
     diagnose_calibration,
+    evaluate_fixed_sky_calibration,
     propose_residual_flags,
 )
 from sl1mjax.data.synthetic import simulate_calibration_case
@@ -52,3 +54,39 @@ def test_residual_flag_proposal_is_non_mutating_and_finds_outlier() -> None:
     assert proposal[3, 4, 1]
     np.testing.assert_array_equal(block.flag, original_flag)
     assert np.sum(proposal) < 10
+
+
+def test_fixed_sky_calibration_uses_model_normalization_and_sealed_masks() -> None:
+    case = simulate_calibration_case(noise_std=0.0, seed=12)
+    assert case.block.model_visibility is not None
+    model = case.block.model_visibility
+    corrected = replace(
+        case.block,
+        visibility=model.copy(),
+        flag=np.zeros(case.block.shape, dtype=bool),
+    )
+    biased = replace(corrected, visibility=0.5 * model)
+    train = np.zeros(case.block.shape, dtype=bool)
+    train[: case.block.shape[0] // 2] = True
+    holdout = ~train
+
+    exact = evaluate_fixed_sky_calibration(
+        "exact",
+        (corrected,),
+        (model,),
+        (train,),
+        (holdout,),
+    )
+    amplitude_biased = evaluate_fixed_sky_calibration(
+        "biased",
+        (biased,),
+        (model,),
+        (train,),
+        (holdout,),
+    )
+
+    assert exact.train["normalized_residual_power"] == 0.0
+    assert exact.holdout["normalized_residual_power"] == 0.0
+    assert amplitude_biased.train["normalized_residual_power"] == pytest.approx(0.25)
+    assert amplitude_biased.holdout["normalized_residual_power"] == pytest.approx(0.25)
+    assert len(amplitude_biased.per_channel) == case.block.frequency_hz.size

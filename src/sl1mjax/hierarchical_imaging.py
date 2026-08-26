@@ -31,6 +31,11 @@ from sl1mjax.refinement import (
     select_bulk_merges,
     select_bulk_splits,
 )
+from sl1mjax.resolution import (
+    SynthesizedBeamEstimate,
+    estimate_synthesized_beam,
+    resolution_limited_max_depth,
+)
 from sl1mjax.sky import GaussianApproximation
 from sl1mjax.split import random_row_split, uv_cell_split
 
@@ -52,6 +57,7 @@ class AdaptiveRefinementConfig:
     uv_cells_per_axis: int = 8
     max_rounds: int = 3
     max_depth: int = 3
+    maximum_pixels_per_beam: float | None = 5.0
     leaf_penalty: float = 0.0
     target_improvement_fraction: float = 0.7
     max_split_fraction: float = 0.05
@@ -107,6 +113,9 @@ class HierarchicalImagingResult:
     holdout_mask: np.ndarray
     stop_reason: str
     elapsed_s: float
+    synthesized_beam: SynthesizedBeamEstimate | None = None
+    resolution_max_depth: int | None = None
+    effective_max_depth: int = 0
     merge_hysteresis: MergeHysteresisState = field(default_factory=MergeHysteresisState.empty)
 
 
@@ -146,8 +155,12 @@ def _validate_config(config: AdaptiveRefinementConfig) -> None:
         raise ValueError("holdout_fraction must be between zero and one")
     if config.max_rounds < 0:
         raise ValueError("max_rounds must be non-negative")
-    if config.max_depth < 1:
-        raise ValueError("max_depth must be positive")
+    if config.max_depth < 0:
+        raise ValueError("max_depth must be non-negative")
+    if config.maximum_pixels_per_beam is not None and (
+        not np.isfinite(config.maximum_pixels_per_beam) or config.maximum_pixels_per_beam <= 0
+    ):
+        raise ValueError("maximum_pixels_per_beam must be finite and positive")
     if config.score_candidate_batch_size < 1 or config.score_row_batch_size < 1:
         raise ValueError("score batch sizes must be positive")
     if config.inference.operator_mode != "explicit":
@@ -203,6 +216,17 @@ def reconstruct_hierarchical(
         selected_config.allow_approximate_curvature or not curvature_is_exact
     )
     train_mask, holdout_mask = _split_masks(block, selected_config)
+    synthesized_beam = None
+    resolution_max_depth = None
+    effective_max_depth = selected_config.max_depth
+    if selected_config.maximum_pixels_per_beam is not None:
+        synthesized_beam = estimate_synthesized_beam((block,), (train_mask,))
+        resolution_max_depth = resolution_limited_max_depth(
+            selected_config.root_pixel_size_rad,
+            synthesized_beam.minor_fwhm_rad,
+            maximum_pixels_per_beam=selected_config.maximum_pixels_per_beam,
+        )
+        effective_max_depth = min(effective_max_depth, resolution_max_depth)
     initial_sky = quadtree_sky_from_regular_grid(
         selected_config.root_size,
         selected_config.root_pixel_size_rad,
@@ -214,6 +238,13 @@ def reconstruct_hierarchical(
             f"initial fit: {len(initial_sky.leaves)} leaves, "
             f"solver={selected_config.inference.solver}"
         )
+        if synthesized_beam is not None:
+            progress(
+                "resolution depth cap: "
+                f"beam={np.rad2deg(synthesized_beam.major_fwhm_rad) * 3600:.3g}x"
+                f"{np.rad2deg(synthesized_beam.minor_fwhm_rad) * 3600:.3g} arcsec, "
+                f"requested={selected_config.max_depth}, effective={effective_max_depth}"
+            )
     current_fit = infer_quadtree(
         block,
         initial_sky.topology,
@@ -247,7 +278,7 @@ def reconstruct_hierarchical(
             current_fit,
             train_mask,
             selected_config.inference,
-            max_depth=selected_config.max_depth,
+            max_depth=effective_max_depth,
             fixed_gains=fixed_gains,
             primary_beam=primary_beam,
             approximation=approximation,
@@ -470,5 +501,8 @@ def reconstruct_hierarchical(
         holdout_mask=holdout_mask,
         stop_reason=stop_reason,
         elapsed_s=perf_counter() - started,
+        synthesized_beam=synthesized_beam,
+        resolution_max_depth=resolution_max_depth,
+        effective_max_depth=effective_max_depth,
         merge_hysteresis=merge_hysteresis,
     )

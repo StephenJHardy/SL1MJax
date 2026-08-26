@@ -47,6 +47,67 @@ from the two paths correlate at `0.9960` with `0.0747` normalized RMS
 difference. The target comparison and its imaging limitations are documented
 in [3c391_target_imaging.md](3c391_target_imaging.md).
 
+Gain transfer currently defaults to nearest-neighbour time application. Linear
+interpolation of amplitude and unwrapped phase is implemented but had not been
+selected on target validation. The first controlled comparison is now
+`scripts/sweep_3c391_calibration_interpolation.py`. It solves the external
+calibrators once, applies nearest and linear gains to raw `DATA`, and scores
+both against the seven-pointing consensus sky fitted only on outer-training
+scans. The complete outer scans remain the calibration-validation set. The
+score is normalized by frozen model power so an amplitude-biased calibration
+cannot improve its own denominator. Distance from CASA `CORRECTED_DATA` is a
+secondary diagnostic, not the selection objective.
+
+The full seven-pointing sweep selects linear interpolation. On 158,280 common
+samples from complete held-out scans, fixed-sky residual power falls from
+0.01320 for nearest gains to 0.01035 for linear gains, a 21.6% reduction.
+Normalized RMS falls from 0.1149 to 0.1017. All four frequency bins improve,
+and six of seven pointings improve; C7 is 0.6% worse. Held-out distance from
+CASA `CORRECTED_DATA` falls from 0.00417 to 0.00166 in normalized power. CASA
+itself reaches 0.00908 against the same frozen sky, so linear interpolation
+closes most but not all of the calibration gap. The 3C391 target workflow now
+defaults explicitly to linear transfer, while the library-wide solution
+default remains nearest until another dataset validates the choice.
+
+A subsequent fixed-sky 2^3 term ablation localizes the remaining difference.
+After putting CASA and SL1MJax in a common `G`/`B` gauge, replacing only the
+SL1MJax time gains with CASA gains lowers normalized residual power by 21.2%
+on validation and 18.8% on the sealed fold. CASA delay gives a further small
+0.4%/1.0% improvement. CASA bandpass has no repeatable benefit. The complete
+CASA solution scores 0.007462/0.007548, compared with 0.009602/0.009464 for
+the selected SL1MJax solution. Propagated weights improve both paths by about
+1%, and removing either flux transfer is strongly rejected at about 0.318
+residual power.
+
+The imported complete CASA solution reproduces stored CASA-corrected
+visibilities to `1.18e-6` normalized sealed power, so application error is not
+driving this result. The material difference is now the gain solve: the saved
+SL1MJax solution has six epochs from the compact golden sample, while CASA has
+fourteen epochs. The next tranche must solve `G` from all calibrator rows in
+the locally cached MeasurementSet. Piecewise-linear native epochs, constrained
+amplitude/unwrapped-phase bases, and a circular phase GP should then compete
+under the same frozen-sky validation protocol. Residual classification remains
+deferred until that comparison is complete.
+
+The native full-row baseline is now complete. The gain solver separates the
+per-row observation time from the gain-solution coordinate, so one `G` can be
+shared across a scan without corrupting time-dependent antenna-position phase.
+The fourteen gain knots use active-weight scan centroids and match CASA's
+gain-table times to much better than one second. A 300-step solve over 39,733
+calibrator rows took 15.7 seconds locally and reached train/holdout RMS
+0.0726/0.0740. Its fold-3 frozen-sky residual power is 0.007478, 22.1% below
+the six-knot result and only 0.25% above CASA's 0.007459. Fold 4 remains closed
+until the constrained and GP candidates have been ranked.
+
+That ranking is now complete. Seven irregular-time curvature penalties and
+twelve circular RBF GPs were compared with native linear transfer on fold 3.
+Native linear wins at 0.007478. The weakest curvature penalty is 0.54% worse,
+and stronger penalties worsen monotonically. The best GP is 2.13% worse. The
+frozen winner then scores 0.007607 on fold 4, only 0.79% above CASA's 0.007547.
+The GP implementation remains useful for later anchored self-calibration, but
+the external calibrator currently supports keeping all fourteen measured scan
+gains without smoothing.
+
 This tranche does not implement immutable reason-coded flag versions,
 pre-calibration RFI discovery, calibrator catalogues, smooth bandpass bases,
 uncertainty estimation, target self-calibration, cross-hands or leakage.
@@ -455,6 +516,63 @@ After a common gauge transformation:
 Thresholds should be fixed in fixture metadata and changed only alongside a
 documented scientific-model revision.
 
+### Residual handling and variable-sky protection
+
+An existing flag is not a truth label. Flag evaluation must report four
+counts: flagged residual-tail samples, flagged residual-bulk samples,
+unflagged tail samples, and unflagged bulk samples. A flagged sample may be
+considered for restoration only after recalibration without that flag. Its
+old `CORRECTED_DATA` is not sufficient evidence because the flag may have
+excluded it from the gain solve.
+
+Residual handling has distinct operating modes:
+
+- report-only mode never changes weights or flags;
+- robust-weight mode continuously limits extreme influence but creates no
+  hard flag;
+- static-sky mode may propose hard residual flags when source constancy is a
+  valid prior;
+- transient-safe mode subtracts cross-validated temporal or spectral sky
+  components before scoring corruption.
+
+Transient-safe protection must use interferometric coherence, not just image
+amplitude. Fit a candidate sky response on one baseline subset and validate
+the coefficient on disjoint baselines. Protect it only if it predicts the
+held-out complex visibilities. This applies equally to continuum variability
+and narrow spectral-line emission. Antenna-local, baseline-local, and
+non-closing residuals remain candidates for robust weighting or flags.
+
+Instrumental metadata, non-finite values, zero weights, saturation, and
+invalid calibration domains remain hard flags in every mode. Sky coherence
+cannot override them. All model-residual decisions remain proposals until a
+frozen validation comparison shows better calibration and imaging on samples
+that did not select the proposal.
+
+The 3C391 wide-field composite control now separates missing sky from the
+remaining flagging problem. The improved fixed sky lowers sealed residual
+power by 6.32% and lowers the old fixed-scale `z>6` population by 7.09%.
+After estimating the narrower robust scale again, however, about 5% of active
+samples remain in the heavy tail. The same sky changes residual power in the
+currently flagged cohort by only -0.041%.
+
+The immediate 3C391 task is therefore a fixed-sky calibration-complexity
+study. Compare the current nearest solution assignment with progressively
+smoother time models and interpolation, and select complexity using held-out
+time and baseline cells. Do not train a residual classifier on the present
+labels. The current tail is still a mixture of calibration error, remaining
+sky error, and corruption, so such a classifier would learn the wrong target
+and could suppress genuine variable emission.
+
+This study is now complete. Linear transfer between all six native gain epochs
+wins both the fold-3 selection score and the sealed fold-4 score. It lowers
+sealed residual power by 19.5% relative to nearest transfer. Constant, linear,
+and quadratic global time models all lose, so post-hoc smoothing removes real
+calibrator information. The selected JAX result remains 25.4% above CASA in
+sealed residual power. The gap occurs in every pointing and every frequency
+bin. A term-by-term `G`, `K`, `B`, flux-scale, and weight-propagation
+ablation against the portable CASA solution is now required before automatic
+residual classification or target self-calibration.
+
 ## Independent CASA comparison
 
 For selected synthetic fixtures:
@@ -607,11 +725,15 @@ A calibration release is acceptable only when:
 
 ## Immediate next steps
 
-1. Define immutable, reason-coded flag versions and declarative manual rules.
-2. Add conservative structural and pre-calibration time/frequency RFI rules.
-3. Add smooth bandpass/time bases, robust losses and solution uncertainty.
-4. Build independently sourced Perley–Butler calibrator models.
-5. Exercise the same gates on another VLA band/configuration before target
+1. Repeat the primary-calibrator and flux-transfer solve on all rows to test
+   whether flux-scale uncertainty explains the remaining sub-percent CASA gap.
+2. Add exact gain-weight propagation before averaging once coordinate handling
+   supports a common unweighted time grid.
+3. Define immutable, reason-coded flag versions and declarative manual rules.
+4. Add conservative structural and pre-calibration time/frequency RFI rules.
+5. Add smooth bandpass/time bases, robust losses and solution uncertainty.
+6. Build independently sourced Perley–Butler calibrator models.
+7. Exercise the same gates on another VLA band/configuration before target
    self-calibration.
-6. Defer cross-hands, leakage and polarization angle until the diagonal system
+8. Defer cross-hands, leakage and polarization angle until the diagonal system
    is stable on multiple observations.

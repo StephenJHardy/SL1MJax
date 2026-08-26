@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jax
 import jax.numpy as jnp
@@ -48,34 +48,22 @@ class CalibrationSolution:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "gains", np.asarray(self.gains, dtype=np.complex128))
-        object.__setattr__(
-            self, "gain_time_s", np.asarray(self.gain_time_s, dtype=np.float64)
-        )
-        object.__setattr__(
-            self, "gain_valid", np.asarray(self.gain_valid, dtype=bool)
-        )
+        object.__setattr__(self, "gain_time_s", np.asarray(self.gain_time_s, dtype=np.float64))
+        object.__setattr__(self, "gain_valid", np.asarray(self.gain_valid, dtype=bool))
         object.__setattr__(
             self,
             "gain_interval_s",
             np.asarray(self.gain_interval_s, dtype=np.float64),
         )
-        object.__setattr__(
-            self, "delays_s", np.asarray(self.delays_s, dtype=np.float64)
-        )
-        object.__setattr__(
-            self, "delay_valid", np.asarray(self.delay_valid, dtype=bool)
-        )
-        object.__setattr__(
-            self, "bandpass", np.asarray(self.bandpass, dtype=np.complex128)
-        )
+        object.__setattr__(self, "delays_s", np.asarray(self.delays_s, dtype=np.float64))
+        object.__setattr__(self, "delay_valid", np.asarray(self.delay_valid, dtype=bool))
+        object.__setattr__(self, "bandpass", np.asarray(self.bandpass, dtype=np.complex128))
         object.__setattr__(
             self,
             "bandpass_frequency_hz",
             np.asarray(self.bandpass_frequency_hz, dtype=np.float64),
         )
-        object.__setattr__(
-            self, "bandpass_valid", np.asarray(self.bandpass_valid, dtype=bool)
-        )
+        object.__setattr__(self, "bandpass_valid", np.asarray(self.bandpass_valid, dtype=bool))
         object.__setattr__(
             self,
             "correlations",
@@ -124,13 +112,11 @@ class CalibrationSolution:
             raise ValueError("reference_antenna is outside the antenna axis")
         if self.interpolation not in {"nearest", "linear"}:
             raise ValueError("interpolation must be nearest or linear")
-        if (
-            self.antenna_position_offset_m is not None
-            and self.antenna_position_offset_m.shape != (self.antenna_count, 3)
+        if self.antenna_position_offset_m is not None and self.antenna_position_offset_m.shape != (
+            self.antenna_count,
+            3,
         ):
-            raise ValueError(
-                "antenna_position_offset_m must have shape (antenna, 3)"
-            )
+            raise ValueError("antenna_position_offset_m must have shape (antenna, 3)")
 
     def tree_flatten(self) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
         children = (
@@ -158,9 +144,7 @@ class CalibrationSolution:
     def tree_unflatten(
         cls, auxiliary: tuple[Any, ...], children: tuple[Any, ...]
     ) -> CalibrationSolution:
-        correlations, reference_antenna, reference_frequency_hz, interpolation, raw = (
-            auxiliary
-        )
+        correlations, reference_antenna, reference_frequency_hz, interpolation, raw = auxiliary
         return cls(
             gains=children[0],
             gain_time_s=children[1],
@@ -205,18 +189,12 @@ def identity_solution(
         gains=np.ones((times.size, antenna_count, receptors), dtype=np.complex128),
         gain_time_s=times,
         gain_valid=np.ones((times.size, antenna_count, receptors), dtype=bool),
-        gain_interval_s=np.zeros(
-            (times.size, antenna_count, receptors), dtype=np.float64
-        ),
+        gain_interval_s=np.zeros((times.size, antenna_count, receptors), dtype=np.float64),
         delays_s=np.zeros((antenna_count, receptors)),
         delay_valid=np.ones((antenna_count, receptors), dtype=bool),
-        bandpass=np.ones(
-            (antenna_count, frequencies.size, receptors), dtype=np.complex128
-        ),
+        bandpass=np.ones((antenna_count, frequencies.size, receptors), dtype=np.complex128),
         bandpass_frequency_hz=frequencies,
-        bandpass_valid=np.ones(
-            (antenna_count, frequencies.size, receptors), dtype=bool
-        ),
+        bandpass_valid=np.ones((antenna_count, frequencies.size, receptors), dtype=bool),
         correlations=correlations,
         reference_antenna=reference_antenna,
         reference_frequency_hz=float(np.mean(frequencies)),
@@ -252,14 +230,10 @@ def _frequency_indices(
     *,
     extrapolate: bool,
 ) -> np.ndarray:
-    distance = np.abs(
-        frequency_hz[:, None] - solution.bandpass_frequency_hz[None, :]
-    )
+    distance = np.abs(frequency_hz[:, None] - solution.bandpass_frequency_hz[None, :])
     indices = np.argmin(distance, axis=1)
     tolerance = np.maximum(np.abs(frequency_hz), 1.0) * 1e-10
-    if not extrapolate and np.any(
-        distance[np.arange(frequency_hz.size), indices] > tolerance
-    ):
+    if not extrapolate and np.any(distance[np.arange(frequency_hz.size), indices] > tolerance):
         raise ValueError("requested frequency is outside the bandpass coordinate grid")
     return indices
 
@@ -283,18 +257,11 @@ def baseline_jones(
     first = np.asarray(antenna1, dtype=np.int32)
     second = np.asarray(antenna2, dtype=np.int32)
     gains = _interpolate_gains(solution, times)
-    frequency_indices = _frequency_indices(
-        solution, frequencies, extrapolate=extrapolate
-    )
+    frequency_indices = _frequency_indices(solution, frequencies, extrapolate=extrapolate)
     bandpass = solution.bandpass[:, frequency_indices, :]
     bandpass_valid = solution.bandpass_valid[:, frequency_indices, :]
     offset_frequency = frequencies - solution.reference_frequency_hz
-    delay = np.exp(
-        -2j
-        * np.pi
-        * solution.delays_s[:, None, :]
-        * offset_frequency[None, :, None]
-    )
+    delay = np.exp(-2j * np.pi * solution.delays_s[:, None, :] * offset_frequency[None, :, None])
     antenna_jones = (
         gains[:, None, :, :]
         * np.transpose(bandpass, (1, 0, 2))[None, :, :, :]
@@ -304,15 +271,12 @@ def baseline_jones(
         solution.antenna_position_offset_m
     ):
         if phase_centre_rad is None:
-            raise ValueError(
-                "phase_centre_rad is required for antenna-position calibration"
-            )
+            raise ValueError("phase_centre_rad is required for antenna-position calibration")
         mjd = times / 86400.0
         julian_date = mjd + 2_400_000.5
         gmst_rad = np.deg2rad(
             np.mod(
-                280.46061837
-                + 360.98564736629 * (julian_date - 2_451_545.0),
+                280.46061837 + 360.98564736629 * (julian_date - 2_451_545.0),
                 360.0,
             )
         )
@@ -326,15 +290,9 @@ def baseline_jones(
             ),
             axis=1,
         )
-        path_error_m = (
-            direction_ecef @ solution.antenna_position_offset_m.T
-        )
+        path_error_m = direction_ecef @ solution.antenna_position_offset_m.T
         position_jones = np.exp(
-            2j
-            * np.pi
-            * frequencies[None, :, None]
-            * path_error_m[:, None, :]
-            / SPEED_OF_LIGHT_M_S
+            2j * np.pi * frequencies[None, :, None] * path_error_m[:, None, :] / SPEED_OF_LIGHT_M_S
         )
         antenna_jones *= position_jones[:, :, :, None]
     # antenna_jones: row, channel, antenna, receptor
@@ -354,22 +312,15 @@ def baseline_jones(
                 nearest_gain[:, antenna, selected_receptor] = False
                 continue
             valid_times = solution.gain_time_s[valid]
-            valid_intervals = solution.gain_interval_s[
-                valid, antenna, selected_receptor
-            ]
-            indices = np.argmin(
-                np.abs(times[:, None] - valid_times[None, :]), axis=1
-            )
+            valid_intervals = solution.gain_interval_s[valid, antenna, selected_receptor]
+            indices = np.argmin(np.abs(times[:, None] - valid_times[None, :]), axis=1)
             domain_valid = (
                 np.ones(times.size, dtype=bool)
                 if extrapolate
-                else np.abs(times - valid_times[indices])
-                <= valid_intervals[indices] / 2
+                else np.abs(times - valid_times[indices]) <= valid_intervals[indices] / 2
             )
             if solution.interpolation == "linear" and valid_times.size > 1:
-                domain_valid |= (times >= valid_times.min()) & (
-                    times <= valid_times.max()
-                )
+                domain_valid |= (times >= valid_times.min()) & (times <= valid_times.max())
             nearest_gain[:, antenna, selected_receptor] = domain_valid & np.isfinite(
                 solution.gains[valid, antenna, selected_receptor][indices]
             )
@@ -460,13 +411,9 @@ def apply_calibration(
         spectral_window_id=block.spectral_window_id,
     )
     baseline_array = np.asarray(baseline)
-    valid_array = np.asarray(valid) & np.isfinite(baseline_array) & (
-        np.abs(baseline_array) > 0
-    )
+    valid_array = np.asarray(valid) & np.isfinite(baseline_array) & (np.abs(baseline_array) > 0)
     if not extrapolate and np.any(block.active & ~valid_array):
-        raise ValueError(
-            "active visibility lies outside the calibration solution validity domain"
-        )
+        raise ValueError("active visibility lies outside the calibration solution validity domain")
     corrected = np.divide(
         block.visibility,
         baseline_array,
@@ -475,9 +422,7 @@ def apply_calibration(
     )
     flag = block.flag | ~valid_array
     weight = (
-        block.weight * np.abs(baseline_array) ** 2
-        if propagate_weights
-        else block.weight.copy()
+        block.weight * np.abs(baseline_array) ** 2 if propagate_weights else block.weight.copy()
     )
     provenance = {
         **dict(block.provenance),
@@ -490,9 +435,7 @@ def apply_calibration(
             "extrapolate": extrapolate,
             "solution_provenance": solution.provenance,
             "prior_provenance": None if priors is None else priors.provenance,
-            "prior_terms": (
-                [] if priors is None else [term.kind for term in priors.terms]
-            ),
+            "prior_terms": ([] if priors is None else [term.kind for term in priors.terms]),
         },
     }
     return replace(
@@ -536,13 +479,9 @@ def align_solution_gauge(solution: CalibrationSolution) -> CalibrationSolution:
     reference = gains[:, solution.reference_antenna, :]
     phase = np.exp(-1j * np.angle(reference))
     gains *= phase[:, None, :]
-    delays = solution.delays_s - solution.delays_s[
-        solution.reference_antenna, :
-    ][None, :]
+    delays = solution.delays_s - solution.delays_s[solution.reference_antenna, :][None, :]
     bandpass = solution.bandpass.copy()
-    reference_bandpass_phase = np.exp(
-        -1j * np.angle(bandpass[solution.reference_antenna, :, :])
-    )
+    reference_bandpass_phase = np.exp(-1j * np.angle(bandpass[solution.reference_antenna, :, :]))
     bandpass *= reference_bandpass_phase[None, :, :]
     return replace(solution, gains=gains, delays_s=delays, bandpass=bandpass)
 
@@ -605,9 +544,7 @@ def read_calibration(path: str | Path) -> CalibrationSolution:
             bandpass=arrays["bandpass"],
             bandpass_frequency_hz=arrays["bandpass_frequency_hz"],
             bandpass_valid=arrays["bandpass_valid"],
-            correlations=tuple(
-                Correlation(value) for value in metadata["correlations"]
-            ),
+            correlations=tuple(Correlation(value) for value in metadata["correlations"]),
             reference_antenna=int(metadata["reference_antenna"]),
             reference_frequency_hz=float(metadata["reference_frequency_hz"]),
             interpolation=str(metadata["interpolation"]),
@@ -641,9 +578,7 @@ def _pivot_casa_table(
     output = np.ones((unique_times.size, antenna_count, *value_shape), values.dtype)
     valid = np.zeros(output.shape, dtype=bool)
     time_index = {value: index for index, value in enumerate(unique_times)}
-    for row, (time, selected_antenna) in enumerate(
-        zip(times, antenna, strict=True)
-    ):
+    for row, (time, selected_antenna) in enumerate(zip(times, antenna, strict=True)):
         index = time_index[time]
         output[index, selected_antenna] = values[row]
         row_valid = ~flag[row]
@@ -660,6 +595,7 @@ def import_casa_golden_solution(
     *,
     field_id: int,
     interpolation: str = "nearest",
+    gain_table: Literal["gain", "flux_gain"] = "flux_gain",
 ) -> CalibrationSolution:
     """Translate exported CASA K/B/G tables for one calibrator field."""
 
@@ -667,26 +603,22 @@ def import_casa_golden_solution(
     metadata = json.loads(source.with_suffix(".json").read_text(encoding="utf-8"))
     with np.load(source) as arrays:
         gain_times, gains, gain_valid = _pivot_casa_table(
-            arrays, "flux_gain", "cparam", field_id=field_id
+            arrays, gain_table, "cparam", field_id=field_id
         )
         interval_times, gain_interval, _ = _pivot_casa_table(
-            arrays, "flux_gain", "interval", field_id=field_id
+            arrays, gain_table, "interval", field_id=field_id
         )
         if not np.array_equal(interval_times, gain_times):
             raise ValueError("CASA gain interval and parameter coordinates differ")
         gains = gains[:, :, 0, :]
         gain_valid = gain_valid[:, :, 0, :]
-        gain_interval = np.broadcast_to(
-            gain_interval[:, :, None], gains.shape
-        ).copy()
+        gain_interval = np.broadcast_to(gain_interval[:, :, None], gains.shape).copy()
         _, delay, delay_valid = _pivot_casa_table(arrays, "delay", "fparam")
         # CASA K-table FPARAM uses the opposite phase slope to this module's
         # `exp(-2πi(ν-ν_ref)τ)` Jones convention.
         delay = -delay[0, :, 0, :] * 1e-9
         delay_valid = delay_valid[0, :, 0, :]
-        _, bandpass, bandpass_valid = _pivot_casa_table(
-            arrays, "bandpass", "cparam"
-        )
+        _, bandpass, bandpass_valid = _pivot_casa_table(arrays, "bandpass", "cparam")
         bandpass = bandpass[0]
         bandpass_valid = bandpass_valid[0]
         frequencies = np.asarray(arrays["frequency_hz"], dtype=np.float64)
@@ -718,6 +650,7 @@ def import_casa_golden_solution(
             "source": source.name,
             "casa_version": metadata["casa_version"],
             "field_id": field_id,
+            "gain_table": gain_table,
             "antenna_position_application": "ecef_phase_applied",
             "calwt": False,
         },
@@ -751,9 +684,7 @@ def load_casa_calibration_golden(
             antenna2=arrays[prefix + "antenna2"],
             field_id=arrays[prefix + "field_id"],
             scan_id=arrays[prefix + "scan_id"],
-            correlations=tuple(
-                Correlation(value) for value in metadata["correlations"]
-            ),
+            correlations=tuple(Correlation(value) for value in metadata["correlations"]),
             receptor_basis=ReceptorBasis.CIRCULAR,
             phase_centre_rad=(phase_centre[0], phase_centre[1]),
             provenance={
@@ -766,11 +697,7 @@ def load_casa_calibration_golden(
             label=label,
             field_id=field_id,
             block=block,
-            corrected_visibility=np.asarray(
-                arrays[prefix + "corrected_data"], dtype=np.complex128
-            ),
-            post_apply_flag=np.asarray(
-                arrays[prefix + "post_apply_flag"], dtype=bool
-            ),
+            corrected_visibility=np.asarray(arrays[prefix + "corrected_data"], dtype=np.complex128),
+            post_apply_flag=np.asarray(arrays[prefix + "post_apply_flag"], dtype=bool),
             metadata=metadata,
         )

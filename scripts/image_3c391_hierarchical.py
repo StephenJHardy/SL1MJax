@@ -373,6 +373,18 @@ def _write_products(
             for leaf, cooldown in sorted(result.merge_hysteresis.split_cooldown.items())
         ],
         "deepest_level": deepest_level,
+        "effective_max_depth": result.effective_max_depth,
+        "resolution_max_depth": result.resolution_max_depth,
+        "synthesized_beam": (
+            None
+            if result.synthesized_beam is None
+            else {
+                "major_fwhm_arcsec": (np.rad2deg(result.synthesized_beam.major_fwhm_rad) * 3600.0),
+                "minor_fwhm_arcsec": (np.rad2deg(result.synthesized_beam.minor_fwhm_rad) * 3600.0),
+                "position_angle_deg": np.rad2deg(result.synthesized_beam.position_angle_rad),
+                "method": result.synthesized_beam.method,
+            }
+        ),
         "render_shape": list(image.shape),
         "total_flux_jy": float(np.sum(result.inference.flux)),
         "peak_render_pixel_jy": float(np.max(image)),
@@ -402,6 +414,7 @@ def _write_products(
             "split_strategy": config.split_strategy,
             "max_rounds": config.max_rounds,
             "max_depth": config.max_depth,
+            "maximum_pixels_per_beam": config.maximum_pixels_per_beam,
             "target_improvement_fraction": config.target_improvement_fraction,
             "max_split_fraction": config.max_split_fraction,
             "max_splits_per_round": config.max_splits_per_round,
@@ -461,6 +474,17 @@ def main() -> int:
     parser.add_argument("--uv-cells-per-axis", type=int, default=8)
     parser.add_argument("--max-rounds", type=int, default=3)
     parser.add_argument("--max-depth", type=int, default=3)
+    parser.add_argument(
+        "--maximum-pixels-per-beam",
+        type=float,
+        default=5.0,
+        help="Cap refinement so the weighted minor-axis beam spans at most this many pixels.",
+    )
+    parser.add_argument(
+        "--disable-resolution-depth-cap",
+        action="store_true",
+        help="Use only --max-depth and disable the weighted-PSF resolution cap.",
+    )
     parser.add_argument("--target-improvement-fraction", type=float, default=0.7)
     parser.add_argument("--max-split-fraction", type=float, default=0.05)
     parser.add_argument("--max-splits-per-round", type=int)
@@ -537,6 +561,9 @@ def main() -> int:
         uv_cells_per_axis=arguments.uv_cells_per_axis,
         max_rounds=arguments.max_rounds,
         max_depth=arguments.max_depth,
+        maximum_pixels_per_beam=(
+            None if arguments.disable_resolution_depth_cap else arguments.maximum_pixels_per_beam
+        ),
         leaf_penalty=arguments.leaf_penalty,
         target_improvement_fraction=arguments.target_improvement_fraction,
         max_split_fraction=arguments.max_split_fraction,

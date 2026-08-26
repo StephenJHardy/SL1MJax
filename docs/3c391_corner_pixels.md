@@ -588,7 +588,7 @@ reductions and eventually rejected every vanishing trial step.
 The majorization allowance now scales with the arithmetic dtype and objective
 magnitude. A failed prefix refit is also recorded and isolated so that smaller
 prefixes can still be tested. Focused CPU and CUDA tests pass, including an
-injected refit failure, and the full local suite has 254 passes and one
+injected refit failure, and the full local suite has 259 passes and one
 optional real-MS skip. The failed log is preserved as
 `run.failed_fista_20260824.log`; the corrected run resumed fold 17 and
 restarted fold 29 on 2026-08-25.
@@ -616,6 +616,478 @@ or where the maximum power response of every pointing is below 0.1. The
 wide-field guard therefore remains inactive in the fitted model, and the old
 corner-pixel failure does not recur. Restored FITS and CASA-style comparisons
 are included with the products.
+
+### All-data mosaic refit and residual image
+
+The validated 11,536-leaf consensus topology was then held fixed and fitted
+to all 755,048 active samples. This is parameter estimation only: no
+all-data residual was allowed to add or remove a split. A 10,816-leaf 16″
+root model was fitted under the same Airy, wide-field, and
+`lambda=3e-4` configuration as a control.
+
+| all-data model | steps | converged | KKT | total flux | residual power |
+|---|---:|---:|---:|---:|---:|
+| 16″ base | 100 | yes | `2.58e-5` | 11.300 Jy | 0.01383 |
+| mosaic consensus | 500 | no | `4.60e-5` | 10.763 Jy | 0.00857 |
+
+The hierarchy reduces all-data normalized residual power by 38.0%. Each
+pointing improves independently: C1 48.4%, C2 26.0%, C3 38.6%, C4 43.8%, C5
+41.0%, C6 33.7%, and C7 25.6%. The four channel residual powers are 0.00909,
+0.00816, 0.00807, and 0.00896, so no one frequency bin causes the gain. The
+outer channels retain about 10--13% more residual power than the two inner
+channels, which is a useful future spectral-model diagnostic.
+
+A pointing-aware adjoint now forms residuals on one 208² grid at 8″. It uses
+each pointing's own Fourier frame and Airy beam, then also supplies the local
+sum-of-beam-squared sensitivity correction. Inside the 10% sensitivity
+contour, the hierarchy lowers image RMS from 1.581 to 1.034 mJy/beam (34.6%),
+robust RMS from 1.198 to 0.679 mJy/beam (43.4%), and absolute peak from 16.15
+to 4.77 mJy/beam (70.4%). The central remnant-shaped residual is strongly
+reduced, but the remaining residual has coherent broad structure. It should
+not yet be interpreted as thermal noise.
+
+The refined solve reached its 500-step limit and missed the physical KKT
+tolerance by a factor of 1.53. The reported iterate is therefore the best
+bounded result, not a certified stationary point. This does not erase the
+sealed topology result, but it means optimizer progress reporting,
+checkpointing, and either a longer deterministic finish or an SGD-to-FISTA
+final refit should precede a production-scale claim. No positive all-data
+flux lies on the 104² boundary, outside the old central 64² footprint, or
+where every pointing has beam power at or below 0.1.
+
+### Residual-tail and existing-flag audit
+
+A leakage-safe residual audit now uses the frozen mosaic protocol. Robust
+location and scale are fitted separately for every pointing, channel, and
+correlation on the outer-training scans. The same score is then evaluated on
+the held-out scans. The score is
+
+\[
+z = \frac{\sqrt{w}\,|V_{\rm observed}-V_{\rm model}|-
+                \operatorname{median}_{\rm train}}
+               {1.4826\,\operatorname{MAD}_{\rm train}}.
+\]
+
+At `z > 6`, 4.69% of discovery samples contain 63.8% of discovery residual
+power. The held-out figures are 4.80% and 62.4%. The top 1% contains 34.7%
+and 32.7% of residual power. The tail is therefore real and repeatable, but it
+is not evidence for RFI by itself.
+
+The strongest baseline rankings transfer almost unchanged to held-out scans.
+For example, `ea04-ea08` has 89.7% discovery and 87.3% held-out outliers.
+`ea04-ea16` has 82.2% and 78.5%, while `ea04-ea21` has 78.4% and 76.1%.
+However, these rankings are strongly tied to projected baseline length. The
+Pearson correlation between log median UV distance and discovery outlier
+fraction is -0.70:
+
+| median baseline range | baselines | median outlier fraction |
+|---|---:|---:|
+| below 0.75 kλ | 9 | 55.5% |
+| 0.75--1.5 kλ | 26 | 26.2% |
+| 1.5--3 kλ | 48 | 0.42% |
+| 3--6 kλ | 73 | 0% |
+| 6--12 kλ | 91 | 0% |
+
+The dominant residual tail is thus more consistent with missing diffuse or
+out-of-field emission, a beam/FOV deficiency, or another short-spacing model
+error than with independent corrupt samples. The proposed baseline-removal
+refit was deliberately not run. Removing these samples would improve the
+reported residual by deleting the measurements that constrain the missing
+large-scale sky.
+
+The current MS flags were also audited in the opposite direction. Their
+provenance is the CASA tutorial: scan 1, antennas `ea13`, `ea15`, and `ea05`,
+plus a 10-second quack. They are not UV-selection flags. The frozen sky and
+robust scales never see these samples. Predictions were evaluated at their
+own averaged visibility coordinates:
+
+| cohort | samples | fraction above `z=6` | tail share of residual power |
+|---|---:|---:|---:|
+| currently unflagged | 755,048 | 4.76% | 63.6% |
+| currently flagged | 538,464 | 25.8% | 99.5% |
+
+Of the flagged cohort, 399,414 samples, or 74.2%, are below `z=6`. At the
+unflagged 99th-percentile threshold, 84.2% of flagged samples remain in the
+residual bulk. The flagged set therefore mixes a small, extremely damaging
+tail with many less exceptional values. This does not authorize immediate
+unflagging: the affected samples were absent from the calibration solve, so
+their present `CORRECTED_DATA` may not represent the calibration quality they
+could attain. It does justify a later iterative test that recalibrates a
+candidate subset before deciding whether to restore it.
+
+Residual handling now has four explicit non-mutating modes:
+
+1. `report_only` records rankings and never changes flags or weights;
+2. `robust_weights` applies continuous Huber-like weights without hard flags;
+3. `static_sky` permits hard residual proposals for a source known to be
+   static;
+4. `transient_safe` first protects residuals explained by a temporal or
+   spectral sky response, then acts only on the orthogonal remainder.
+
+The sky-coherence gate fits a real template coefficient on one set of
+baselines and requires the same coefficient to reduce residual power on
+disjoint baselines. A genuine variable point source has this interferometric
+phase coherence. Baseline-local interference does not. Instrumental metadata
+flags still override sky protection. These modes produce proposals only; no
+audit path mutates the input block.
+
+### Time, averaging, calibration, and outer-beam discrimination
+
+The 104×104 root field is 27.73′ across. The six outer pointing centres are
+2.45′ from C1. At the fixture's mean frequency of 4.599 GHz, the configured
+Airy beam is set to zero outside 10.44′ from each pointing. The image therefore
+covers the union of the *truncated* beam supports, but the forward model omits
+the physical Airy sidelobes beyond the first null.
+
+Time and frequency averaging are unlikely to create the short-baseline tail.
+The fixture averages 64 input channels into four 32 MHz bins and uses 60-second
+time bins. At 0.75 kλ and a 14--18′ offset, the expected decorrelation from
+each operation is only of order (10^{-3}). Both effects grow with baseline
+length, whereas the measured outlier fraction falls from 55.5% below 0.75 kλ
+to nearly zero above 3 kλ. This still needs a matched finer-fixture check, but
+its predicted signature is opposite to the observed one.
+
+A contiguous time split initially looked ambiguous. Baseline outlier fractions
+in the two halves have Pearson correlation 0.871, so the defect follows UV
+geometry. A positive 64×64 residual sky fitted on either half improved that
+half, but worsened the opposite half. The two halves sample different UV tracks,
+so this is not a fair rejection of a static wide-field component.
+
+The first outer-field fit also exposed a regularization error. Penalizing
+intrinsic flux as (lambda\sum_j I_j) strongly rejects sources seen through a
+weak sidelobe. A source behind a 1% power response pays about 100 times more
+penalty than an equally visible central source. Mosaic quadtree inference now
+accepts per-leaf sparsity weights. The diagnostic uses the relative column norm
+
+\[
+d_j = \frac{\sqrt{\sum_{p,c,r} w_{pcr} B_{pcj}^2}}
+             {\max_k \sqrt{\sum_{p,c,r} w_{pcr} B_{pck}^2}},
+\qquad
+R(I)=\lambda\sum_j d_j I_j .
+\]
+
+Here (B_{pcj}) is the power-beam response of pointing (p), channel (c),
+and leaf (j). This is a beam-only approximation to normalizing the columns of
+the full measurement operator. It puts the L1 threshold on detectable flux
+rather than intrinsic flux and combines all mosaic pointings in quadrature.
+
+The decisive control alternates complete 60-second bins between discovery and
+evaluation. The two partitions then have almost identical UV coverage; their
+baseline outlier-fraction correlation is 0.9985. Results below are held-out
+relative changes in weighted complex MSE, with negative values denoting an
+improvement:
+
+| residual component | direction | all UV | below 0.75 kλ | 0.75--1.5 kλ |
+|---|---|---:|---:|---:|
+| truncated Airy support | even→odd | -4.59% | -6.63% | -5.57% |
+| truncated Airy support | odd→even | -4.60% | -6.72% | -5.50% |
+| extended Airy sidelobes | even→odd | -7.30% | -10.17% | -9.32% |
+| extended Airy sidelobes | odd→even | -7.33% | -10.31% | -9.24% |
+
+The training and held-out improvements agree to within about 0.3 percentage
+points in every row. A stable missing component is therefore present. About
+4.6 percentage points come from a coarse correction inside the current beam
+support. Extending the beam and field adds another 2.7 percentage points
+overall and about 3.6 points below 0.75 kλ.
+
+An external catalogue check independently confirms relevant outer sky. The
+[NVSS catalogue](https://cdsarc.cds.unistra.fr/viz-bin/cat/VIII/65) contains a
+653.3 mJy source at 18:49:32.79, -00:38:02.0, or approximately
+((l,m)=(+2.2′,+17.7′)). The
+[VLASS 3 GHz catalogue](https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJS/255/30)
+places a 573.1 mJy component at the same position. Both independently fitted
+coarse residual skies select the corresponding ((+2.5′,+17.5′)) cell as their
+brightest component. The extended analytic Airy model predicts 4--11 mJy of
+apparent flux from this source in five of the seven pointings, while the current
+truncated beam predicts exactly zero.
+
+A fixed-position delta atom for this catalogue source fits 0.752--0.758 Jy in
+the two interleaved partitions and improves the opposite partition by
+1.81--1.87% overall. The fitted flux should not be used as a source measurement:
+the ideal Airy sidelobe, source structure, catalogue epoch, and 1′ diagnostic
+grid all contribute uncertainty. The atom barely changes the residual below
+0.75 kλ, so it explains only part of the broad tail. Other catalogue sources,
+diffuse central structure, and beam error remain relevant.
+
+A deliberately low-complexity self-calibration control fitted one static
+residual antenna gain per pointing and contiguous time half. Phase-only gains
+improved held-out baselines within the fitted half in 12/14 cases, with median
+6.0%, but worsened the opposite half in 13/14 cases, with median 11.8%.
+Amplitude-plus-phase gains improved every within-half result, with median
+32.2%, but worsened 12/14 opposite-half results, with median 26.5%. Typical
+solutions were 0.056 rad in phase and 3.4% in log amplitude. These fits are now
+known to be confounded: an incomplete static sky projects into different
+antenna gains as the UV track rotates. They do not establish time-varying gain
+error. Self-calibration must be repeated after the wide-field sky is included.
+
+The next imaging change should therefore be a two-tier model: retain the
+high-resolution central hierarchy, add sparse fixed-position outer catalogue
+atoms plus an optional coarse diffuse field, use non-truncated beam support,
+and apply sensitivity-normalized sparsity weights. Refit the frozen topology
+and repeat the residual and self-calibration audits before increasing gain
+complexity. A matched finer time/frequency fixture remains the final averaging
+control and requires the original measurement set.
+
+That composite fixed-topology solver is now implemented. It jointly optimizes
+an arbitrary tuple of quadtree dictionaries and exact delta atoms under one
+positive weighted-L1 visibility objective. The result retains the prediction
+from each group, so the central hierarchy, coarse field, and catalogue atoms
+can be ablated without changing the forward model. A fixed prediction can also
+be supplied for staged diagnostics, although the scientific comparison uses a
+joint refit.
+
+The 3C391 comparison uses five interleaved 60 s folds: three for fitting, one
+for lambda and stopping-time selection, and one sealed test fold. The old
+topology is reused, but its flux is initialized to zero because the saved flux
+was fitted using data that overlap this new test. The beam is an analytic Airy
+pattern with support extended beyond the first sidelobes. The outer field is a
+64 square grid of 60 arcsec pixels. The production entry point is
+`scripts/fit_3c391_composite.py`.
+
+The exact outer atoms now come from a reproducible catalogue snapshot rather
+than a hand-entered source. `scripts/build_3c391_radio_catalog.py` queries NVSS
+for sources above 50 mJy within 1 degree, rejects sources inside the central
+13.87 arcmin half-width and components larger than 45 arcsec, then ranks them
+by their maximum predicted apparent flux over every pointing and channel. It
+cross-matches the retained positions against reliable, non-duplicate VLASS
+main-sample components within 20 arcsec. The checked snapshot contains three
+VLASS components at offsets of 17.7, 32.4, and 38.3 arcmin. Their maximum
+predicted apparent fluxes are 8.37, 1.63, and 0.75 mJy under the extended Airy
+beam. This is an (I B) selection: a bright intrinsic source is included only
+when at least one pointing has enough response for it to affect the data.
+
+Catalogue fluxes are extrapolated to the observation frequency with a default
+spectral index of -0.7 and used only to initialize the fit. Every catalogue
+atom retains a free non-negative flux. The CSV records position, flux, shape,
+epoch, catalogue, and source URL; the adjacent JSON records the complete query
+and selection protocol. The current atom is a delta function even when VLASS
+reports a small deconvolved size. A Gaussian or multi-component atom is a
+future refinement if the held-out residual supports that extra freedom.
+
+The frozen four-way ablation completed on the same folds at
+`lambda=3e-4`:
+
+| model | validation MSE | sealed-test MSE | sealed-test change |
+|---|---:|---:|---:|
+| central hierarchy | 0.00332916 | 0.00336603 | reference |
+| central + coarse outer field | 0.00328038 | 0.00331372 | -1.55% |
+| central + three catalogue atoms | 0.00314863 | 0.00316959 | -5.84% |
+| central + coarse + catalogue | 0.00313282 | 0.00315317 | -6.32% |
+
+The catalogue therefore explains most of the reproducible missing component.
+The coarse field adds a smaller but consistent 0.52% sealed-test improvement
+after the catalogue sources are present. The full model also reduces the
+sealed short-baseline MSE from 0.0438203 to 0.0413862, or 5.56%. Its fitted
+catalogue fluxes are 0.565, 0.694, and 0.571 Jy; these are almost unchanged
+from the catalogue-only fit. This stability argues against strong degeneracy
+between the exact sources and coarse field. The full fit selected its last
+500-step checkpoint and reached KKT `3.44e-5`, just above the `3e-5` target.
+The broad conclusion is held-out and stable, but a continuation fit is needed
+before interpreting the small incremental coarse-field gain precisely.
+
+### Post-composite residual and flag audit
+
+The continuation fit reached a numerical plateau rather than a materially
+different sky solution. Another 300 FISTA steps changed the physical KKT
+residual from `3.44e-5` to `3.42e-5` and changed sealed-test MSE by less than
+0.01%. Further continuation with the same float32 operator is not useful.
+
+The residual audit was then repeated with the complete central, coarse, and
+catalogue model. Sealed normalized residual power fell by 6.32%. On the
+central model's fixed robust scale, the fraction above `z=6` fell from 4.899%
+to 4.552%, a 7.09% relative reduction. This is the portion of the old tail
+that can reasonably be attributed to the missing wide-field sky.
+
+The conclusion changes when the robust scale is estimated again after the
+bulk residual narrows. The full model still has 4.990% of sealed samples above
+`z=6`, compared with 4.899% for the central model. It produces 25 validated
+baseline candidates rather than 24. The persistent relative tail is therefore
+not dominated by the missing catalogue sources or coarse outer field.
+
+The reverse audit reaches the same conclusion. The composite sky changes
+normalized residual power in the currently flagged cohort by only -0.041%.
+Using the central model's fixed scale, its outlier fraction changes from
+27.122% to 27.134%. About 72.9% of currently flagged samples remain in the
+robust residual bulk, but they cannot be restored safely until calibration is
+repeated with those samples present.
+
+The next experiment should hold the composite sky fixed and vary calibration
+time complexity and interpolation. Gain models must be selected on held-out
+time and baseline cells. A residual classifier should wait until this test is
+complete, because training it now would label a mixture of corruption,
+calibration error, and remaining sky-model error as one class.
+
+### Fixed-sky calibration complexity result
+
+That experiment is complete. The independent calibrator solve provides six
+gain epochs over the observation. Four time models were compared: one constant
+gain, linear and quadratic trends in log amplitude and unwrapped phase, and
+all six native gain epochs. Nearest and linear transfer were tested wherever
+they differ. The composite sky remained fixed. Interleaved time fold 3 selected
+the calibration model and fold 4 was opened only as the sealed check.
+
+| gain time model | transfer | validation power | sealed-test power |
+|---|---|---:|---:|
+| six native epochs | linear | 0.009602 | 0.009464 |
+| quadratic trend | linear | 0.010740 | 0.010694 |
+| linear trend | linear | 0.011185 | 0.011253 |
+| six native epochs | nearest | 0.011600 | 0.011758 |
+| linear trend | nearest | 0.012942 | 0.013067 |
+| quadratic trend | nearest | 0.013482 | 0.013549 |
+| constant | nearest | 0.033429 | 0.033862 |
+
+Native linear interpolation improves normalized residual power by 17.2% on
+the selection fold and 19.5% on the sealed fold relative to native nearest
+assignment. The identical ranking on both folds supports changing the default
+transfer policy to linear. The trend models lose, so the six calibrator epochs
+contain useful non-linear time structure that should not be collapsed into a
+global low-order curve.
+
+CASA-corrected data still score 0.007547 on the sealed fold. The selected JAX
+calibration is 25.4% higher. The excess is broad: it is 18.8--35.1% across all
+seven pointings and 23.6--26.1% across all four frequency bins. This does not
+look like one bad pointing, one beam edge, or one band edge.
+
+The selected calibration also does not remove the robust residual tail. With
+separately estimated scales, sealed `z>6` fractions are 4.99% for CASA and
+4.93% for the selected JAX calibration. On CASA's fixed scale, however, the
+JAX fraction is 6.23%, and validated baseline candidates rise from 42 to 55.
+The next calibration task is therefore a term-by-term comparison against the
+portable CASA oracle. Substitute or compare `G`, `K`, `B`, flux scale, and
+weight propagation independently before adding more target-sky gain freedom.
+
+### Fixed-sky calibration-term ablation
+
+The term ablation is complete. It used the same frozen composite sky and
+interleaved folds as the time-complexity study. Fold 3 remained the selection
+fold and fold 4 remained sealed. The complete 2^3 `G`/`K`/`B` factorial used
+post-application flags and fixed MeasurementSet weights. Separate controls
+removed the flux transfer and propagated gain weights.
+
+CASA and SL1MJax put a constant complex antenna factor in different places
+between `G` and `B`. Naive term substitution was therefore not identifiable:
+one hybrid had normalized residual power above 2,000 while its complementary
+hybrid was near 0.95. Before the final ablation, both solutions were put in the
+same gauge by making each valid antenna/receptor bandpass unity at the nearest
+valid reference channel and moving that factor into `G`. This transformation
+preserves the complete Jones term to numerical precision. A fully invalid
+antenna/receptor remains invalid and receives a neutral factor only for the
+otherwise arbitrary stored value.
+
+| calibration | validation power | sealed-test power |
+|---|---:|---:|
+| CASA `G`, CASA `K`, CASA `B`, propagated weights | 0.007403 | 0.007459 |
+| CASA `G`, CASA `K`, CASA `B` | 0.007462 | 0.007548 |
+| CASA `G`, CASA `K`, JAX `B` | 0.007526 | 0.007596 |
+| CASA `G`, JAX `K`, JAX `B` | 0.007564 | 0.007687 |
+| JAX `G`, CASA `K`, CASA `B` | 0.009469 | 0.009297 |
+| JAX `G`, JAX `K`, JAX `B`, propagated weights | 0.009520 | 0.009363 |
+| JAX `G`, JAX `K`, JAX `B` | 0.009602 | 0.009464 |
+
+Replacing only `G` reduces validation power by 21.2% and sealed power by
+18.8%. Replacing only `K` reduces them by 0.4% and 1.0%. Replacing only `B`
+changes them by -0.02% and +0.19%, so there is no repeatable bandpass benefit.
+Marginalizing over the other factorial terms gives the same conclusion:
+`G`, `K`, and `B` improve sealed power by 18.7%, 1.6%, and 0.17% respectively.
+The factorial interactions are below 0.6%.
+
+The complete imported CASA solution reproduces stored CASA-corrected
+visibilities to `1.18e-6` normalized sealed power. The comparison path is
+therefore faithful enough to localize the gap. Propagating gain weights after
+averaging improves sealed power by about 1.1% for either solution, but it does
+not explain the JAX/CASA difference. Removing the flux transfer raises power
+to about 0.318 for both solutions, so absolute flux scaling is essential but
+is also not the source of the remaining gap.
+
+The practical result is that the next calibration task is `G`, not a more
+flexible target sky, another bandpass model, or residual classification. The
+saved JAX solution has six gain epochs, while the CASA gain table has fourteen.
+The next implementation should solve the gain calibrator from the complete
+local MeasurementSet rather than the compact golden subset. It should compare
+native per-interval linear transfer with a constrained amplitude/phase time
+model under the same frozen-sky validation protocol. A circular phase GP is a
+good candidate in that comparison, but it should compete against the complete
+fourteen-epoch piecewise-linear baseline rather than replace it by assumption.
+
+Reproduction artifacts are
+`scripts/ablate_3c391_calibration_terms.py` and
+`outputs/3c391_calibration_term_ablation/`.
+
+### Full-row gain-calibrator baseline
+
+The first follow-up is also complete. All 39,733 J1822-0938 rows were read
+from the locally cached MeasurementSet with the saved pre-calibration flags.
+They contain 3,198,080 active parallel-hand channel samples in fourteen
+calibrator scans. The solver now accepts a per-row gain-solution coordinate
+that is distinct from observation time. This keeps the actual timestamps for
+antenna-position phase while sharing one `G` parameter across each scan. Each
+gain knot is placed at the scan's active-weight time centroid. These centroids
+agree with CASA's fourteen gain-table times to much better than one second.
+
+The 300-step full-row solve took 15.7 seconds locally. Calibrator train and
+connected-baseline holdout RMS are 0.0726 and 0.0740. With native linear gain
+transfer, frozen-sky fold-3 residual power is 0.007478. This is 22.1% below
+the six-knot result of 0.009602 and only 0.25% above the CASA value of 0.007459.
+Every frequency bin remains finite and the aggregate validation RMS is 0.0865.
+
+This result confirms that missing calibrator sampling, rather than target
+self-calibration or bandpass complexity, caused almost all of the measured
+CASA/JAX gap. Fold 4 remains closed. The constrained amplitude/phase and GP
+models must be fitted and ranked on fold 3 before the final sealed comparison.
+
+Reproduction artifacts are `scripts/fit_3c391_full_scan_gains.py`,
+`outputs/3c391_full_gain_calibrator_fixture.zarr/`, and
+`outputs/3c391_full_scan_gain_baseline/`.
+
+### Gain-time smoothing and circular-GP selection
+
+The fourteen-epoch gain solution was compared with two constrained time-model
+families. Seven models penalized irregular-grid second derivatives in log
+amplitude and unwrapped phase, with strengths from 0.01 to 10. Twelve RBF GP
+models used length scales of 900, 1,800, 3,600, and 7,200 seconds and noise
+variances of 0.001, 0.01, and 0.1. The GP models amplitude in log space and
+phase as a complex unit vector, then projects the posterior phase mean back to
+the unit circle. This makes phase-wrap handling explicit.
+
+All twenty candidates used identical fixed `K`, `B`, antenna-position, flux,
+flag, weight, and averaging terms. Application computes the complete native
+Jones correction once per raw chunk, then applies each candidate through the
+exact native/candidate baseline-gain ratio. A synthetic regression agrees with
+independent full Jones application to `2e-14`. Per-pointing candidate blocks
+are checkpointed before scoring.
+
+| gain-time model | fold-3 power | change from native |
+|---|---:|---:|
+| native linear | 0.007478 | -- |
+| curvature penalty 0.01 | 0.007519 | +0.54% |
+| curvature penalty 0.03 | 0.007540 | +0.82% |
+| curvature penalty 0.1 | 0.007572 | +1.25% |
+| best circular GP: 1,800 s, noise 0.1 | 0.007637 | +2.13% |
+| curvature penalty 10 | 0.008088 | +8.15% |
+
+Native linear is the explicit zero-smoothing limit. The curvature sequence
+worsens monotonically away from that limit, and the GP grid covers scales on
+both sides of the calibrator cadence. This is therefore a supported selection,
+not an unresolved optimum on a hyperparameter boundary. Fold 4 was opened
+once after the ranking was fixed. Native linear scores 0.007607 there, versus
+0.007547 for CASA, a remaining difference of 0.79%. Native is better on C4 and
+C5, while CASA is better on the other five pointings.
+
+The result does not reject GP-constrained self-calibration in general. It says
+that smoothing these well-measured external-calibrator epochs removes useful
+time structure. A later self-calibration GP can still anchor known calibrator
+points and regularize additional learned points, but it must again compete
+against an unsmoothed baseline on independent data.
+
+Reproduction artifacts are `src/sl1mjax/gain_time_models.py`,
+`scripts/sweep_3c391_gain_time_models.py`, and
+`outputs/3c391_gain_time_model_sweep/`.
+
+This work also exposed and fixed a validation bug in the physical-flux
+solvers. FISTA, proximal SGD, and hybrid fits previously recorded holdout loss
+but returned the lowest training objective. They now return the checkpoint
+with the lowest holdout loss when a holdout is supplied. No-holdout fits retain
+the previous minimum-objective behavior.
 
 ### Paraxial \(w\)-term error
 
@@ -694,10 +1166,10 @@ is invariant. That mismatch did not rerank splits. Scoring now uses
    Keep softplus Adam only as a regression control. For large datasets, use
    SGD for fast approach and a short deterministic finish when an exact
    full-gradient pass remains feasible.
-4. **Separate validation from the final scientific fit.** Use validation to
-   choose L1 strength, topology budget, and stopping round. Then warm-refit the
-   accepted topology on all active visibilities. The current diagnostic output
-   is still the train-fold model.
+4. **Separate validation from the final scientific fit.** This is now done for
+   the seven-pointing proof of concept: validation chose the topology, then a
+   fixed tree was fitted on every active visibility. The all-data fit also
+   showed that a 500-step cap is not always enough for the physical KKT gate.
 5. **Use cross-fold agreement for topology decisions.** A genuine remnant
    detail should score under several balanced UV folds. A split supported only
    by one fold's boundary interpolant should not be accepted. This is more
@@ -710,6 +1182,14 @@ is invariant. That mismatch did not rerank splits. Scoring now uses
    canonical block is still held as one host object and JAX full-gradient
    calls receive a compact whole fold. Multi-scan and full-mosaic imaging will
    need a block iterator plus accumulated exact gradients/KKT checks.
+
+Refinement now also has a resolution-aware hard ceiling. A Gaussian beam
+estimated from the weighted UV second moment is 20.4 by 16.9 arcsec for C1 and
+20.7 by 16.8 arcsec for the complete mosaic. With the default maximum of five
+pixels across the minor beam, 16 arcsec root pixels may split to 4 arcsec but
+not 2 arcsec. The configured maximum depth remains a second ceiling. This
+calculation uses only UV coordinates, flags, and weights from the training
+partition; Haar conditioning and held-out loss still control actual splits.
 
 Starting with a 16² or 32² hierarchy and adding a broad component may still
 help conditioning. Per-leaf wide-field Gram matrices may improve Haar ranking.
@@ -731,6 +1211,39 @@ scale and the fixed-topology optimizer.
 - Joint mosaic fit and rendering: `scripts/image_3c391_mosaic.py` and
   `scripts/plot_3c391_mosaic.py`
 - Joint mosaic topology discovery: `scripts/refine_3c391_mosaic.py`
+- Repeated-fold mosaic selection:
+  `outputs/3c391_mosaic_hierarchical_frozen_104/`
+- All-data fixed-topology fit and common-grid residual products:
+  `outputs/3c391_mosaic_hierarchical_consensus_all/`
+- Reproducible final refit and residual imaging:
+  `scripts/refit_3c391_mosaic_consensus.py` and
+  `scripts/diagnose_3c391_mosaic_residuals.py`
+- Leakage-safe residual and UV audit:
+  `scripts/audit_3c391_residual_flags.py` and
+  `outputs/3c391_residual_flag_audit/`
+- Existing-flag false-positive audit:
+  `scripts/audit_3c391_existing_flags.py` and
+  `outputs/3c391_existing_flag_audit/`
+- Post-composite residual-tail comparison:
+  `scripts/compare_3c391_composite_residual_flags.py` and
+  `outputs/3c391_composite_residual_flag_audit_stage2/`
+- Post-composite existing-flag comparison:
+  `scripts/compare_3c391_composite_existing_flags.py` and
+  `outputs/3c391_composite_existing_flag_audit/`
+- Short-baseline, beam-support, and time-partition study:
+  `scripts/study_3c391_short_baselines.py` and
+  `outputs/3c391_short_baseline_study_{stage1,sensitivity,interleaved,interleaved_airy}/`
+- Fixed-position catalogue-source controls:
+  `outputs/3c391_catalog_source_{contiguous,interleaved}/`
+- Low-complexity target self-calibration control:
+  `scripts/study_3c391_time_half_selfcal.py` and
+  `outputs/3c391_time_half_selfcal/`
+- Fixed-composite-sky gain complexity sweep:
+  `scripts/sweep_3c391_calibration_interpolation.py` and
+  `outputs/3c391_calibration_composite_time_complexity/`
+- Composite central/coarse/catalogue fit and sealed protocol:
+  `src/sl1mjax/composite.py`, `scripts/fit_3c391_composite.py`, and
+  `outputs/3c391_composite_frozen_stage1/`
 - Hierarchical proposal: `docs/hierarchical_pixels_proposal.md`
 - Reproducible optimizer/KKT control:
   `scripts/diagnose_3c391_corner_optimizer.py`

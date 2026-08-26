@@ -36,9 +36,7 @@ def _solution() -> CalibrationSolution:
     )
     delays = np.array([[0.0, 0.0], [2.0e-9, -1.0e-9], [-3.0e-9, 4.0e-9]])
     bandpass = np.ones((3, 2, 2), dtype=np.complex128)
-    bandpass[:, 1, :] = np.array(
-        [[1.0, 1.0], [0.9 + 0.1j, 1.1 - 0.1j], [1.2 - 0.2j, 0.8 + 0.2j]]
-    )
+    bandpass[:, 1, :] = np.array([[1.0, 1.0], [0.9 + 0.1j, 1.1 - 0.1j], [1.2 - 0.2j, 0.8 + 0.2j]])
     return replace(solution, gains=gains, delays_s=delays, bandpass=bandpass)
 
 
@@ -59,10 +57,9 @@ def _block(visibility: np.ndarray) -> VisibilityBlock:
 
 def test_corrupt_and_apply_recover_model_and_propagate_weights() -> None:
     solution = _solution()
-    model = (
-        np.arange(24, dtype=np.float64).reshape(6, 2, 2)
-        + 1j * np.linspace(0.0, 1.0, 24).reshape(6, 2, 2)
-    )
+    model = np.arange(24, dtype=np.float64).reshape(6, 2, 2) + 1j * np.linspace(
+        0.0, 1.0, 24
+    ).reshape(6, 2, 2)
     corrupted = np.asarray(
         corrupt_model(
             model,
@@ -129,6 +126,31 @@ def test_validity_domain_requires_explicit_extrapolation() -> None:
         apply_calibration(block, solution)
     corrected = apply_calibration(block, solution, extrapolate=True)
     assert np.all(np.isfinite(corrected.visibility))
+
+
+def test_linear_gain_interpolation_unwraps_phase_and_interpolates_amplitude() -> None:
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=(Correlation.RR, Correlation.LL),
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0, 10.0]),
+    )
+    gains = solution.gains.copy()
+    gains[0, 1, :] = np.exp(1j * np.deg2rad(170.0))
+    gains[1, 1, :] = 3.0 * np.exp(1j * np.deg2rad(-170.0))
+    linear = replace(solution, gains=gains, interpolation="linear")
+
+    baseline, valid = baseline_jones(
+        linear,
+        np.array([5.0]),
+        np.array([1.0e9]),
+        np.array([0]),
+        np.array([1]),
+        extrapolate=True,
+    )
+
+    np.testing.assert_allclose(baseline, -2.0 + 0.0j, atol=1e-14)
+    assert np.asarray(valid).all()
 
 
 def test_solution_is_pytree_and_round_trips(tmp_path: Path) -> None:
