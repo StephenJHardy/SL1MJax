@@ -15,6 +15,7 @@ from casacore import tables
 from image_3c391_target import _block, _concatenate
 
 from sl1mjax.beam import primary_beam_from_name
+from sl1mjax.calibration import CalibrationSolution, apply_calibration, read_calibration
 from sl1mjax.data.averaging import average_frequency_bins, average_time_bins
 from sl1mjax.data.canonical import (
     VisibilityBlock,
@@ -39,6 +40,30 @@ def _flag_cohort(block: VisibilityBlock) -> VisibilityBlock:
     )
 
 
+def _prepare_flagged_cohort(
+    block: VisibilityBlock,
+    calibration: CalibrationSolution | None,
+) -> VisibilityBlock:
+    """Activate original flags, then optionally calibrate their raw data values."""
+
+    cohort = _flag_cohort(block)
+    if calibration is None:
+        return cohort
+    return apply_calibration(cohort, calibration, extrapolate=True)
+
+
+def _match_active_samples(
+    reference: VisibilityBlock,
+    candidate: VisibilityBlock,
+) -> tuple[VisibilityBlock, VisibilityBlock]:
+    """Apply a common pre-averaging active mask to aligned raw cohorts."""
+
+    if reference.shape != candidate.shape:
+        raise ValueError("matched cohorts must have the same shape")
+    common = reference.active & candidate.active
+    return replace(reference, flag=~common), replace(candidate, flag=~common)
+
+
 def _extract_flagged_blocks(
     measurement_set: Path,
     *,
@@ -46,8 +71,10 @@ def _extract_flagged_blocks(
     frequency_bins: int,
     time_bin_s: float,
     chunk_rows: int,
-) -> tuple[VisibilityBlock, ...]:
+    calibration: CalibrationSolution | None = None,
+) -> tuple[tuple[VisibilityBlock, ...], tuple[VisibilityBlock, ...] | None]:
     result: list[VisibilityBlock] = []
+    reference_result: list[VisibilityBlock] | None = [] if calibration is not None else None
     with (
         tables.table(str(measurement_set), readonly=True, ack=False) as main,
         tables.table(
@@ -59,6 +86,9 @@ def _extract_flagged_blocks(
         for field_id in field_ids:
             selected = main.query(f"FIELD_ID=={field_id}")
             chunks: list[VisibilityBlock] = []
+            reference_chunks: list[VisibilityBlock] | None = (
+                [] if calibration is not None else None
+            )
             try:
                 if selected.nrows() == 0:
                     raise ValueError(f"field {field_id} has no rows")
@@ -76,9 +106,10 @@ def _extract_flagged_blocks(
                         selected.getcol("FLAG_ROW", startrow=start, nrow=count),
                         dtype=bool,
                     )
+                    source_column = "CORRECTED_DATA" if calibration is None else "DATA"
                     source = _block(
                         visibility=np.asarray(
-                            selected.getcol("CORRECTED_DATA", startrow=start, nrow=count)
+                            selected.getcol(source_column, startrow=start, nrow=count)
                         ),
                         flag=flag,
                         flag_row=flag_row,
@@ -113,10 +144,60 @@ def _extract_flagged_blocks(
                             dtype=np.float64,
                         ),
                         phase_centre_rad=phase_centre,
-                        column="CORRECTED_DATA/currently_flagged",
+                        column=f"{source_column}/currently_flagged",
                     )
+                    cohort = _prepare_flagged_cohort(source, calibration)
+                    if calibration is not None:
+                        reference = _block(
+                            visibility=np.asarray(
+                                selected.getcol(
+                                    "CORRECTED_DATA", startrow=start, nrow=count
+                                )
+                            ),
+                            flag=flag,
+                            flag_row=flag_row,
+                            weight=np.asarray(
+                                selected.getcol("WEIGHT", startrow=start, nrow=count),
+                                dtype=np.float64,
+                            ),
+                            uvw_m=np.asarray(
+                                selected.getcol("UVW", startrow=start, nrow=count),
+                                dtype=np.float64,
+                            ),
+                            frequency_hz=frequency_hz,
+                            time_s=np.asarray(
+                                selected.getcol("TIME", startrow=start, nrow=count),
+                                dtype=np.float64,
+                            ),
+                            antenna1=np.asarray(
+                                selected.getcol("ANTENNA1", startrow=start, nrow=count),
+                                dtype=np.int32,
+                            ),
+                            antenna2=np.asarray(
+                                selected.getcol("ANTENNA2", startrow=start, nrow=count),
+                                dtype=np.int32,
+                            ),
+                            scan_id=np.asarray(
+                                selected.getcol("SCAN_NUMBER", startrow=start, nrow=count),
+                                dtype=np.int32,
+                            ),
+                            field_id=field_id,
+                            interval_s=np.asarray(
+                                selected.getcol("INTERVAL", startrow=start, nrow=count),
+                                dtype=np.float64,
+                            ),
+                            phase_centre_rad=phase_centre,
+                            column="CORRECTED_DATA/currently_flagged/matched",
+                        )
+                        reference, cohort = _match_active_samples(
+                            _flag_cohort(reference), cohort
+                        )
+                        assert reference_chunks is not None
+                        reference_chunks.append(
+                            average_frequency_bins(reference, bin_count=frequency_bins)
+                        )
                     chunks.append(
-                        average_frequency_bins(_flag_cohort(source), bin_count=frequency_bins)
+                        average_frequency_bins(cohort, bin_count=frequency_bins)
                     )
             finally:
                 selected.close()
@@ -126,7 +207,15 @@ def _extract_flagged_blocks(
                     bin_seconds=time_bin_s,
                 )
             )
-    return tuple(result)
+            if reference_chunks is not None:
+                assert reference_result is not None
+                reference_result.append(
+                    average_time_bins(
+                        _concatenate(reference_chunks, label="currently_flagged_matched_casa"),
+                        bin_seconds=time_bin_s,
+                    )
+                )
+    return tuple(result), None if reference_result is None else tuple(reference_result)
 
 
 def _combine_cohorts(
@@ -234,6 +323,16 @@ def main() -> int:
     parser.add_argument("--frequency-bins", type=int, default=4)
     parser.add_argument("--time-bin-s", type=float, default=60.0)
     parser.add_argument("--chunk-rows", type=int, default=2048)
+    parser.add_argument(
+        "--calibration",
+        type=Path,
+        help="Optional SL1MJax calibration applied to raw DATA for the flagged cohort.",
+    )
+    parser.add_argument(
+        "--extract-only",
+        action="store_true",
+        help="Create or validate the flagged fixture, then stop before sky prediction.",
+    )
     parser.add_argument("--score-threshold", type=float, default=6.0)
     parser.add_argument("--visibility-tile-size", type=int, default=256)
     parser.add_argument("--pixel-tile-size", type=int, default=1024)
@@ -242,27 +341,48 @@ def main() -> int:
 
     dataset = read_dataset(arguments.fixture)
     active_blocks = dataset.blocks
+    calibration = (
+        None if arguments.calibration is None else read_calibration(arguments.calibration)
+    )
     field_ids = tuple(int(block.field_id[0]) for block in active_blocks)
     arguments.output.mkdir(parents=True, exist_ok=True)
     flagged_fixture = arguments.output / "flagged_fixture.zarr"
+    matched_reference_fixture = arguments.output / "matched_casa_flagged_fixture.zarr"
     if flagged_fixture.exists():
         print("loading cached currently flagged cohort", flush=True)
         flagged_blocks = read_dataset(flagged_fixture).blocks
+        if calibration is not None:
+            if not matched_reference_fixture.exists():
+                raise ValueError(
+                    "cached calibrated cohort lacks its matched CASA reference; "
+                    "use a new output directory"
+                )
+            matched_reference_blocks = read_dataset(matched_reference_fixture).blocks
+        else:
+            matched_reference_blocks = None
     else:
         print("extracting currently flagged cohort", flush=True)
-        flagged_blocks = _extract_flagged_blocks(
+        flagged_blocks, matched_reference_blocks = _extract_flagged_blocks(
             arguments.measurement_set,
             field_ids=field_ids,
             frequency_bins=arguments.frequency_bins,
             time_bin_s=arguments.time_bin_s,
             chunk_rows=arguments.chunk_rows,
+            calibration=calibration,
         )
         write_dataset(
             VisibilityDataset(
                 flagged_blocks,
                 provenance={
                     "measurement_set": arguments.measurement_set.name,
-                    "cohort": "currently_flagged_CORRECTED_DATA",
+                    "cohort": (
+                        "currently_flagged_CORRECTED_DATA"
+                        if calibration is None
+                        else "currently_flagged_DATA_with_SL1MJax_calibration"
+                    ),
+                    "calibration": (
+                        None if arguments.calibration is None else str(arguments.calibration)
+                    ),
                     "field_ids": list(field_ids),
                     "frequency_bins": arguments.frequency_bins,
                     "time_bin_s": arguments.time_bin_s,
@@ -271,6 +391,28 @@ def main() -> int:
             flagged_fixture,
         )
         print(f"cached flagged cohort at {flagged_fixture}", flush=True)
+        if matched_reference_blocks is not None:
+            write_dataset(
+                VisibilityDataset(
+                    matched_reference_blocks,
+                    provenance={
+                        "measurement_set": arguments.measurement_set.name,
+                        "cohort": "currently_flagged_CORRECTED_DATA_matched_before_averaging",
+                        "matched_calibration": str(arguments.calibration),
+                        "field_ids": list(field_ids),
+                        "frequency_bins": arguments.frequency_bins,
+                        "time_bin_s": arguments.time_bin_s,
+                    },
+                ),
+                matched_reference_fixture,
+            )
+            print(
+                f"cached matched CASA cohort at {matched_reference_fixture}",
+                flush=True,
+            )
+    if arguments.extract_only:
+        print(f"flagged fixture ready at {flagged_fixture}", flush=True)
+        return 0
     with np.load(arguments.frozen_directory / "predictions.npz") as stored:
         active_predictions = tuple(
             stored[f"consensus_C{index + 1}"] for index in range(len(active_blocks))

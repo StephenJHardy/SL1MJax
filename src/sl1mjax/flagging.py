@@ -7,6 +7,8 @@ from enum import StrEnum
 
 import numpy as np
 
+from sl1mjax.data.canonical import VisibilityBlock
+
 
 class ResidualHandlingMode(StrEnum):
     """How a robust residual score may affect a visibility sample."""
@@ -62,6 +64,34 @@ class SkyCoherenceResult:
     prediction: np.ndarray
     protected_mask: np.ndarray
     groups: tuple[SkyCoherenceGroup, ...]
+
+
+def baseline_group_masks(
+    blocks: tuple[VisibilityBlock, ...],
+    baselines: tuple[tuple[int, int], ...] | list[tuple[int, int]],
+) -> tuple[np.ndarray, ...]:
+    """Select every visibility sample belonging to named antenna baselines."""
+
+    normalized = {
+        (min(int(first), int(second)), max(int(first), int(second)))
+        for first, second in baselines
+    }
+    masks = []
+    for block in blocks:
+        antenna1 = np.asarray(block.antenna1, dtype=np.int32)
+        antenna2 = np.asarray(block.antenna2, dtype=np.int32)
+        shape = block.shape
+        rows = np.fromiter(
+            (
+                (min(int(first), int(second)), max(int(first), int(second)))
+                in normalized
+                for first, second in zip(antenna1, antenna2, strict=True)
+            ),
+            dtype=bool,
+            count=antenna1.size,
+        )
+        masks.append(np.broadcast_to(rows[:, None, None], shape))
+    return tuple(masks)
 
 
 def apply_residual_handling(

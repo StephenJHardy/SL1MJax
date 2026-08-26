@@ -71,6 +71,23 @@ def test_five_fold_time_masks_are_disjoint_complete_and_bin_coherent() -> None:
         assert sum(membership) == 1
 
 
+def test_individual_interleaved_folds_reproduce_three_way_split() -> None:
+    from sl1mjax.split import interleaved_time_folds
+
+    module = _module()
+    block = _block()
+
+    folds = interleaved_time_folds((block,), bin_seconds=2.0)
+    train, validation, test = module.interleaved_time_fold_masks(
+        (block,), bin_seconds=2.0
+    )
+
+    assert len(folds) == 5
+    np.testing.assert_array_equal(train[0], folds[0][0] | folds[1][0] | folds[2][0])
+    np.testing.assert_array_equal(validation[0], folds[3][0])
+    np.testing.assert_array_equal(test[0], folds[4][0])
+
+
 def test_component_templates_cover_all_model_variants() -> None:
     module = _module()
     block = _block()

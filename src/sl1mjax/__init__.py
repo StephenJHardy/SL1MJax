@@ -69,6 +69,7 @@ from sl1mjax.flagging import (  # noqa: E402
     SkyCoherenceResult,
     apply_residual_handling,
     audit_existing_flags,
+    baseline_group_masks,
     fit_grouped_real_sky_component,
 )
 from sl1mjax.hierarchical_imaging import (  # noqa: E402
@@ -165,7 +166,7 @@ from sl1mjax.sky import (  # noqa: E402
     SquarePixelBasis,
     pixel_basis_from_name,
 )
-from sl1mjax.split import interleaved_time_fold_masks  # noqa: E402
+from sl1mjax.split import interleaved_time_fold_masks, interleaved_time_folds  # noqa: E402
 
 __all__ = [
     "Correlation",
@@ -241,6 +242,7 @@ __all__ = [
     "apply_calibration",
     "apply_residual_handling",
     "audit_existing_flags",
+    "baseline_group_masks",
     "baseline_split_scores",
     "batched_exact_residual_haar_scores",
     "batched_residual_haar_scores",
@@ -266,6 +268,7 @@ __all__ = [
     "predict_mosaic_quadtree",
     "infer_quadtree",
     "interleaved_time_fold_masks",
+    "interleaved_time_folds",
     "positive_l1_kkt_residual",
     "identity_solution",
     "leaves_exceeding_error_bound",

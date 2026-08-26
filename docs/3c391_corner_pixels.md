@@ -1083,6 +1083,62 @@ Reproduction artifacts are `src/sl1mjax/gain_time_models.py`,
 `scripts/sweep_3c391_gain_time_models.py`, and
 `outputs/3c391_gain_time_model_sweep/`.
 
+### Matched residual-tail audit after calibration selection
+
+The residual flag audit was repeated after selecting the 14-epoch native
+linear calibration. CASA and SL1MJax were compared on the intersection of
+their post-calibration active samples. Both used the same frozen composite
+sky, the same 60 s five-fold split, and the same robust-score threshold of 6.
+No flags were changed.
+
+On sealed fold 4, CASA has normalized residual power 0.007441 and an outlier
+fraction of 4.993%. SL1MJax has 0.007560 and 5.066%. The SL1MJax outlier
+fraction is 5.051% when evaluated with CASA's fitted robust scales. More
+importantly for flag discovery, both calibrations validate exactly the same
+25 baseline groups. Neither calibration adds or removes a candidate group.
+
+The residual-tail evidence is therefore stable to the remaining 0.8--1.6%
+calibration-level differences. It is reasonable to resume flagging work
+without first developing a more complex external-calibrator interpolator.
+The next flagger should retain at least two modes: a conservative
+instrumental mode that requires repeated baseline, antenna, channel, or scan
+support, and a transient-safe audit mode that reports isolated sky-coherent
+events without automatically masking them.
+
+The matching code is `scripts/compare_3c391_calibration_flags.py`, with tests
+for visibility alignment and common-mask construction. Results are in
+`outputs/3c391_calibration_flag_audit/`.
+
+The retrospective flagged-data comparison was completed when the full
+Measurement Set became available on BagOfWinds. CASA and SL1MJax were first
+intersected at native row, channel, and correlation resolution, then
+frequency- and time-averaged. This matters because removing invalid gains
+after averaging changes the effective time and UVW coordinates. The final
+paired cohorts contain 267,640 samples and have exactly equal coordinates.
+
+Of these originally flagged samples, the SL1MJax-calibrated data have
+normalized residual power 0.01888 and a score-above-6 fraction of 7.677%.
+Thus 92.323% sit in the robust residual bulk. CASA `CORRECTED_DATA` is not a
+useful control for this cohort: its normalized residual power is 1.915.
+CASA calibration did not produce meaningful corrected values for samples
+that were already flagged, while applying the external SL1MJax solution to
+raw `DATA` did.
+
+Twenty-two baselines reproduce a high outlier fraction in both discovery and
+flagged evaluation samples. They contain 24,008 samples, or 8.97% of the
+usable flagged cohort, and capture 60.13% of its score-above-6 samples. The
+remaining 243,632 samples have an outlier fraction of 3.362%, lower than the
+5.066% in the normally active sealed cohort. This supports a conservative
+recovery experiment: retain unavailable-gain samples as flagged, retain the
+22 persistent bad-baseline groups as flagged, and admit the remaining
+originally flagged samples only in a new validation-controlled imaging run.
+It does not support unflagging the whole Measurement Set in place.
+
+The paired extraction is in `outputs/3c391_matched_existing_flag_audit/`.
+The detailed audit and reason breakdown are in
+`outputs/3c391_calibration_flag_audit/`. No Measurement Set flags were
+changed during this experiment.
+
 This work also exposed and fixed a validation bug in the physical-flux
 solvers. FISTA, proximal SGD, and hybrid fits previously recorded holdout loss
 but returned the lowest training objective. They now return the checkpoint

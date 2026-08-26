@@ -16,6 +16,31 @@ class VisibilitySplit:
     strategy: str
 
 
+def interleaved_time_folds(
+    blocks: tuple[VisibilityBlock, ...],
+    *,
+    bin_seconds: float,
+    fold_count: int = 5,
+) -> tuple[tuple[np.ndarray, ...], ...]:
+    """Assign complete active time bins to individual interleaved folds."""
+
+    if not np.isfinite(bin_seconds) or bin_seconds <= 0:
+        raise ValueError("bin_seconds must be finite and positive")
+    if fold_count < 2:
+        raise ValueError("fold_count must be at least two")
+    result: list[list[np.ndarray]] = [[] for _ in range(fold_count)]
+    for block in blocks:
+        integer_bin = np.floor(block.time_s / bin_seconds).astype(np.int64)
+        active_bins = np.unique(integer_bin[np.any(block.active, axis=(1, 2))])
+        if active_bins.size < fold_count:
+            raise ValueError("each block needs at least one active time bin per fold")
+        fold_by_bin = {int(value): index % fold_count for index, value in enumerate(active_bins)}
+        row_fold = np.asarray([fold_by_bin.get(int(value), -1) for value in integer_bin])
+        for fold in range(fold_count):
+            result[fold].append(block.active & (row_fold == fold)[:, None, None])
+    return tuple(tuple(masks) for masks in result)
+
+
 def interleaved_time_fold_masks(
     blocks: tuple[VisibilityBlock, ...],
     *,
@@ -26,8 +51,6 @@ def interleaved_time_fold_masks(
 ) -> tuple[tuple[np.ndarray, ...], tuple[np.ndarray, ...], tuple[np.ndarray, ...]]:
     """Split complete time bins into train, validation, and sealed test sets."""
 
-    if not np.isfinite(bin_seconds) or bin_seconds <= 0:
-        raise ValueError("bin_seconds must be finite and positive")
     if fold_count < 3:
         raise ValueError("fold_count must be at least three")
     if not 0 <= validation_fold < fold_count or not 0 <= test_fold < fold_count:
@@ -35,23 +58,19 @@ def interleaved_time_fold_masks(
     if validation_fold == test_fold:
         raise ValueError("validation and test folds must differ")
 
-    train_masks: list[np.ndarray] = []
-    validation_masks: list[np.ndarray] = []
-    test_masks: list[np.ndarray] = []
-    for block in blocks:
-        integer_bin = np.floor(block.time_s / bin_seconds).astype(np.int64)
-        active_bins = np.unique(integer_bin[np.any(block.active, axis=(1, 2))])
-        if active_bins.size < fold_count:
-            raise ValueError("each block needs at least one active time bin per fold")
-        fold_by_bin = {int(value): index % fold_count for index, value in enumerate(active_bins)}
-        row_fold = np.asarray([fold_by_bin.get(int(value), -1) for value in integer_bin])
-        validation_rows = row_fold == validation_fold
-        test_rows = row_fold == test_fold
-        train_rows = (row_fold >= 0) & ~validation_rows & ~test_rows
-        train_masks.append(block.active & train_rows[:, None, None])
-        validation_masks.append(block.active & validation_rows[:, None, None])
-        test_masks.append(block.active & test_rows[:, None, None])
-    return tuple(train_masks), tuple(validation_masks), tuple(test_masks)
+    folds = interleaved_time_folds(
+        blocks,
+        bin_seconds=bin_seconds,
+        fold_count=fold_count,
+    )
+    excluded = {validation_fold, test_fold}
+    train = tuple(
+        np.logical_or.reduce(
+            [folds[index][block] for index in range(fold_count) if index not in excluded]
+        )
+        for block in range(len(blocks))
+    )
+    return train, folds[validation_fold], folds[test_fold]
 
 
 def uv_cell_split(

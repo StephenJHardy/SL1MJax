@@ -1,10 +1,12 @@
 import numpy as np
 import pytest
 
+from sl1mjax.data.synthetic import simulate_calibration_case
 from sl1mjax.flagging import (
     ResidualHandlingMode,
     apply_residual_handling,
     audit_existing_flags,
+    baseline_group_masks,
     fit_grouped_real_sky_component,
 )
 
@@ -81,6 +83,20 @@ def test_existing_flag_audit_reports_both_error_directions() -> None:
     assert audit.unflagged_residual_tail_count == 1
     assert audit.flagged_residual_bulk_fraction == 0.5
     assert audit.unflagged_residual_tail_fraction == 0.5
+
+
+def test_baseline_group_masks_normalize_antenna_order() -> None:
+    block = simulate_calibration_case(
+        antenna_count=4, time_count=2, channel_count=2, seed=21
+    ).block
+
+    mask = baseline_group_masks((block,), [(2, 0)])[0]
+
+    expected_rows = (
+        (np.minimum(block.antenna1, block.antenna2) == 0)
+        & (np.maximum(block.antenna1, block.antenna2) == 2)
+    )
+    np.testing.assert_array_equal(mask, np.broadcast_to(expected_rows[:, None, None], block.shape))
 
 
 def test_cross_baseline_sky_component_protects_coherent_variability() -> None:
