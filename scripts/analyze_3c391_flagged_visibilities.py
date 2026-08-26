@@ -13,6 +13,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 from compare_3c391_composite_existing_flags import _components_from_checkpoint
+from matplotlib.colors import LogNorm
 
 from sl1mjax.beam import VLABeamCatalog, VLAPrimaryBeam
 from sl1mjax.composite import MosaicSkyComponent, predict_mosaic_composite
@@ -373,6 +374,88 @@ def _plot_diagnostics(
     plt.close(figure)
 
 
+def _plot_amplitude_comparison(
+    path: Path,
+    active: dict[str, np.ndarray],
+    flagged: dict[str, np.ndarray],
+) -> None:
+    """Plot matched model--data amplitude densities for both flag cohorts."""
+
+    cohorts = (("Originally active", active), ("Pre-existing flags", flagged))
+    amplitudes = []
+    for label, features in cohorts:
+        predicted = np.hypot(features["predicted_real_jy"], features["predicted_imag_jy"])
+        observed = np.hypot(features["observed_real_jy"], features["observed_imag_jy"])
+        valid = (predicted > 0) & (observed > 0)
+        amplitudes.append((label, predicted[valid], observed[valid]))
+    combined = np.concatenate(
+        [values for _, predicted, observed in amplitudes for values in (predicted, observed)]
+    )
+    lower, upper = np.quantile(combined, (0.0005, 0.9995))
+    limits = (float(lower), float(upper))
+
+    # Measure each hex density before drawing so both panels share one cohort-
+    # normalized colour scale despite their different sample counts.
+    probe, probe_axes = plt.subplots(1, 2)
+    maximum_density = 0.0
+    for axis, (_, predicted, observed) in zip(probe_axes, amplitudes, strict=True):
+        density = axis.hexbin(
+            predicted,
+            observed,
+            C=np.full(predicted.size, 1.0 / predicted.size),
+            reduce_C_function=np.sum,
+            gridsize=75,
+            mincnt=1,
+            xscale="log",
+            yscale="log",
+            extent=(np.log10(limits[0]), np.log10(limits[1])) * 2,
+        )
+        maximum_density = max(maximum_density, float(np.max(density.get_array())))
+    plt.close(probe)
+
+    figure, axes = plt.subplots(
+        1,
+        2,
+        figsize=(12.5, 5.6),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True,
+    )
+    shown = None
+    for axis, (label, predicted, observed) in zip(axes, amplitudes, strict=True):
+        shown = axis.hexbin(
+            predicted,
+            observed,
+            C=np.full(predicted.size, 1.0 / predicted.size),
+            reduce_C_function=np.sum,
+            gridsize=75,
+            mincnt=1,
+            xscale="log",
+            yscale="log",
+            extent=(np.log10(limits[0]), np.log10(limits[1])) * 2,
+            norm=LogNorm(vmin=max(maximum_density * 1e-4, 1e-8), vmax=maximum_density),
+            cmap="viridis",
+        )
+        axis.plot(limits, limits, color="white", linewidth=1.2)
+        axis.set_xlim(limits)
+        axis.set_ylim(limits)
+        axis.set_title(f"{label} (n={predicted.size:,})")
+        axis.set_xlabel("predicted amplitude (Jy)")
+        axis.set_aspect("equal", adjustable="box")
+    axes[0].set_ylabel("observed amplitude (Jy)")
+    assert shown is not None
+    figure.colorbar(
+        shown,
+        ax=axes,
+        fraction=0.035,
+        pad=0.025,
+        label="fraction of cohort per hexagon",
+    )
+    figure.suptitle("3C391 predicted and observed visibility amplitudes")
+    figure.savefig(path, dpi=180)
+    plt.close(figure)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -530,6 +613,11 @@ def main() -> int:
         flagged_features,
         groups,
         score_threshold=arguments.score_threshold,
+    )
+    _plot_amplitude_comparison(
+        arguments.output / "flagged_unflagged_amplitude_comparison.jpg",
+        active_features,
+        flagged_features,
     )
     summary = {
         "schema_version": 1,

@@ -70,3 +70,22 @@ def test_cohort_summary_describes_tail_morphology_and_power() -> None:
     assert summary["tail_morphology"]["amplitude_dominated_fraction"] == 0.5
     assert summary["tail_morphology"]["phase_dominated_fraction"] == 0.5
     assert summary["tail_morphology"]["cross_baseline_coherent_fraction"] == 1.0
+
+
+def test_amplitude_comparison_writes_matched_panels(tmp_path: Path) -> None:
+    module = _module()
+    predicted = np.geomspace(1e-3, 2.0, 200)
+
+    def cohort(scale: float) -> dict[str, np.ndarray]:
+        return {
+            "predicted_real_jy": predicted,
+            "predicted_imag_jy": np.zeros_like(predicted),
+            "observed_real_jy": predicted * scale,
+            "observed_imag_jy": np.zeros_like(predicted),
+        }
+
+    output = tmp_path / "comparison.jpg"
+    module._plot_amplitude_comparison(output, cohort(1.0), cohort(1.1))
+
+    assert output.exists()
+    assert output.stat().st_size > 0
