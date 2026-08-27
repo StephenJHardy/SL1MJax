@@ -1288,6 +1288,70 @@ is `scripts/run_3c391_native_injection_recovery.py`. Its full machine-readable
 result and cached unit response are in
 `outputs/3c391_native_injection_recovery/`.
 
+### Blind fixed-atom time and frequency search
+
+The matched-support experiment does not include the cost of finding an event.
+A first blind search now tests 350 native-resolution refinements at the C1
+phase centre. The bank contains 104 sliding time intervals, 245 sliding
+frequency intervals, and one linear slope in log frequency. Time intervals
+have widths of 1, 3, and 6 native 10-second integrations. Frequency intervals
+have widths of 1, 2, 4, and 8 native 2 MHz channels. Intervals do not cross a
+scan gap.
+
+The search fits a nested model. Both hypotheses can correct the static flux at
+the atom. The larger hypothesis also adds one signed time- or frequency-varying
+coefficient. This prevents an ordinary static sky error from being labelled as
+variability. The interval coefficient is a contrast between samples inside and
+outside the selected interval. The log-frequency coefficient is a screening
+approximation to a physical spectral model, not yet a fitted power law.
+
+Whole antenna baselines are divided into three cohorts. Discovery baselines fit
+and rank all candidates. Selection baselines choose among the best 16 without
+refitting them. The chosen candidate is then refitted on discovery plus
+selection baselines. Only that candidate is scored on the sealed evaluation
+baselines. Five deterministic baseline partitions measure stability. A
+repeatable recovery requires the exact injected interval to improve sealed
+loss on at least four of five partitions.
+
+The real residual with no injection is an important null control. Discovery and
+selection always find an apparently useful time interval, but all five choices
+increase sealed loss. The acceptance fraction is therefore zero. This shows
+why a two-way discovery/evaluation split is not sufficient after mining many
+candidates.
+
+| injected component | matched-support threshold | blind threshold |
+|---|---:|---:|
+| 10 s interval | 8.11 mJy | 16.22 mJy |
+| 30 s interval | 9.37 mJy | 18.73 mJy |
+| 60 s interval | 13.25 mJy | 13.25 mJy |
+| 1 channel / 2 MHz | 2.27 mJy | 18.18 mJy |
+| 2 channels / 4 MHz | 1.61 mJy | 12.85 mJy |
+| 4 channels / 8 MHz | 1.14 mJy | 9.09 mJy |
+| 8 channels / 16 MHz | 1.61 mJy | 6.43 mJy |
+| log-frequency slope | not tested | 10 mJy edge-to-edge |
+
+The time search pays a modest trials penalty because only 104 intervals are
+tested and the longer events carry more information. The compact spectral
+search pays about an eightfold amplitude penalty relative to known support.
+There are 245 overlapping spectral intervals, and the real residual contains
+coherent alternatives that differ between baseline cohorts. A stronger search
+penalty or a poorer residual model could both cause this behaviour. The sealed
+null result means it is not evidence for a real variable component at the phase
+centre.
+
+This is a fixed-position proof of the time and frequency selection protocol.
+It does not yet decide which spatial leaf should gain extra freedom. The next
+step is to screen spatial leaves using their residual response, apply this
+three-cohort search only to a short spatial list, then jointly refit accepted
+components with the static hierarchical sky. Smooth power-law, Hanning, spline,
+or Gaussian-process models can then compete as extra validated families rather
+than replacing the compact interval search.
+
+The reusable search is in `src/sl1mjax/sky_recovery.py`. The native 3C391
+driver is `scripts/search_3c391_native_variability.py`. Full fold rankings and
+injection results are in
+`outputs/3c391_native_variability_search/summary.json`.
+
 ### Paraxial \(w\)-term error
 
 \(|w|\) on the fixture reaches \(1.3\times 10^4\) wavelengths. Missing
