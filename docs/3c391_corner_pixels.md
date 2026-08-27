@@ -1145,6 +1145,95 @@ but returned the lowest training objective. They now return the checkpoint
 with the lowest holdout loss when a holdout is supplied. No-holdout fits retain
 the previous minimum-objective behavior.
 
+### Validation-controlled recovery result
+
+The recovery-policy fit was then repeated from zero flux to remove warm-start
+leakage. Four policies used folds 0--2 for fitting and fold 3 for selection.
+They were evaluated on the same originally active samples, so admitting more
+flagged data could not improve a candidate merely by changing its evaluation
+set.
+
+| policy | fold-3 weighted complex MSE | change from active only |
+|---|---:|---:|
+| active only | 0.00324258 | -- |
+| robust flagged weights | 0.00328037 | +1.17% |
+| supported flagged tail | 0.00328412 | +1.28% |
+| whole supported baselines | 0.00329502 | +1.62% |
+
+The active-only policy therefore remains selected. Its sealed fold-4 weighted
+complex MSE is 0.00328519 and normalized residual power is 0.00781493 on
+146,304 samples. This does not mean every existing flag marks bad data. It
+means that the proposed broad recovery rules do not improve prediction of
+independent active samples with the present calibration and static sky.
+
+The best frozen sky was also evaluated directly on 267,640 usable,
+pre-existing flagged averages. Only 7.11% exceed robust score 6, compared with
+4.66% of the active cohort. A pointwise residual-score classifier has ROC AUC
+0.489 against all active samples, so the existing flags are not pointwise
+corruption labels. About 70.9% of the usable flagged cohort lies in the first
+15 seconds of a scan and has only a 3.66% residual-tail fraction. The later
+flagged samples contain most of the residual power and are much more strongly
+associated with the validated bad-baseline support.
+
+The practical flagger should therefore use contextual causes such as antenna,
+scan start, gain validity, baseline persistence, and closure coherence. A
+transient-safe mode should report isolated time-frequency events without
+automatically converting them into corruption flags. The recovery artifacts
+are in `outputs/3c391_recovery_policy_fit_zero/`. The paired visibility audit
+and amplitude/phase diagnostics are in
+`outputs/3c391_flagged_visibility_distribution/`.
+
+### Native-resolution averaging ablation
+
+The best sealed active-only sky was next evaluated on the original target
+resolution available in this Measurement Set: 10-second integrations and 64
+channels of 2 MHz. The sealed fold-4 time bins contain 12,691,712 active
+parallel-hand complex samples across all seven pointings. Each observation was
+predicted at its native UVW, frequency, and primary-beam response before any
+averaging.
+
+For every averaging case, `exact` means that native predictions and
+observations were averaged with identical flags and weights. `Centroid` means
+that the sky was instead evaluated once at the averaged UVW and channel
+frequency, as in the current coarse fixture.
+
+| averaging | retained samples | exact weighted MSE | exact normalized power | mean \(w|r|^2\) per sample | ratio to native | centroid MSE change |
+|---|---:|---:|---:|---:|---:|---:|
+| 10 s / 2 MHz | 12,691,712 (100%) | 0.00988387 | 0.0231451 | 0.09369 | 1.00 | +0.000001% |
+| 20 s / 4 MHz | 3,353,536 (26.42%) | 0.00513640 | 0.0121632 | 0.18427 | 1.97 | +0.00035% |
+| 30 s / 8 MHz | 1,132,928 (8.93%) | 0.00395174 | 0.00938427 | 0.41965 | 4.48 | +0.00121% |
+| 60 s / 32 MHz | 146,304 (1.15%) | 0.00328472 | 0.00781382 | 2.70112 | 28.83 | +0.01429% |
+
+The fall in weighted MSE and normalized residual power does **not** show that
+coarser data fit better. Incoherent noise averages down while the denominator
+still contains the summed weights. The resolution-comparable diagnostic is
+the mean of $w|V-\hat V|^2$ over retained complex output samples. It rises by
+28.8 times at 60 s / 32 MHz, so much of the remaining residual is coherent
+within the large averaging cells. At the same time only 1.15% of the native
+time-frequency samples remain. Short transients and narrow spectral features
+would therefore lose most of their independent validation evidence.
+
+For this dataset, the centroid forward-model approximation itself is small.
+Its signed 60 s / 32 MHz MSE change ranges from -0.035% to +0.103% across
+pointings. The largest aggregate baseline-bin change is +0.160% at 5--7.5
+kilo-lambda. The recomputed centroid result has normalized residual power
+0.007814932719, agreeing with the previously sealed value 0.007814932845 to
+$1.3\times10^{-10}$. This is a strong end-to-end check of extraction,
+calibration, fold selection, averaging, beam evaluation, and prediction.
+
+The result supports a two-resolution workflow. Coarse data can remain the
+cheap topology-discovery and initial-solve representation. Model selection for
+time, frequency, flag recovery, and self-calibration should always be scored
+on streamed native-resolution holdouts. A bin-integrated forward model is not
+urgent for this particular 3C391 mosaic, but the conclusion is dataset- and
+field-of-view-dependent and should be rechecked for longer baselines or bright
+far-sidelobe sources.
+
+The implementation is `scripts/ablate_3c391_native_averaging.py`. It can first
+write compact calibrated holdout fixtures with `--extract-only`, then resume
+GPU prediction one pointing at a time. Results and the resolved diagnostic are
+in `outputs/3c391_native_averaging_ablation/`.
+
 ### Paraxial \(w\)-term error
 
 \(|w|\) on the fixture reaches \(1.3\times 10^4\) wavelengths. Missing
