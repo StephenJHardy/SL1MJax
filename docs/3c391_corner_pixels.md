@@ -1234,6 +1234,60 @@ write compact calibrated holdout fixtures with `--extract-only`, then resume
 GPU prediction one pointing at a time. Results and the resolved diagnostic are
 in `outputs/3c391_native_averaging_ablation/`.
 
+### Native transient and spectral injection recovery
+
+The first variable-sky recovery test now works directly on the native C1
+holdout. It injects a one-Jy point-source RIME response into the real
+calibrated residual. The response uses the original UVW coordinates, all 64
+channel frequencies, and the same extended VLA Airy beam as the frozen sky
+model. The initial atom is at the C1 mosaic phase centre, where beam power is
+close to one.
+
+Each candidate coefficient is fitted on complete discovery baselines and
+scored on disjoint evaluation baselines. Five deterministic repeated
+whole-baseline holdouts are used. A paired zero-injection control removes a
+pre-existing coherent residual at the atom position from the reported
+injected coefficient and loss gain. This is important because a real-data
+injection inherits calibration error, missing sky, and correlated residuals
+rather than adding ideal thermal noise to a perfect simulation.
+
+The matched support is known in this test. Temporal supports contain one,
+three, or six native 10-second integrations. Spectral supports contain one,
+two, four, or eight adjacent native 2 MHz channels. A static point atom at the
+same position is evaluated as a competing model. A repeatable recovery
+requires the supported model to have the lowest mean raw validation loss,
+positive paired evidence relative to the zero-injection control, and a paired
+win on at least four of five baseline splits.
+
+| injected support | first repeatable selection | injected flux | first 25% protection |
+|---|---:|---:|---:|
+| 10 s transient | nominal SNR 4 | 8.11 mJy | 64.9 mJy |
+| 30 s transient | nominal SNR 8 | 9.37 mJy | 74.9 mJy |
+| 60 s transient | nominal SNR 16 | 13.25 mJy | not reached by 53.0 mJy |
+| 1 channel / 2 MHz | nominal SNR 1 | 2.27 mJy | 72.7 mJy |
+| 2 channels / 4 MHz | nominal SNR 1 | 1.61 mJy | 102.8 mJy |
+| 4 channels / 8 MHz | nominal SNR 1 | 1.14 mJy | 72.7 mJy |
+| 8 channels / 16 MHz | nominal SNR 2 | 1.61 mJy | not reached by 51.4 mJy |
+
+The nominal SNR is the injected flux divided by the inverse square root of the
+discovery response information. It is not an empirical detection sigma. The
+real residual is correlated, so the repeatable temporal threshold is several
+times larger than this independent-noise scale.
+
+The current 25% event-power improvement threshold is appropriate as a
+conservative rule for protecting a large residual from automatic flagging,
+but it is not a suitable model-detection threshold. It misses variable-sky
+components that are selected consistently by native validation at much lower
+flux. Detection and flag protection should therefore remain separate
+decisions. A later blind search must also use an additional selection fold or
+a multiple-testing correction because this experiment supplies the true time,
+frequency support and sky position.
+
+The reusable implementation is `src/sl1mjax/sky_recovery.py`. The 3C391 driver
+is `scripts/run_3c391_native_injection_recovery.py`. Its full machine-readable
+result and cached unit response are in
+`outputs/3c391_native_injection_recovery/`.
+
 ### Paraxial \(w\)-term error
 
 \(|w|\) on the fixture reaches \(1.3\times 10^4\) wavelengths. Missing
