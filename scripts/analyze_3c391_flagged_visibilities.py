@@ -456,6 +456,91 @@ def _plot_amplitude_comparison(
     plt.close(figure)
 
 
+def _plot_phase_comparison(
+    path: Path,
+    active: dict[str, np.ndarray],
+    flagged: dict[str, np.ndarray],
+    *,
+    snr_threshold: float,
+) -> None:
+    """Plot matched observed--model phase densities on the principal square."""
+
+    cohorts = (("Originally active", active), ("Pre-existing flags", flagged))
+    phases = []
+    for label, features in cohorts:
+        predicted = features["predicted_real_jy"] + 1j * features["predicted_imag_jy"]
+        observed = features["observed_real_jy"] + 1j * features["observed_imag_jy"]
+        valid = (features["model_snr"] >= snr_threshold) & (
+            features["observed_snr"] >= snr_threshold
+        )
+        phases.append(
+            (
+                label,
+                np.rad2deg(np.angle(predicted[valid])),
+                np.rad2deg(np.angle(observed[valid])),
+            )
+        )
+
+    probe, probe_axes = plt.subplots(1, 2)
+    maximum_density = 0.0
+    for axis, (_, predicted, observed) in zip(probe_axes, phases, strict=True):
+        density = axis.hexbin(
+            predicted,
+            observed,
+            C=np.full(predicted.size, 1.0 / predicted.size),
+            reduce_C_function=np.sum,
+            gridsize=75,
+            mincnt=1,
+            extent=(-180.0, 180.0, -180.0, 180.0),
+        )
+        maximum_density = max(maximum_density, float(np.max(density.get_array())))
+    plt.close(probe)
+
+    figure, axes = plt.subplots(
+        1,
+        2,
+        figsize=(12.5, 5.6),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True,
+    )
+    shown = None
+    for axis, (label, predicted, observed) in zip(axes, phases, strict=True):
+        shown = axis.hexbin(
+            predicted,
+            observed,
+            C=np.full(predicted.size, 1.0 / predicted.size),
+            reduce_C_function=np.sum,
+            gridsize=75,
+            mincnt=1,
+            extent=(-180.0, 180.0, -180.0, 180.0),
+            norm=LogNorm(vmin=max(maximum_density * 1e-4, 1e-8), vmax=maximum_density),
+            cmap="viridis",
+        )
+        axis.plot((-180.0, 180.0), (-180.0, 180.0), color="white", linewidth=1.2)
+        axis.set_xlim(-180.0, 180.0)
+        axis.set_ylim(-180.0, 180.0)
+        axis.set_xticks((-180, -90, 0, 90, 180))
+        axis.set_yticks((-180, -90, 0, 90, 180))
+        axis.set_title(f"{label} (n={predicted.size:,})")
+        axis.set_xlabel("predicted phase (deg)")
+        axis.set_aspect("equal", adjustable="box")
+    axes[0].set_ylabel("observed phase (deg)")
+    assert shown is not None
+    figure.colorbar(
+        shown,
+        ax=axes,
+        fraction=0.035,
+        pad=0.025,
+        label="fraction of cohort per hexagon",
+    )
+    figure.suptitle(
+        f"3C391 predicted and observed visibility phases (model and data SNR >= {snr_threshold:g})"
+    )
+    figure.savefig(path, dpi=180)
+    plt.close(figure)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -618,6 +703,12 @@ def main() -> int:
         arguments.output / "flagged_unflagged_amplitude_comparison.jpg",
         active_features,
         flagged_features,
+    )
+    _plot_phase_comparison(
+        arguments.output / "flagged_unflagged_phase_comparison.jpg",
+        active_features,
+        flagged_features,
+        snr_threshold=arguments.ratio_snr_threshold,
     )
     summary = {
         "schema_version": 1,

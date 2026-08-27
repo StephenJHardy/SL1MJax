@@ -89,3 +89,31 @@ def test_amplitude_comparison_writes_matched_panels(tmp_path: Path) -> None:
 
     assert output.exists()
     assert output.stat().st_size > 0
+
+
+def test_phase_comparison_writes_matched_principal_squares(tmp_path: Path) -> None:
+    module = _module()
+    phase = np.linspace(-np.pi, np.pi, 200)
+
+    def cohort(offset: float) -> dict[str, np.ndarray]:
+        predicted = np.exp(1j * phase)
+        observed = np.exp(1j * (phase + offset))
+        return {
+            "predicted_real_jy": predicted.real,
+            "predicted_imag_jy": predicted.imag,
+            "observed_real_jy": observed.real,
+            "observed_imag_jy": observed.imag,
+            "model_snr": np.full(phase.size, 10.0),
+            "observed_snr": np.full(phase.size, 10.0),
+        }
+
+    output = tmp_path / "phase-comparison.jpg"
+    module._plot_phase_comparison(
+        output,
+        cohort(0.0),
+        cohort(0.1),
+        snr_threshold=3.0,
+    )
+
+    assert output.exists()
+    assert output.stat().st_size > 0
