@@ -1412,6 +1412,95 @@ The reusable streamed search is in `src/sl1mjax/sky_recovery.py`. The driver is
 `scripts/search_3c391_native_spatial_variability.py`. Full rankings for all five
 partitions are in `outputs/3c391_native_spatial_variability_search/`.
 
+### Complete scan-29 residual-model comparison
+
+The contiguous-scan diagnostic resolves the main ambiguity in the spatial
+search. Scan 29 is one five-minute C1 scan with 30 native 10-second integrations
+and 300 baselines in the Measurement Set. Two integrations contain no active
+parallel-hand samples after the existing flags and calibration validity mask.
+The fitted block therefore contains 7,084 rows, 28 integrations, 64 channels,
+two parallel hands, and 906,752 active complex samples. The previously detected
+event covers the final six active integrations, or 194,304 samples.
+
+The frozen composite sky is not refitted. Every candidate receives the same two
+static nuisance terms: one fractional scale for the complete frozen sky and one
+signed correction to the previously selected quadtree leaf. Four event models
+then compete over the same fixed final-minute support:
+
+1. a signed change in the local sky leaf;
+2. one common multiplicative amplitude change;
+3. a common amplitude plus two finite-difference primary-beam pointing shifts;
+4. a common amplitude plus linearised per-antenna amplitude and phase changes.
+
+Complete baselines are divided 60:20:20 between coefficient fitting, family and
+ridge selection, and stage-held-out evaluation. Only the selected family is
+refitted on the first two cohorts before evaluation. Large response matrices are
+not materialised. The implementation accumulates complex weighted normal
+equations in row tiles. Pointing derivatives and each exact square-leaf response
+are cached separately from the frozen full-sky prediction.
+
+All five partitions select the per-antenna complex-gain event. Four select a
+ridge fraction of 0.01; seed 394 selects 0.0001. The first improvement column
+below is measured on family-selection baselines against the common static
+nuisance model. The second is the corresponding stage-held-out comparison after
+both models are independently refitted on discovery plus selection baselines.
+
+| split seed | selected ridge | selection gain beyond static | held-out gain beyond static | held-out gain from frozen sky |
+|---:|---:|---:|---:|---:|
+| 391 | 0.01 | 4.47% | 0.82% | 7.57% |
+| 392 | 0.01 | 3.72% | 2.74% | 6.04% |
+| 393 | 0.01 | 2.62% | 3.72% | 13.38% |
+| 394 | 0.0001 | 4.12% | 1.87% | 9.53% |
+| 395 | 0.01 | 3.81% | 4.60% | 16.85% |
+
+The event-gain improvement beyond the static nuisance model is positive in
+every held-out partition. Its mean is 2.75%, with a sample standard deviation
+of 1.49 percentage points. The alternative families are much weaker on model
+selection baselines:
+
+| event family | mean gain beyond static | range across partitions |
+|---|---:|---:|
+| local sky leaf | 0.066% | 0.052--0.086% |
+| common amplitude | 0.098% | 0.052--0.148% |
+| common pointing | 0.306% | -0.183--1.108% |
+| per-antenna complex gains | 3.747% | 2.618--4.472% |
+
+The phase coefficients are also stable across baseline partitions. Relative to
+the calibration reference antenna, antenna 2 is -0.200 to -0.225 rad, antenna 9
+is -0.169 to -0.184 rad, antenna 20 is -0.151 to -0.174 rad, and antenna 7 is
+-0.144 to -0.157 rad. Stable amplitude terms include antenna 23 at roughly
+-3.2% to -7.1%, antenna 13 at -0.7% to -6.8%, and antenna 6 at -2.7% to -7.6%.
+These coherent antenna identities are not expected from a real compact change
+in one sky leaf.
+
+The current conclusion is that the spatial decrement is mainly a projection of
+an antenna-based calibration residual into the sky dictionary. A single common
+amplitude does not explain it, and a common pointing shift is not stable across
+partitions. The gain correction is deliberately a small-signal tangent model,
+is shared between RR and LL, and is constant over the detected minute. It is a
+diagnostic rather than a replacement calibration solution.
+
+This evaluation is held out within the model-comparison stage, but it is not a
+pristine sealed experiment. The leaf and minute were selected by the earlier
+spatial search, which inspected other baseline partitions of the same native
+fixture. The consistency of the antenna terms and the new four preceding
+minutes are strong evidence, but the quoted percentages should not be treated
+as an unbiased discovery significance.
+
+The next implementation should turn this diagnostic into a constrained,
+time-local calibration model. Candidate gain knots or change points should be
+chosen on discovery baselines, ridge and duration on selection baselines, and
+accepted only when they improve held-out visibilities and pass transient
+injection/recovery tests. RR and LL should then be allowed separate antenna
+terms. Once the corrected frozen-sky residual is available, the existing-flag
+audit and conservative recovery policy should be rerun before training a
+flagging classifier.
+
+The reusable sufficient-statistics fitter is in
+`src/sl1mjax/residual_models.py`. The complete-scan driver is
+`scripts/diagnose_3c391_scan_residual.py`. Per-partition JSON and plots are in
+`outputs/3c391_scan29_residual_diagnostic/`.
+
 ### Paraxial \(w\)-term error
 
 \(|w|\) on the fixture reaches \(1.3\times 10^4\) wavelengths. Missing
@@ -1561,6 +1650,9 @@ scale and the fixed-topology optimizer.
 - Low-complexity target self-calibration control:
   `scripts/study_3c391_time_half_selfcal.py` and
   `outputs/3c391_time_half_selfcal/`
+- Complete scan-29 residual-model comparison:
+  `scripts/diagnose_3c391_scan_residual.py` and
+  `outputs/3c391_scan29_residual_diagnostic/`
 - Fixed-composite-sky gain complexity sweep:
   `scripts/sweep_3c391_calibration_interpolation.py` and
   `outputs/3c391_calibration_composite_time_complexity/`
