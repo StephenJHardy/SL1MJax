@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Literal
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
+from sl1mjax.beam import VLAPrimaryBeam, predict_beam_weights
+from sl1mjax.coordinates import lmn_to_radec, radec_to_lmn
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.direct_operator import DirectDFTConfig, predict_stokes_i_explicit
+from sl1mjax.quadtree import QuadtreeLeaf, QuadtreeTopology
+from sl1mjax.sky import GaussianApproximation, SquarePixelBasis
 
 
 @dataclass(frozen=True)
@@ -125,6 +133,45 @@ class BlindSkyVariationSearchResult:
 
 
 @dataclass(frozen=True)
+class SpatialVariationCandidateScore:
+    """One spatial leaf and variation family scored on discovery or selection."""
+
+    leaf: QuadtreeLeaf
+    variation: SkyVariationCandidate
+    discovery_static_coefficient: float
+    discovery_variation_coefficient: float
+    discovery_incremental_power: float
+    discovery_incremental_weighted_mse: float
+    discovery_relative_improvement: float
+    selection_incremental_power: float | None = None
+    selection_incremental_weighted_mse: float | None = None
+    selection_relative_improvement: float | None = None
+
+
+@dataclass(frozen=True)
+class BlindSpatialVariationSearchResult:
+    """Blind spatial and time/frequency search with one sealed evaluation."""
+
+    spatial_candidate_count: int
+    variation_candidate_count: int
+    spatial_shortlist_size: int
+    discovery_shortlist_size: int
+    spatial_discovery_ranking: tuple[SpatialVariationCandidateScore, ...]
+    discovery_shortlist: tuple[SpatialVariationCandidateScore, ...]
+    selection_shortlist: tuple[SpatialVariationCandidateScore, ...]
+    selected_leaf: QuadtreeLeaf | None
+    selected_variation: SkyVariationCandidate | None
+    refit_static_coefficient: float
+    refit_variation_coefficient: float
+    selection_incremental_weighted_mse: float
+    evaluation_static_weighted_mse: float
+    evaluation_candidate_weighted_mse: float
+    evaluation_incremental_weighted_mse: float
+    evaluation_relative_improvement: float
+    accepted: bool
+
+
+@dataclass(frozen=True)
 class _VariationSufficientStatistics:
     """Matched-filter sufficient statistics for one baseline cohort."""
 
@@ -135,6 +182,22 @@ class _VariationSufficientStatistics:
     residual_power_total: float
     weight_total: float
     sample_count: int
+    matched_by_time: np.ndarray
+    response_power_by_time: np.ndarray
+    matched_by_channel: np.ndarray
+    response_power_by_channel: np.ndarray
+
+
+@dataclass
+class _SpatialStatisticsAccumulator:
+    """Mutable tiled accumulator for many spatial responses in one cohort."""
+
+    mask: np.ndarray
+    residual_power_total: float
+    weight_total: float
+    sample_count: int
+    matched_total: np.ndarray
+    response_power_total: np.ndarray
     matched_by_time: np.ndarray
     response_power_by_time: np.ndarray
     matched_by_channel: np.ndarray
@@ -539,6 +602,125 @@ def blind_search_sky_variation(
     )
 
 
+def blind_search_spatial_sky_variation(
+    block: VisibilityBlock,
+    spatial_candidates: tuple[QuadtreeLeaf, ...],
+    unit_sky_responses: tuple[np.ndarray, ...],
+    variation_candidates: tuple[SkyVariationCandidate, ...],
+    split: BaselineSearchSplit,
+    *,
+    spatial_shortlist_size: int = 16,
+    discovery_shortlist_size: int = 64,
+    minimum_selection_mse_gain: float = 0.0,
+    minimum_evaluation_mse_gain: float = 0.0,
+) -> BlindSpatialVariationSearchResult:
+    """Search spatial responses and variation families without evaluation leakage.
+
+    This in-memory form is useful for compact problems and tests. The streamed
+    quadtree form performs the same search without retaining every response.
+    """
+
+    _validate_spatial_search_inputs(
+        block,
+        spatial_candidates,
+        variation_candidates,
+        split,
+        spatial_shortlist_size=spatial_shortlist_size,
+        discovery_shortlist_size=discovery_shortlist_size,
+        minimum_selection_mse_gain=minimum_selection_mse_gain,
+        minimum_evaluation_mse_gain=minimum_evaluation_mse_gain,
+    )
+    if len(unit_sky_responses) != len(spatial_candidates):
+        raise ValueError("unit_sky_responses must contain one response per leaf")
+    statistics = {}
+    for leaf, unit_response in zip(
+        spatial_candidates, unit_sky_responses, strict=True
+    ):
+        response = np.asarray(unit_response, dtype=np.complex128)
+        if response.shape != block.shape:
+            raise ValueError("every unit sky response must match the visibility block")
+        statistics[leaf] = (
+            _variation_statistics(block, response, split.discovery_mask),
+            _variation_statistics(block, response, split.selection_mask),
+            _variation_statistics(block, response, split.evaluation_mask),
+        )
+    return _search_spatial_variation_statistics(
+        statistics,
+        variation_candidates,
+        spatial_shortlist_size=spatial_shortlist_size,
+        discovery_shortlist_size=discovery_shortlist_size,
+        minimum_selection_mse_gain=minimum_selection_mse_gain,
+        minimum_evaluation_mse_gain=minimum_evaluation_mse_gain,
+    )
+
+
+def blind_search_quadtree_sky_variation(
+    block: VisibilityBlock,
+    topology: QuadtreeTopology,
+    spatial_candidates: tuple[QuadtreeLeaf, ...],
+    variation_candidates: tuple[SkyVariationCandidate, ...],
+    split: BaselineSearchSplit,
+    *,
+    mosaic_phase_centre_rad: tuple[float, float] | None = None,
+    primary_beam: VLAPrimaryBeam | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
+    direct_config: DirectDFTConfig | None = None,
+    spatial_shortlist_size: int = 16,
+    discovery_shortlist_size: int = 64,
+    candidate_batch_size: int = 8,
+    row_batch_size: int = 256,
+    minimum_selection_mse_gain: float = 0.0,
+    minimum_evaluation_mse_gain: float = 0.0,
+    progress: Callable[[str], None] | None = None,
+) -> BlindSpatialVariationSearchResult:
+    """Stream exact quadtree-leaf responses into a blind spatial search.
+
+    Responses are generated once in leaf and row tiles. Only matched-filter
+    sufficient statistics are retained, so memory does not scale as the
+    product of visibility and spatial-candidate counts.
+    """
+
+    _validate_spatial_search_inputs(
+        block,
+        spatial_candidates,
+        variation_candidates,
+        split,
+        spatial_shortlist_size=spatial_shortlist_size,
+        discovery_shortlist_size=discovery_shortlist_size,
+        minimum_selection_mse_gain=minimum_selection_mse_gain,
+        minimum_evaluation_mse_gain=minimum_evaluation_mse_gain,
+    )
+    if candidate_batch_size < 1 or row_batch_size < 1:
+        raise ValueError("candidate_batch_size and row_batch_size must be positive")
+    if any(leaf not in topology.leaves for leaf in spatial_candidates):
+        raise ValueError("every spatial candidate must be an active topology leaf")
+    statistics = _stream_quadtree_variation_statistics(
+        block,
+        topology,
+        spatial_candidates,
+        split,
+        mosaic_phase_centre_rad=(
+            block.phase_centre_rad
+            if mosaic_phase_centre_rad is None
+            else mosaic_phase_centre_rad
+        ),
+        primary_beam=primary_beam,
+        approximation=GaussianApproximation(approximation),
+        direct_config=direct_config or DirectDFTConfig(),
+        candidate_batch_size=candidate_batch_size,
+        row_batch_size=row_batch_size,
+        progress=progress,
+    )
+    return _search_spatial_variation_statistics(
+        statistics,
+        variation_candidates,
+        spatial_shortlist_size=spatial_shortlist_size,
+        discovery_shortlist_size=discovery_shortlist_size,
+        minimum_selection_mse_gain=minimum_selection_mse_gain,
+        minimum_evaluation_mse_gain=minimum_evaluation_mse_gain,
+    )
+
+
 def inject_sky_component(
     block: VisibilityBlock,
     unit_sky_response: np.ndarray,
@@ -860,3 +1042,529 @@ def _required_selection_gain(score: SkyVariationCandidateScore) -> float:
     if value is None:  # pragma: no cover - guarded by shortlist construction
         raise RuntimeError("shortlisted candidate has no selection score")
     return float(value)
+
+
+def _validate_spatial_search_inputs(
+    block: VisibilityBlock,
+    spatial_candidates: tuple[QuadtreeLeaf, ...],
+    variation_candidates: tuple[SkyVariationCandidate, ...],
+    split: BaselineSearchSplit,
+    *,
+    spatial_shortlist_size: int,
+    discovery_shortlist_size: int,
+    minimum_selection_mse_gain: float,
+    minimum_evaluation_mse_gain: float,
+) -> None:
+    if block.model_visibility is None:
+        raise ValueError("spatial variation search requires a frozen model_visibility")
+    if not spatial_candidates:
+        raise ValueError("spatial_candidates must contain at least one leaf")
+    if len(spatial_candidates) != len(set(spatial_candidates)):
+        raise ValueError("spatial_candidates must be unique")
+    if not variation_candidates:
+        raise ValueError("variation_candidates must contain at least one candidate")
+    names = [candidate.name for candidate in variation_candidates]
+    if len(names) != len(set(names)):
+        raise ValueError("variation candidate names must be unique")
+    if spatial_shortlist_size < 1 or discovery_shortlist_size < 1:
+        raise ValueError("spatial and discovery shortlist sizes must be positive")
+    if not np.isfinite(minimum_selection_mse_gain) or minimum_selection_mse_gain < 0:
+        raise ValueError("minimum_selection_mse_gain must be finite and non-negative")
+    if not np.isfinite(minimum_evaluation_mse_gain) or minimum_evaluation_mse_gain < 0:
+        raise ValueError("minimum_evaluation_mse_gain must be finite and non-negative")
+    _validate_search_split(block, split)
+
+
+def _spatial_discovery_score(
+    leaf: QuadtreeLeaf,
+    variation: SkyVariationCandidate,
+    statistics: _VariationSufficientStatistics,
+) -> SpatialVariationCandidateScore:
+    static = _fit_static_coefficient(statistics)
+    static_power = _residual_power(statistics, (static, 0.0), None)
+    fitted = _fit_nested_coefficients(statistics, variation)
+    candidate_power = _residual_power(statistics, fitted, variation)
+    gain = static_power - candidate_power
+    return SpatialVariationCandidateScore(
+        leaf=leaf,
+        variation=variation,
+        discovery_static_coefficient=fitted[0],
+        discovery_variation_coefficient=fitted[1],
+        discovery_incremental_power=float(gain),
+        discovery_incremental_weighted_mse=float(gain / statistics.weight_total),
+        discovery_relative_improvement=_relative_gain(gain, static_power),
+    )
+
+
+def _spatial_score_order(score: SpatialVariationCandidateScore) -> tuple[float, str, int, int, int]:
+    return (
+        -score.discovery_incremental_weighted_mse,
+        score.variation.name,
+        score.leaf.level,
+        score.leaf.iy,
+        score.leaf.ix,
+    )
+
+
+def _spatial_selection_gain(score: SpatialVariationCandidateScore) -> float:
+    value = score.selection_incremental_weighted_mse
+    if value is None:  # pragma: no cover - guarded by shortlist construction
+        raise RuntimeError("spatial selection score has no selection gain")
+    return float(value)
+
+
+def _search_spatial_variation_statistics(
+    statistics: dict[
+        QuadtreeLeaf,
+        tuple[
+            _VariationSufficientStatistics,
+            _VariationSufficientStatistics,
+            _VariationSufficientStatistics,
+        ],
+    ],
+    variation_candidates: tuple[SkyVariationCandidate, ...],
+    *,
+    spatial_shortlist_size: int,
+    discovery_shortlist_size: int,
+    minimum_selection_mse_gain: float,
+    minimum_evaluation_mse_gain: float,
+) -> BlindSpatialVariationSearchResult:
+    best_by_leaf: list[SpatialVariationCandidateScore] = []
+    for leaf, (discovery, _, _) in statistics.items():
+        leaf_scores = [
+            _spatial_discovery_score(leaf, variation, discovery)
+            for variation in variation_candidates
+        ]
+        best_by_leaf.append(min(leaf_scores, key=_spatial_score_order))
+    best_by_leaf.sort(key=_spatial_score_order)
+    selected_leaves = tuple(
+        score.leaf for score in best_by_leaf[:spatial_shortlist_size]
+    )
+
+    discovery_scores = [
+        _spatial_discovery_score(leaf, variation, statistics[leaf][0])
+        for leaf in selected_leaves
+        for variation in variation_candidates
+    ]
+    discovery_scores.sort(key=_spatial_score_order)
+    discovery_shortlist = discovery_scores[:discovery_shortlist_size]
+    selection_scores: list[SpatialVariationCandidateScore] = []
+    for score in discovery_shortlist:
+        selection = statistics[score.leaf][1]
+        discovery_coefficients = (
+            score.discovery_static_coefficient,
+            score.discovery_variation_coefficient,
+        )
+        discovery_static = _fit_static_coefficient(statistics[score.leaf][0])
+        static_power = _residual_power(
+            selection,
+            (discovery_static, 0.0),
+            None,
+        )
+        candidate_power = _residual_power(
+            selection,
+            discovery_coefficients,
+            score.variation,
+        )
+        gain = static_power - candidate_power
+        selection_scores.append(
+            replace(
+                score,
+                selection_incremental_power=float(gain),
+                selection_incremental_weighted_mse=float(
+                    gain / selection.weight_total
+                ),
+                selection_relative_improvement=_relative_gain(gain, static_power),
+            )
+        )
+    selection_scores.sort(
+        key=lambda score: (
+            -_spatial_selection_gain(score),
+            score.variation.name,
+            score.leaf.level,
+            score.leaf.iy,
+            score.leaf.ix,
+        )
+    )
+    best = selection_scores[0]
+    selection_gain = _spatial_selection_gain(best)
+    selected = best if selection_gain > minimum_selection_mse_gain else None
+    if selected is None:
+        return BlindSpatialVariationSearchResult(
+            spatial_candidate_count=len(statistics),
+            variation_candidate_count=len(variation_candidates),
+            spatial_shortlist_size=min(spatial_shortlist_size, len(statistics)),
+            discovery_shortlist_size=len(discovery_shortlist),
+            spatial_discovery_ranking=tuple(best_by_leaf),
+            discovery_shortlist=tuple(discovery_shortlist),
+            selection_shortlist=tuple(selection_scores),
+            selected_leaf=None,
+            selected_variation=None,
+            refit_static_coefficient=0.0,
+            refit_variation_coefficient=0.0,
+            selection_incremental_weighted_mse=0.0,
+            evaluation_static_weighted_mse=float("nan"),
+            evaluation_candidate_weighted_mse=float("nan"),
+            evaluation_incremental_weighted_mse=0.0,
+            evaluation_relative_improvement=float("nan"),
+            accepted=False,
+        )
+
+    discovery, selection, evaluation = statistics[selected.leaf]
+    combined = _add_variation_statistics(discovery, selection)
+    refit = _fit_nested_coefficients(combined, selected.variation)
+    refit_static = _fit_static_coefficient(combined)
+    evaluation_static_power = _residual_power(
+        evaluation,
+        (refit_static, 0.0),
+        None,
+    )
+    evaluation_candidate_power = _residual_power(
+        evaluation,
+        refit,
+        selected.variation,
+    )
+    evaluation_gain = evaluation_static_power - evaluation_candidate_power
+    evaluation_mse_gain = evaluation_gain / evaluation.weight_total
+    accepted = evaluation_mse_gain > minimum_evaluation_mse_gain
+    return BlindSpatialVariationSearchResult(
+        spatial_candidate_count=len(statistics),
+        variation_candidate_count=len(variation_candidates),
+        spatial_shortlist_size=min(spatial_shortlist_size, len(statistics)),
+        discovery_shortlist_size=len(discovery_shortlist),
+        spatial_discovery_ranking=tuple(best_by_leaf),
+        discovery_shortlist=tuple(discovery_shortlist),
+        selection_shortlist=tuple(selection_scores),
+        selected_leaf=selected.leaf,
+        selected_variation=selected.variation,
+        refit_static_coefficient=float(refit[0]),
+        refit_variation_coefficient=float(refit[1]),
+        selection_incremental_weighted_mse=selection_gain,
+        evaluation_static_weighted_mse=float(
+            evaluation_static_power / evaluation.weight_total
+        ),
+        evaluation_candidate_weighted_mse=float(
+            evaluation_candidate_power / evaluation.weight_total
+        ),
+        evaluation_incremental_weighted_mse=float(evaluation_mse_gain),
+        evaluation_relative_improvement=_relative_gain(
+            evaluation_gain,
+            evaluation_static_power,
+        ),
+        accepted=bool(accepted),
+    )
+
+
+def _new_spatial_statistics_accumulator(
+    block: VisibilityBlock,
+    mask: np.ndarray,
+    *,
+    spatial_count: int,
+    time_count: int,
+) -> _SpatialStatisticsAccumulator:
+    assert block.model_visibility is not None
+    residual = block.visibility - block.model_visibility
+    selected = (
+        np.asarray(mask, dtype=bool)
+        & block.active
+        & np.isfinite(residual.real)
+        & np.isfinite(residual.imag)
+    )
+    sample_weight = np.where(selected, block.weight, 0.0)
+    safe_residual = np.where(selected, residual, 0.0)
+    shape = (spatial_count,)
+    time_shape = (spatial_count, time_count)
+    channel_shape = (spatial_count, block.shape[1])
+    return _SpatialStatisticsAccumulator(
+        mask=selected,
+        residual_power_total=float(
+            np.sum(sample_weight * np.abs(safe_residual) ** 2)
+        ),
+        weight_total=float(np.sum(sample_weight)),
+        sample_count=int(np.count_nonzero(selected)),
+        matched_total=np.zeros(shape, dtype=np.float64),
+        response_power_total=np.zeros(shape, dtype=np.float64),
+        matched_by_time=np.zeros(time_shape, dtype=np.float64),
+        response_power_by_time=np.zeros(time_shape, dtype=np.float64),
+        matched_by_channel=np.zeros(channel_shape, dtype=np.float64),
+        response_power_by_channel=np.zeros(channel_shape, dtype=np.float64),
+    )
+
+
+def _accumulate_spatial_response_batch(
+    accumulator: _SpatialStatisticsAccumulator,
+    block: VisibilityBlock,
+    response: np.ndarray,
+    candidate_indices: np.ndarray,
+    row_slice: slice,
+    time_inverse: np.ndarray,
+) -> None:
+    assert block.model_visibility is not None
+    selected = accumulator.mask[row_slice]
+    sample_weight = np.where(selected, block.weight[row_slice], 0.0)
+    residual = block.visibility[row_slice] - block.model_visibility[row_slice]
+    safe_residual = np.where(selected, residual, 0.0)
+    matched = np.real(
+        np.conj(response) * (sample_weight * safe_residual)[None, ...]
+    )
+    response_power = np.abs(response) ** 2 * sample_weight[None, ...]
+    accumulator.matched_total[candidate_indices] += np.sum(
+        matched,
+        axis=(1, 2, 3),
+    )
+    accumulator.response_power_total[candidate_indices] += np.sum(
+        response_power,
+        axis=(1, 2, 3),
+    )
+    accumulator.matched_by_channel[candidate_indices] += np.sum(
+        matched,
+        axis=(1, 3),
+    )
+    accumulator.response_power_by_channel[candidate_indices] += np.sum(
+        response_power,
+        axis=(1, 3),
+    )
+    row_matched = np.sum(matched, axis=(2, 3))
+    row_response_power = np.sum(response_power, axis=(2, 3))
+    selected_times = time_inverse[row_slice]
+    for time_index in np.unique(selected_times):
+        rows = selected_times == time_index
+        accumulator.matched_by_time[candidate_indices, time_index] += np.sum(
+            row_matched[:, rows],
+            axis=1,
+        )
+        accumulator.response_power_by_time[
+            candidate_indices, time_index
+        ] += np.sum(
+            row_response_power[:, rows],
+            axis=1,
+        )
+
+
+def _statistics_from_spatial_accumulator(
+    accumulator: _SpatialStatisticsAccumulator,
+    index: int,
+    time_s: np.ndarray,
+    frequency_hz: np.ndarray,
+) -> _VariationSufficientStatistics:
+    return _VariationSufficientStatistics(
+        time_s=time_s,
+        frequency_hz=frequency_hz,
+        matched_total=float(accumulator.matched_total[index]),
+        response_power_total=float(accumulator.response_power_total[index]),
+        residual_power_total=accumulator.residual_power_total,
+        weight_total=accumulator.weight_total,
+        sample_count=accumulator.sample_count,
+        matched_by_time=accumulator.matched_by_time[index],
+        response_power_by_time=accumulator.response_power_by_time[index],
+        matched_by_channel=accumulator.matched_by_channel[index],
+        response_power_by_channel=accumulator.response_power_by_channel[index],
+    )
+
+
+def _stream_quadtree_variation_statistics(
+    block: VisibilityBlock,
+    topology: QuadtreeTopology,
+    spatial_candidates: tuple[QuadtreeLeaf, ...],
+    split: BaselineSearchSplit,
+    *,
+    mosaic_phase_centre_rad: tuple[float, float],
+    primary_beam: VLAPrimaryBeam | None,
+    approximation: GaussianApproximation,
+    direct_config: DirectDFTConfig,
+    candidate_batch_size: int,
+    row_batch_size: int,
+    progress: Callable[[str], None] | None,
+) -> dict[
+    QuadtreeLeaf,
+    tuple[
+        _VariationSufficientStatistics,
+        _VariationSufficientStatistics,
+        _VariationSufficientStatistics,
+    ],
+]:
+    spatial_count = len(spatial_candidates)
+    time_s, time_inverse = np.unique(block.time_s, return_inverse=True)
+    frequency_hz = np.asarray(block.frequency_hz, dtype=np.float64)
+    accumulators = tuple(
+        _new_spatial_statistics_accumulator(
+            block,
+            mask,
+            spatial_count=spatial_count,
+            time_count=time_s.size,
+        )
+        for mask in (
+            split.discovery_mask,
+            split.selection_mask,
+            split.evaluation_mask,
+        )
+    )
+    reference_l = np.asarray(
+        [topology.grid.leaf_center_rad(leaf)[0] for leaf in spatial_candidates]
+    )
+    reference_m = np.asarray(
+        [topology.grid.leaf_center_rad(leaf)[1] for leaf in spatial_candidates]
+    )
+    sky_ra, sky_dec = lmn_to_radec(
+        mosaic_phase_centre_rad[0],
+        mosaic_phase_centre_rad[1],
+        reference_l,
+        reference_m,
+    )
+    local_l, local_m, _ = radec_to_lmn(
+        block.phase_centre_rad[0],
+        block.phase_centre_rad[1],
+        sky_ra,
+        sky_dec,
+    )
+    beam_i, beam_rr, beam_ll = predict_beam_weights(
+        primary_beam,
+        local_l,
+        local_m,
+        block.frequency_hz,
+    )
+    beam_shape = (spatial_count, block.shape[1])
+    dummy_beam = np.ones(beam_shape, dtype=np.float64)
+    beam_i_values = dummy_beam if beam_i is None else np.asarray(beam_i)
+    beam_rr_values = dummy_beam if beam_rr is None else np.asarray(beam_rr)
+    beam_ll_values = dummy_beam if beam_ll is None else np.asarray(beam_ll)
+    beam_mode = 0 if primary_beam is None else (2 if primary_beam.apply_squint else 1)
+    candidate_index = {leaf: index for index, leaf in enumerate(spatial_candidates)}
+    by_level: dict[int, list[QuadtreeLeaf]] = {}
+    for leaf in spatial_candidates:
+        by_level.setdefault(leaf.level, []).append(leaf)
+    batch_count = sum(
+        (len(leaves) + candidate_batch_size - 1) // candidate_batch_size
+        for leaves in by_level.values()
+    )
+    completed = 0
+    real_dtype = direct_config.real_dtype
+    frequency_jax = jnp.asarray(block.frequency_hz, dtype=real_dtype)
+    unit_flux = jnp.ones(1, dtype=real_dtype)
+
+    for level, level_leaves in sorted(by_level.items()):
+        pixel_basis = SquarePixelBasis(1.0, approximation)
+        pixel_width = topology.grid.leaf_width_rad(level)
+
+        def predict_batch(
+            uvw_m: jax.Array,
+            antenna1: jax.Array,
+            antenna2: jax.Array,
+            batch_l: jax.Array,
+            batch_m: jax.Array,
+            batch_beam_i: jax.Array,
+            batch_beam_rr: jax.Array,
+            batch_beam_ll: jax.Array,
+            selected_pixel_basis: SquarePixelBasis = pixel_basis,
+            selected_pixel_width: float = pixel_width,
+        ) -> jax.Array:
+            def predict_candidate(
+                leaf_l: jax.Array,
+                leaf_m: jax.Array,
+                leaf_beam_i: jax.Array,
+                leaf_beam_rr: jax.Array,
+                leaf_beam_ll: jax.Array,
+            ) -> jax.Array:
+                return predict_stokes_i_explicit(
+                    unit_flux,
+                    leaf_l[None],
+                    leaf_m[None],
+                    uvw_m,
+                    frequency_jax,
+                    antenna1,
+                    antenna2,
+                    block.correlations,
+                    pixel_basis=selected_pixel_basis,
+                    pixel_size_rad=selected_pixel_width,
+                    config=direct_config,
+                    beam_weights=(leaf_beam_i[None, :] if beam_mode == 1 else None),
+                    beam_weights_rr=(
+                        leaf_beam_rr[None, :] if beam_mode == 2 else None
+                    ),
+                    beam_weights_ll=(
+                        leaf_beam_ll[None, :] if beam_mode == 2 else None
+                    ),
+                )
+
+            return jax.vmap(predict_candidate)(
+                batch_l,
+                batch_m,
+                batch_beam_i,
+                batch_beam_rr,
+                batch_beam_ll,
+            )
+
+        predict_batch_jit = jax.jit(predict_batch)
+        for start in range(0, len(level_leaves), candidate_batch_size):
+            leaves = level_leaves[start : start + candidate_batch_size]
+            indices = np.asarray([candidate_index[leaf] for leaf in leaves])
+            padded_indices = np.pad(
+                indices,
+                (0, candidate_batch_size - indices.size),
+                mode="edge",
+            )
+            batch_l = jnp.asarray(local_l[padded_indices], dtype=real_dtype)
+            batch_m = jnp.asarray(local_m[padded_indices], dtype=real_dtype)
+            batch_beam_i = jnp.asarray(beam_i_values[padded_indices], dtype=real_dtype)
+            batch_beam_rr = jnp.asarray(beam_rr_values[padded_indices], dtype=real_dtype)
+            batch_beam_ll = jnp.asarray(beam_ll_values[padded_indices], dtype=real_dtype)
+            for row_start in range(0, block.shape[0], row_batch_size):
+                row_stop = min(row_start + row_batch_size, block.shape[0])
+                row_count = row_stop - row_start
+                padding = row_batch_size - row_count
+                uvw = np.pad(
+                    block.uvw_m[row_start:row_stop],
+                    ((0, padding), (0, 0)),
+                )
+                antenna1 = np.pad(
+                    block.antenna1[row_start:row_stop],
+                    (0, padding),
+                )
+                antenna2 = np.pad(
+                    block.antenna2[row_start:row_stop],
+                    (0, padding),
+                )
+                response = np.asarray(
+                    predict_batch_jit(
+                        jnp.asarray(uvw, dtype=real_dtype),
+                        jnp.asarray(antenna1),
+                        jnp.asarray(antenna2),
+                        batch_l,
+                        batch_m,
+                        batch_beam_i,
+                        batch_beam_rr,
+                        batch_beam_ll,
+                    )
+                )[: indices.size, :row_count]
+                row_slice = slice(row_start, row_stop)
+                for accumulator in accumulators:
+                    _accumulate_spatial_response_batch(
+                        accumulator,
+                        block,
+                        response,
+                        indices,
+                        row_slice,
+                        time_inverse,
+                    )
+            completed += 1
+            if progress is not None:
+                progress(
+                    f"spatial response batch {completed}/{batch_count}: "
+                    f"{min(completed * candidate_batch_size, spatial_count)}/"
+                    f"{spatial_count} leaves"
+                )
+
+    result = {}
+    for index, leaf in enumerate(spatial_candidates):
+        result[leaf] = (
+            _statistics_from_spatial_accumulator(
+                accumulators[0], index, time_s, frequency_hz
+            ),
+            _statistics_from_spatial_accumulator(
+                accumulators[1], index, time_s, frequency_hz
+            ),
+            _statistics_from_spatial_accumulator(
+                accumulators[2], index, time_s, frequency_hz
+            ),
+        )
+    return result

@@ -1352,6 +1352,66 @@ driver is `scripts/search_3c391_native_variability.py`. Full fold rankings and
 injection results are in
 `outputs/3c391_native_variability_search/summary.json`.
 
+### Spatially blind native variation search
+
+The fixed-position protocol now extends over the fitted hierarchical sky. The
+frozen composite model contains 11,536 central quadtree leaves. The first
+bounded experiment takes the 768 leaves with the largest frozen apparent flux,
+defined as fitted integrated flux times RMS primary-beam power across the 64
+channels. This gate uses only the already-frozen sky and beam, so it does not
+inspect the native holdout residual. It currently targets variation in sources
+with persistent mean emission; a later empty-sky pass is still needed for
+purely transient sources.
+
+Every retained leaf uses its exact square-pixel width, wide-field phase, and
+extended Airy beam response. The implementation streams responses in leaf and
+row tiles and keeps only matched-filter sufficient statistics by time and
+channel. It therefore searches 768 spatial leaves times 350 temporal and
+spectral models without storing a visibility-by-leaf matrix. Discovery first
+retains 16 spatial leaves and 64 joint spatial/variation candidates. A separate
+baseline cohort selects one pair. That leaf's static correction and variation
+coefficient are refitted together on discovery plus selection baselines before
+one sealed-baseline evaluation.
+
+Synthetic tests recover an injected off-centre leaf and its exact temporal or
+spectral interval. The streamed calculation also agrees with materialized unit
+responses to numerical precision. Corrupting only evaluation baselines changes
+the reported evaluation loss but cannot change the selected leaf or interval.
+
+The real C1 residual does not behave like the earlier phase-centre null. Five
+complete baseline partitions all select the same six-integration interval,
+`time_0016_w006`. The best leaf moves within one compact group of adjacent
+level-1 leaves, as expected for highly correlated pixels representing the same
+resolved feature.
+
+| split seed | selected leaf `(level, iy, ix)` | static correction | interval correction | sealed loss reduction |
+|---:|---|---:|---:|---:|
+| 391 | `(1, 109, 117)` | -3.71 mJy | -24.47 mJy | 0.522% |
+| 392 | `(1, 106, 118)` | -3.59 mJy | -26.73 mJy | 0.313% |
+| 393 | `(1, 109, 117)` | -2.76 mJy | -24.57 mJy | 0.639% |
+| 394 | `(1, 105, 118)` | -3.83 mJy | -21.94 mJy | 0.431% |
+| 395 | `(1, 111, 116)` | -2.44 mJy | -20.92 mJy | 0.357% |
+
+The selected region is about 1.94 arcmin from the C1 phase centre, near RA
+282.3210 degrees and declination -0.9157 degrees. The interval is 2010-04-24
+10:20:06 to 10:21:06 UTC, using the Measurement Set time convention. It is the
+complete six-integration segment from scan 29 present in this fixture.
+
+This is a repeatable model discrepancy, but it is not yet evidence for
+minute-scale astrophysical variation. The fixture contains only the sealed
+interleaved time fold. The immediately neighbouring scan-29 integrations are
+absent, so the test cannot determine whether the decrement is confined to one
+minute, persists through the scan, or tracks a calibration change. The common
+negative sign across adjacent leaves also makes a scan-dependent gain or
+pointing residual plausible. The next discriminating experiment should extract
+the complete contiguous scan 29 at native resolution, preserve the frozen sky,
+and compare a sky-local variation against per-antenna and scan-wide calibration
+models before adding this component to the sky.
+
+The reusable streamed search is in `src/sl1mjax/sky_recovery.py`. The driver is
+`scripts/search_3c391_native_spatial_variability.py`. Full rankings for all five
+partitions are in `outputs/3c391_native_spatial_variability_search/`.
+
 ### Paraxial \(w\)-term error
 
 \(|w|\) on the fixture reaches \(1.3\times 10^4\) wavelengths. Missing

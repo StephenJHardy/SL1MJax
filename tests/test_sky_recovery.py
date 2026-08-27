@@ -6,9 +6,17 @@ import numpy as np
 import pytest
 
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.direct_operator import DirectDFTConfig
 from sl1mjax.polarization import Correlation, ReceptorBasis
+from sl1mjax.quadtree import (
+    QuadtreeGrid,
+    QuadtreeTopology,
+    predict_quadtree_stokes_i_explicit,
+)
 from sl1mjax.sky_recovery import (
+    blind_search_quadtree_sky_variation,
     blind_search_sky_variation,
+    blind_search_spatial_sky_variation,
     fit_real_sky_component,
     inject_sky_component,
     native_variation_candidates,
@@ -318,3 +326,160 @@ def test_blind_search_rejects_exact_null() -> None:
     assert result.selected_candidate is None
     assert not result.accepted
     assert result.evaluation_incremental_weighted_mse == 0.0
+
+
+def test_spatial_search_recovers_leaf_and_interval_without_evaluation_leakage() -> None:
+    block, response = _block()
+    leaves = QuadtreeGrid(2, 1e-3).root_leaves()
+    row_phase = np.arange(block.shape[0], dtype=np.float64)[:, None, None]
+    channel_phase = np.arange(block.shape[1], dtype=np.float64)[None, :, None]
+    responses = tuple(
+        response * np.exp(1j * index * (0.071 * row_phase + 0.19 * channel_phase))
+        for index in range(len(leaves))
+    )
+    variations = native_variation_candidates(
+        block,
+        temporal_widths=(1, 2, 3),
+        spectral_widths=(1, 2),
+    )
+    true_variation = next(
+        candidate
+        for candidate in variations
+        if candidate.kind == "temporal_interval"
+        and candidate.coordinate_start == 20.0
+        and candidate.bin_count == 2
+    )
+    support = temporal_support_mask(block, start_s=20.0, duration_s=20.0)
+    injected = inject_sky_component(block, responses[2], support, 1.5)
+    split = split_search_baselines(
+        injected,
+        selection_fraction=0.25,
+        evaluation_fraction=0.25,
+        seed=31,
+    )
+
+    result = blind_search_spatial_sky_variation(
+        injected,
+        leaves,
+        responses,
+        variations,
+        split,
+        spatial_shortlist_size=3,
+        discovery_shortlist_size=12,
+    )
+
+    assert result.selected_leaf == leaves[2]
+    assert result.selected_variation == true_variation
+    assert result.refit_variation_coefficient == pytest.approx(1.5)
+    assert result.accepted
+
+    corruption = np.where(split.evaluation_mask, 100.0 * responses[0], 0.0)
+    corrupted = replace(injected, visibility=injected.visibility + corruption)
+    changed = blind_search_spatial_sky_variation(
+        corrupted,
+        leaves,
+        responses,
+        variations,
+        split,
+        spatial_shortlist_size=3,
+        discovery_shortlist_size=12,
+    )
+    assert changed.selected_leaf == result.selected_leaf
+    assert changed.selected_variation == result.selected_variation
+    assert changed.selection_incremental_weighted_mse == pytest.approx(
+        result.selection_incremental_weighted_mse
+    )
+    assert changed.evaluation_candidate_weighted_mse != pytest.approx(
+        result.evaluation_candidate_weighted_mse
+    )
+
+
+def test_streamed_quadtree_search_matches_materialized_responses() -> None:
+    block, _ = _block()
+    rows = block.shape[0]
+    uvw_m = np.column_stack(
+        (
+            np.linspace(-120.0, 180.0, rows),
+            np.linspace(90.0, -70.0, rows),
+            np.linspace(-30.0, 45.0, rows),
+        )
+    )
+    block = replace(block, uvw_m=uvw_m)
+    grid = QuadtreeGrid(2, 8e-4)
+    topology = QuadtreeTopology(grid, grid.root_leaves())
+    direct = DirectDFTConfig(
+        visibility_chunk_size=8,
+        pixel_chunk_size=4,
+        precision="float64",
+    )
+    responses = tuple(
+        np.asarray(
+            predict_quadtree_stokes_i_explicit(
+                np.eye(len(topology.leaves))[index],
+                topology,
+                block.uvw_m,
+                block.frequency_hz,
+                block.antenna1,
+                block.antenna2,
+                block.correlations,
+                config=direct,
+            )
+        )
+        for index in range(len(topology.leaves))
+    )
+    variations = native_variation_candidates(
+        block,
+        temporal_widths=(1, 2),
+        spectral_widths=(1, 2),
+    )
+    true_variation = next(
+        candidate
+        for candidate in variations
+        if candidate.kind == "spectral_interval"
+        and candidate.start_index == 1
+        and candidate.bin_count == 2
+    )
+    support = spectral_support_mask(block, first_channel=1, channel_count=2)
+    injected = inject_sky_component(block, responses[3], support, 0.9)
+    split = split_search_baselines(
+        injected,
+        selection_fraction=0.25,
+        evaluation_fraction=0.25,
+        seed=9,
+    )
+    materialized = blind_search_spatial_sky_variation(
+        injected,
+        topology.leaves,
+        responses,
+        variations,
+        split,
+        spatial_shortlist_size=4,
+        discovery_shortlist_size=16,
+    )
+    streamed = blind_search_quadtree_sky_variation(
+        injected,
+        topology,
+        topology.leaves,
+        variations,
+        split,
+        direct_config=direct,
+        spatial_shortlist_size=4,
+        discovery_shortlist_size=16,
+        candidate_batch_size=3,
+        row_batch_size=7,
+    )
+
+    assert streamed.selected_leaf == materialized.selected_leaf == topology.leaves[3]
+    assert streamed.selected_variation == materialized.selected_variation == true_variation
+    assert streamed.refit_static_coefficient == pytest.approx(
+        materialized.refit_static_coefficient,
+        abs=1e-10,
+    )
+    assert streamed.refit_variation_coefficient == pytest.approx(
+        materialized.refit_variation_coefficient,
+        abs=1e-10,
+    )
+    assert streamed.evaluation_candidate_weighted_mse == pytest.approx(
+        materialized.evaluation_candidate_weighted_mse,
+        abs=1e-10,
+    )
