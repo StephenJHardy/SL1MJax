@@ -3,8 +3,9 @@
 Schema v1 stored one complex gain per correlation product and applied a
 scalar ``J_p J_q*`` per hand.  Schema v2 stores one Jones term per *feed
 receptor* and applies ``C_obs = J_p C_sky J_q^H``.
-Diagonal G, K, and B promote to diagonal 2×2 matrices.  Schema 1 files are
-read and promoted.
+Schema v3 adds Kcross, Df, Xf, antenna positions, parallactic-angle
+application, and an explicit leakage operator.  Older readers that only
+accept schema 1–2 reject v3 rather than silently applying diagonal G/K/B.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from jax.typing import ArrayLike
 from sl1mjax.calibration_terms import (
     CalibrationChain,
     CalibrationCoordinates,
+    parallactic_angle_rad,
 )
 from sl1mjax.data.canonical import VisibilityBlock, VisibilityDataset
 from sl1mjax.polarization import (
@@ -30,17 +32,32 @@ from sl1mjax.polarization import (
     Receptor,
     ReceptorBasis,
     apply_jones_to_coherency,
+    circular_parallactic_jones,
     correlation_receptor_pair,
     diagonal_jones_matrices,
     invert_jones,
+    leakage_jones_matrices,
+    multiply_jones,
     pack_coherency,
+    receptor_phase_jones,
     receptors_for_correlations,
     unpack_coherency,
 )
 
-CALIBRATION_SCHEMA_VERSION = 2
-SUPPORTED_CALIBRATION_SCHEMA_VERSIONS = frozenset({1, 2})
+CALIBRATION_SCHEMA_VERSION = 3
+SUPPORTED_CALIBRATION_SCHEMA_VERSIONS = frozenset({1, 2, 3})
 SPEED_OF_LIGHT_M_S = 299_792_458.0
+LeakageApplication = Literal["exact", "casa_parallel_preserving"]
+LEAKAGE_APPLICATIONS = frozenset({"exact", "casa_parallel_preserving"})
+PARALLEL_HAND_CORRELATIONS = frozenset(
+    {
+        Correlation.RR,
+        Correlation.LL,
+        Correlation.XX,
+        Correlation.YY,
+        Correlation.I,
+    }
+)
 
 
 @jax.tree_util.register_pytree_node_class
@@ -48,13 +65,23 @@ SPEED_OF_LIGHT_M_S = 299_792_458.0
 class CalibrationSolution:
     """Portable Jones terms on explicit time/frequency coordinates.
 
-    ``gains``, ``delays_s``, and ``bandpass`` are diagonal per *receptor*
-    (R/L or X/Y), not per packed correlation product.  Application builds
-    *diagonal* 2×2 Jones matrices from those terms and forms
-    ``J_p C J_q^H``.  Off-diagonal leakage and R–L phase are not stored
-    yet.  Full 2×2 matrices can be applied through
-    ``apply_jones_to_coherency``; ``apply_calibration`` itself still
-    constructs only the diagonal promotion of G/K/B.
+    ``gains``, ``delays_s``, and ``bandpass`` are diagonal per *feed
+    receptor* (R/L or X/Y).  Application builds 2×2 Jones matrices and
+    forms ``J_p C J_q^H``.  Diagonal G/K/B promote to diagonal matrices.
+    Optional Kcross, Df, Xf, and circular parallactic-angle terms are
+    multiplied on the right (closest to the sky last):
+
+    ``J = J_{GKB} J_{Kcross} J_D J_X J_P``.
+
+    ``leakage_application`` selects the D operator:
+
+    - ``exact``: invert the full 2×2 Jones product (physics / synthetic
+      round-trips).
+    - ``casa_parallel_preserving``: CASA-oracle apply — parallel hands from
+      the diagonal chain (no D), cross-hands from the full 2×2.  This is
+      what ``import_casa_polarization_solution`` sets.
+
+    Full 2×2 Jones can also be applied through ``apply_jones_to_coherency``.
     """
 
     gains: np.ndarray
@@ -72,6 +99,17 @@ class CalibrationSolution:
     interpolation: str = "nearest"
     receptors: tuple[Receptor, ...] | None = None
     antenna_position_offset_m: np.ndarray | None = None
+    antenna_position_m: np.ndarray | None = None
+    cross_hand_delay_s: np.ndarray | None = None
+    cross_hand_delay_valid: np.ndarray | None = None
+    leakage: np.ndarray | None = None
+    leakage_frequency_hz: np.ndarray | None = None
+    leakage_valid: np.ndarray | None = None
+    rl_phase: np.ndarray | None = None
+    rl_phase_frequency_hz: np.ndarray | None = None
+    rl_phase_valid: np.ndarray | None = None
+    apply_parallactic_angle: bool = False
+    leakage_application: LeakageApplication = "exact"
     provenance: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -111,6 +149,46 @@ class CalibrationSolution:
                 self,
                 "antenna_position_offset_m",
                 np.asarray(self.antenna_position_offset_m, dtype=np.float64),
+            )
+        if self.antenna_position_m is not None:
+            object.__setattr__(
+                self,
+                "antenna_position_m",
+                np.asarray(self.antenna_position_m, dtype=np.float64),
+            )
+        if self.cross_hand_delay_s is not None:
+            object.__setattr__(
+                self,
+                "cross_hand_delay_s",
+                np.asarray(self.cross_hand_delay_s, dtype=np.float64),
+            )
+        if self.cross_hand_delay_valid is not None:
+            object.__setattr__(
+                self,
+                "cross_hand_delay_valid",
+                np.asarray(self.cross_hand_delay_valid, dtype=bool),
+            )
+        if self.leakage is not None:
+            object.__setattr__(self, "leakage", np.asarray(self.leakage, dtype=np.complex128))
+        if self.leakage_frequency_hz is not None:
+            object.__setattr__(
+                self,
+                "leakage_frequency_hz",
+                np.asarray(self.leakage_frequency_hz, dtype=np.float64),
+            )
+        if self.leakage_valid is not None:
+            object.__setattr__(self, "leakage_valid", np.asarray(self.leakage_valid, dtype=bool))
+        if self.rl_phase is not None:
+            object.__setattr__(self, "rl_phase", np.asarray(self.rl_phase, dtype=np.complex128))
+        if self.rl_phase_frequency_hz is not None:
+            object.__setattr__(
+                self,
+                "rl_phase_frequency_hz",
+                np.asarray(self.rl_phase_frequency_hz, dtype=np.float64),
+            )
+        if self.rl_phase_valid is not None:
+            object.__setattr__(
+                self, "rl_phase_valid", np.asarray(self.rl_phase_valid, dtype=bool)
             )
         self.validate()
 
@@ -158,11 +236,62 @@ class CalibrationSolution:
             raise ValueError("reference_antenna is outside the antenna axis")
         if self.interpolation not in {"nearest", "linear"}:
             raise ValueError("interpolation must be nearest or linear")
+        if self.leakage_application not in LEAKAGE_APPLICATIONS:
+            raise ValueError("leakage_application must be exact or casa_parallel_preserving")
         if self.antenna_position_offset_m is not None and self.antenna_position_offset_m.shape != (
             self.antenna_count,
             3,
         ):
             raise ValueError("antenna_position_offset_m must have shape (antenna, 3)")
+        if self.antenna_position_m is not None and self.antenna_position_m.shape != (
+            self.antenna_count,
+            3,
+        ):
+            raise ValueError("antenna_position_m must have shape (antenna, 3)")
+        if self.apply_parallactic_angle and self.antenna_position_m is None:
+            raise ValueError("apply_parallactic_angle requires antenna_position_m")
+        n_ant = self.antenna_count
+        n_rec = receptors
+        if (self.cross_hand_delay_s is None) != (self.cross_hand_delay_valid is None):
+            raise ValueError("cross_hand_delay_s and cross_hand_delay_valid must be set together")
+        if self.cross_hand_delay_s is not None:
+            if self.cross_hand_delay_s.shape != (n_ant, n_rec):
+                raise ValueError("cross_hand_delay_s must have shape (antenna, receptor)")
+            if self.cross_hand_delay_valid.shape != self.cross_hand_delay_s.shape:
+                raise ValueError("cross_hand_delay_valid must match cross_hand_delay_s")
+        if (self.leakage is None) != (self.leakage_frequency_hz is None) or (
+            self.leakage is None
+        ) != (self.leakage_valid is None):
+            raise ValueError(
+                "leakage, leakage_frequency_hz, and leakage_valid must be set together"
+            )
+        if self.leakage is not None:
+            expected_leakage = (n_ant, self.leakage_frequency_hz.size, 2)
+            if self.leakage.shape != expected_leakage:
+                raise ValueError(f"leakage must have shape {expected_leakage}")
+            if self.leakage_valid.shape != self.leakage.shape:
+                raise ValueError("leakage_valid must match leakage")
+        if (self.rl_phase is None) != (self.rl_phase_frequency_hz is None) or (
+            self.rl_phase is None
+        ) != (self.rl_phase_valid is None):
+            raise ValueError(
+                "rl_phase, rl_phase_frequency_hz, and rl_phase_valid must be set together"
+            )
+        if self.rl_phase is not None:
+            expected_phase = (n_ant, self.rl_phase_frequency_hz.size)
+            if self.rl_phase.shape != expected_phase:
+                raise ValueError(f"rl_phase must have shape {expected_phase}")
+            if self.rl_phase_valid.shape != self.rl_phase.shape:
+                raise ValueError("rl_phase_valid must match rl_phase")
+        if (
+            self.cross_hand_delay_s is not None
+            or self.leakage is not None
+            or self.rl_phase is not None
+            or self.apply_parallactic_angle
+        ) and self.receptors != (Receptor.R, Receptor.L):
+            raise ValueError(
+                "Kcross, Df, Xf, and circular parallactic-angle Jones require receptors (R, L)"
+            )
 
     def tree_flatten(self) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
         children = (
@@ -176,6 +305,15 @@ class CalibrationSolution:
             self.bandpass_frequency_hz,
             self.bandpass_valid,
             self.antenna_position_offset_m,
+            self.antenna_position_m,
+            self.cross_hand_delay_s,
+            self.cross_hand_delay_valid,
+            self.leakage,
+            self.leakage_frequency_hz,
+            self.leakage_valid,
+            self.rl_phase,
+            self.rl_phase_frequency_hz,
+            self.rl_phase_valid,
         )
         auxiliary = (
             self.correlations,
@@ -183,6 +321,8 @@ class CalibrationSolution:
             self.reference_antenna,
             self.reference_frequency_hz,
             self.interpolation,
+            self.apply_parallactic_angle,
+            self.leakage_application,
             json.dumps(self.provenance, sort_keys=True),
         )
         return children, auxiliary
@@ -197,6 +337,8 @@ class CalibrationSolution:
             reference_antenna,
             reference_frequency_hz,
             interpolation,
+            apply_parallactic_angle,
+            leakage_application,
             raw,
         ) = auxiliary
         return cls(
@@ -215,6 +357,17 @@ class CalibrationSolution:
             interpolation=interpolation,
             receptors=receptors,
             antenna_position_offset_m=children[9],
+            antenna_position_m=children[10],
+            cross_hand_delay_s=children[11],
+            cross_hand_delay_valid=children[12],
+            leakage=children[13],
+            leakage_frequency_hz=children[14],
+            leakage_valid=children[15],
+            rl_phase=children[16],
+            rl_phase_frequency_hz=children[17],
+            rl_phase_valid=children[18],
+            apply_parallactic_angle=apply_parallactic_angle,
+            leakage_application=leakage_application,
             provenance=json.loads(raw),
         )
 
@@ -425,6 +578,48 @@ def _product_validity(
     return valid
 
 
+def _full_feed_products(
+    receptors: tuple[Receptor, ...],
+) -> tuple[Correlation, ...] | None:
+    if receptors == (Receptor.R, Receptor.L):
+        return (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    if receptors == (Receptor.X, Receptor.Y):
+        return (Correlation.XX, Correlation.XY, Correlation.YX, Correlation.YY)
+    return None
+
+
+def _missing_feed_products(
+    correlations: tuple[Correlation, ...],
+    receptors: tuple[Receptor, ...],
+) -> tuple[Correlation, ...]:
+    needed = _full_feed_products(receptors)
+    if needed is None:
+        return ()
+    present = set(correlations)
+    return tuple(product for product in needed if product not in present)
+
+
+def _complete_coherency_mask(
+    visibility: np.ndarray,
+    flag: np.ndarray,
+    correlations: tuple[Correlation, ...],
+    receptors: tuple[Receptor, ...],
+) -> np.ndarray:
+    """True where every two-feed product is present, finite, and unflagged."""
+
+    needed = _full_feed_products(receptors)
+    if needed is None:
+        return np.all(np.isfinite(visibility) & ~flag, axis=-1)
+    index = {correlation: slot for slot, correlation in enumerate(correlations)}
+    complete = np.ones(visibility.shape[:2], dtype=bool)
+    for product in needed:
+        slot = index.get(product)
+        if slot is None:
+            return np.zeros(visibility.shape[:2], dtype=bool)
+        complete &= np.isfinite(visibility[..., slot]) & ~flag[..., slot]
+    return complete
+
+
 def _product_scale(
     jones_p: np.ndarray,
     jones_q: np.ndarray,
@@ -443,6 +638,110 @@ def _product_scale(
     return scale
 
 
+def _nearest_frequency_indices(
+    cal_frequency_hz: np.ndarray, frequency_hz: np.ndarray
+) -> np.ndarray:
+    return np.argmin(np.abs(frequency_hz[:, None] - cal_frequency_hz[None, :]), axis=1)
+
+
+def _frequency_in_domain(
+    cal_frequency_hz: np.ndarray,
+    frequency_hz: np.ndarray,
+    *,
+    extrapolate: bool,
+) -> np.ndarray:
+    """True where visibilities may use a sampled D/X channel.
+
+    Df/Xf never take a silent edge solution.  ``extrapolate`` here is only
+    for tests that explicitly want nearest-neighbour; apply always passes
+    False so unsolved channels are flagged.
+    """
+
+    if extrapolate or cal_frequency_hz.size == 0:
+        return np.ones(frequency_hz.size, dtype=bool)
+    return (frequency_hz >= cal_frequency_hz.min()) & (frequency_hz <= cal_frequency_hz.max())
+
+
+def _compose_polarization_jones(
+    solution: CalibrationSolution,
+    *,
+    times: np.ndarray,
+    frequency_hz: np.ndarray,
+    phase_centre_rad: tuple[float, float] | None,
+    matrices: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Right-multiply Kcross, Df, Xf, and P onto diagonal G/K/B Jones.
+
+    Returns ``(with_d, without_d, pol_valid)``.  Invalid Kcross/Df/Xf
+    still fill an identity term so the product stays finite, but
+    ``pol_valid`` is False — missing leakage is not a known ``D=0``.
+    """
+
+    if solution.receptor_count != 2:
+        valid = np.ones(matrices.shape[:4], dtype=bool)
+        return matrices, matrices, valid
+    composed = matrices
+    pol_valid = np.ones(matrices.shape[:4], dtype=bool)
+    if solution.cross_hand_delay_s is not None:
+        assert solution.cross_hand_delay_valid is not None
+        delay = np.where(
+            solution.cross_hand_delay_valid,
+            solution.cross_hand_delay_s,
+            0.0,
+        )
+        offset = frequency_hz - solution.reference_frequency_hz
+        factors = np.exp(-2j * np.pi * delay[:, None, :] * offset[None, :, None])
+        kcross = diagonal_jones_matrices(np.transpose(factors, (1, 0, 2)))
+        composed = multiply_jones(composed, kcross)
+        pol_valid = pol_valid & solution.cross_hand_delay_valid[None, None, :, :]
+    without_d = composed
+    if solution.leakage is not None:
+        assert solution.leakage_frequency_hz is not None
+        assert solution.leakage_valid is not None
+        indices = _nearest_frequency_indices(solution.leakage_frequency_hz, frequency_hz)
+        in_domain = _frequency_in_domain(
+            solution.leakage_frequency_hz, frequency_hz, extrapolate=False
+        )
+        sampled_valid = solution.leakage_valid[:, indices, :] & in_domain[None, :, None]
+        sampled = np.where(sampled_valid, solution.leakage[:, indices, :], 0.0)
+        composed = multiply_jones(
+            composed, leakage_jones_matrices(np.transpose(sampled, (1, 0, 2)))
+        )
+        leakage_antenna_valid = np.all(sampled_valid, axis=-1)
+        pol_valid = pol_valid & np.transpose(leakage_antenna_valid, (1, 0))[None, :, :, None]
+    if solution.rl_phase is not None:
+        assert solution.rl_phase_frequency_hz is not None
+        assert solution.rl_phase_valid is not None
+        indices = _nearest_frequency_indices(solution.rl_phase_frequency_hz, frequency_hz)
+        in_domain = _frequency_in_domain(
+            solution.rl_phase_frequency_hz, frequency_hz, extrapolate=False
+        )
+        sampled_valid = solution.rl_phase_valid[:, indices] & in_domain[None, :]
+        sampled = np.where(sampled_valid, solution.rl_phase[:, indices], 1.0)
+        phase = receptor_phase_jones(np.transpose(sampled, (1, 0)))
+        composed = multiply_jones(composed, phase)
+        without_d = multiply_jones(without_d, phase)
+        pol_valid = pol_valid & np.transpose(sampled_valid, (1, 0))[None, :, :, None]
+    if solution.apply_parallactic_angle:
+        if solution.antenna_position_m is None or phase_centre_rad is None:
+            raise ValueError(
+                "parallactic-angle Jones needs antenna_position_m and phase_centre_rad"
+            )
+        chi = parallactic_angle_rad(times, phase_centre_rad, solution.antenna_position_m)
+        parallactic = circular_parallactic_jones(chi)[:, None]
+        composed = multiply_jones(composed, parallactic)
+        without_d = multiply_jones(without_d, parallactic)
+    return composed, without_d, pol_valid
+
+
+def _gather_jones(matrices: np.ndarray, antenna: np.ndarray) -> np.ndarray:
+    row = np.arange(matrices.shape[0])[:, None, None, None]
+    channel = np.arange(matrices.shape[1])[None, :, None, None]
+    receptor_i = np.arange(matrices.shape[3])[None, None, :, None]
+    receptor_j = np.arange(matrices.shape[4])[None, None, None, :]
+    return matrices[row, channel, antenna[:, None, None, None], receptor_i, receptor_j]
+
+
 def _jones_matrices_for_block(
     solution: CalibrationSolution,
     time_s: ArrayLike,
@@ -454,8 +753,8 @@ def _jones_matrices_for_block(
     phase_centre_rad: tuple[float, float] | None,
     priors: CalibrationChain | None,
     spectral_window_id: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return ``J_p``, ``J_q``, and per-receptor antenna validity."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return full ``J_p``, ``J_q``, diagonal-chain ``J_p``, ``J_q``, and validity."""
 
     first = np.asarray(antenna1, dtype=np.int32)
     second = np.asarray(antenna2, dtype=np.int32)
@@ -469,13 +768,21 @@ def _jones_matrices_for_block(
         spectral_window_id=spectral_window_id,
     )
     matrices = diagonal_jones_matrices(antenna_jones)
-    row = np.arange(matrices.shape[0])[:, None, None, None]
-    channel = np.arange(matrices.shape[1])[None, :, None, None]
-    receptor_i = np.arange(matrices.shape[3])[None, None, :, None]
-    receptor_j = np.arange(matrices.shape[4])[None, None, None, :]
-    jones_p = matrices[row, channel, first[:, None, None, None], receptor_i, receptor_j]
-    jones_q = matrices[row, channel, second[:, None, None, None], receptor_i, receptor_j]
-    return jones_p, jones_q, antenna_valid
+    with_d, without_d, pol_valid = _compose_polarization_jones(
+        solution,
+        times=np.asarray(time_s, dtype=np.float64),
+        frequency_hz=np.asarray(frequency_hz, dtype=np.float64),
+        phase_centre_rad=phase_centre_rad,
+        matrices=matrices,
+    )
+    antenna_valid = antenna_valid & pol_valid
+    return (
+        _gather_jones(with_d, first),
+        _gather_jones(with_d, second),
+        _gather_jones(without_d, first),
+        _gather_jones(without_d, second),
+        antenna_valid,
+    )
 
 
 def baseline_jones(
@@ -524,12 +831,21 @@ def corrupt_model(
     spectral_window_id: int = 0,
 ) -> Array:
     assert solution.receptors is not None
+    if solution.leakage_application == "casa_parallel_preserving":
+        raise ValueError(
+            "corrupt_model requires an invertible Jones chain; "
+            "casa_parallel_preserving is an apply-only CASA oracle"
+        )
     model = np.asarray(model_visibility)
     if model.shape[-1] != len(solution.correlations):
         raise ValueError("model visibility last axis must match solution correlations")
+    if solution.leakage is not None and _missing_feed_products(
+        solution.correlations, solution.receptors
+    ):
+        raise ValueError("exact leakage corruption requires a complete two-feed coherency")
     first = np.asarray(antenna1, dtype=np.int32)
     second = np.asarray(antenna2, dtype=np.int32)
-    jones_p, jones_q, antenna_valid = _jones_matrices_for_block(
+    jones_p, jones_q, _, _, antenna_valid = _jones_matrices_for_block(
         solution,
         time_s,
         frequency_hz,
@@ -556,6 +872,27 @@ def corrupt_model(
     return jnp.asarray(np.where(valid, corrupted, 0.0))
 
 
+def _unpack_corrected(
+    visibility: np.ndarray,
+    jones_p: np.ndarray,
+    jones_q: np.ndarray,
+    correlations: tuple[Correlation, ...],
+    receptors: tuple[Receptor, ...],
+) -> tuple[np.ndarray, np.ndarray]:
+    inverse_p = invert_jones(jones_p)
+    inverse_q = invert_jones(jones_q)
+    finite = np.all(np.isfinite(inverse_p), axis=(-2, -1)) & np.all(
+        np.isfinite(inverse_q), axis=(-2, -1)
+    )
+    packed = pack_coherency(visibility, correlations, receptors)
+    corrected = unpack_coherency(
+        apply_jones_to_coherency(packed, inverse_p, inverse_q),
+        correlations,
+        receptors,
+    )
+    return corrected, finite
+
+
 def apply_calibration(
     block: VisibilityBlock,
     solution: CalibrationSolution,
@@ -568,7 +905,21 @@ def apply_calibration(
     required = receptors_for_correlations(block.correlations)
     if any(receptor not in solution.receptors for receptor in required):
         raise ValueError("solution receptors must cover every feed in the block")
-    jones_p, jones_q, antenna_valid = _jones_matrices_for_block(
+    if propagate_weights and solution.leakage is not None:
+        raise ValueError(
+            "propagate_weights is a diagonal approximation and is refused "
+            "when leakage Jones is present"
+        )
+    use_casa = (
+        solution.leakage_application == "casa_parallel_preserving" and solution.leakage is not None
+    )
+    if (
+        solution.leakage is not None
+        and not use_casa
+        and _missing_feed_products(block.correlations, solution.receptors)
+    ):
+        raise ValueError("exact leakage application requires a complete two-feed coherency")
+    jones_p, jones_q, jones_p_diag, jones_q_diag, antenna_valid = _jones_matrices_for_block(
         solution,
         block.time_s,
         block.frequency_hz,
@@ -579,31 +930,54 @@ def apply_calibration(
         priors=priors,
         spectral_window_id=block.spectral_window_id,
     )
-    valid_array = _product_validity(
+    cal_valid = _product_validity(
         antenna_valid,
         np.asarray(block.antenna1, dtype=np.int32),
         np.asarray(block.antenna2, dtype=np.int32),
         block.correlations,
         solution.receptors,
     )
-    jones_p_inv = invert_jones(jones_p)
-    jones_q_inv = invert_jones(jones_q)
-    finite_inverse = np.all(np.isfinite(jones_p_inv), axis=(-2, -1)) & np.all(
-        np.isfinite(jones_q_inv), axis=(-2, -1)
-    )
-    valid_array = valid_array & finite_inverse[..., None]
-    if not extrapolate and np.any(block.active & ~valid_array):
-        raise ValueError("active visibility lies outside the calibration solution validity domain")
-    packed = pack_coherency(block.visibility, block.correlations, solution.receptors)
-    corrected = unpack_coherency(
-        apply_jones_to_coherency(packed, jones_p_inv, jones_q_inv),
+    corrected, finite_full = _unpack_corrected(
+        block.visibility,
+        jones_p,
+        jones_q,
         block.correlations,
         solution.receptors,
     )
+    complete = _complete_coherency_mask(
+        block.visibility,
+        block.flag,
+        block.correlations,
+        solution.receptors,
+    )
+    if use_casa:
+        corrected_diag, finite_diag = _unpack_corrected(
+            block.visibility,
+            jones_p_diag,
+            jones_q_diag,
+            block.correlations,
+            solution.receptors,
+        )
+        parallel = np.array(
+            [correlation in PARALLEL_HAND_CORRELATIONS for correlation in block.correlations]
+        )
+        corrected = np.where(parallel, corrected_diag, corrected)
+        cal_valid = cal_valid & np.where(
+            parallel, finite_diag[..., None], finite_full[..., None]
+        )
+        coherency_ok = np.where(parallel, True, complete[..., None])
+    else:
+        cal_valid = cal_valid & finite_full[..., None]
+        coherency_ok = (
+            complete[..., None] if solution.leakage is not None else np.ones_like(cal_valid)
+        )
+    if not extrapolate and np.any(block.active & ~cal_valid):
+        raise ValueError("active visibility lies outside the calibration solution validity domain")
+    valid_array = cal_valid & coherency_ok
     corrected = np.where(valid_array, corrected, 0.0)
     flag = block.flag | ~valid_array
     if propagate_weights:
-        scale = _product_scale(jones_p, jones_q, block.correlations, solution.receptors)
+        scale = _product_scale(jones_p_diag, jones_q_diag, block.correlations, solution.receptors)
         weight = block.weight * np.abs(scale) ** 2
     else:
         weight = block.weight.copy()
@@ -620,6 +994,8 @@ def apply_calibration(
             "prior_provenance": None if priors is None else priors.provenance,
             "prior_terms": ([] if priors is None else [term.kind for term in priors.terms]),
             "receptors": [value.value for value in solution.receptors],
+            "apply_parallactic_angle": solution.apply_parallactic_angle,
+            "leakage_application": solution.leakage_application,
         },
     }
     return replace(
@@ -673,24 +1049,38 @@ def align_solution_gauge(solution: CalibrationSolution) -> CalibrationSolution:
 def write_calibration(solution: CalibrationSolution, path: str | Path) -> None:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, np.ndarray] = {
+        "gains": solution.gains,
+        "gain_time_s": solution.gain_time_s,
+        "gain_valid": solution.gain_valid,
+        "gain_interval_s": solution.gain_interval_s,
+        "delays_s": solution.delays_s,
+        "delay_valid": solution.delay_valid,
+        "bandpass": solution.bandpass,
+        "bandpass_frequency_hz": solution.bandpass_frequency_hz,
+        "bandpass_valid": solution.bandpass_valid,
+        "antenna_position_offset_m": (
+            np.empty((0, 3))
+            if solution.antenna_position_offset_m is None
+            else solution.antenna_position_offset_m
+        ),
+    }
+    optional = {
+        "antenna_position_m": solution.antenna_position_m,
+        "cross_hand_delay_s": solution.cross_hand_delay_s,
+        "cross_hand_delay_valid": solution.cross_hand_delay_valid,
+        "leakage": solution.leakage,
+        "leakage_frequency_hz": solution.leakage_frequency_hz,
+        "leakage_valid": solution.leakage_valid,
+        "rl_phase": solution.rl_phase,
+        "rl_phase_frequency_hz": solution.rl_phase_frequency_hz,
+        "rl_phase_valid": solution.rl_phase_valid,
+    }
+    for name, value in optional.items():
+        if value is not None:
+            payload[name] = value
     with destination.open("wb") as stream:
-        np.savez_compressed(
-            stream,
-            gains=solution.gains,
-            gain_time_s=solution.gain_time_s,
-            gain_valid=solution.gain_valid,
-            gain_interval_s=solution.gain_interval_s,
-            delays_s=solution.delays_s,
-            delay_valid=solution.delay_valid,
-            bandpass=solution.bandpass,
-            bandpass_frequency_hz=solution.bandpass_frequency_hz,
-            bandpass_valid=solution.bandpass_valid,
-            antenna_position_offset_m=(
-                np.empty((0, 3))
-                if solution.antenna_position_offset_m is None
-                else solution.antenna_position_offset_m
-            ),
-        )
+        np.savez_compressed(stream, **payload)
     destination.with_suffix(".json").write_text(
         json.dumps(
             {
@@ -700,6 +1090,8 @@ def write_calibration(solution: CalibrationSolution, path: str | Path) -> None:
                 "reference_antenna": solution.reference_antenna,
                 "reference_frequency_hz": solution.reference_frequency_hz,
                 "interpolation": solution.interpolation,
+                "apply_parallactic_angle": solution.apply_parallactic_angle,
+                "leakage_application": solution.leakage_application,
                 "provenance": solution.provenance,
             },
             indent=2,
@@ -732,6 +1124,10 @@ def read_calibration(path: str | Path) -> CalibrationSolution:
         antenna_position = arrays["antenna_position_offset_m"]
         if antenna_position.size == 0:
             antenna_position = None
+
+        def optional(name: str) -> np.ndarray | None:
+            return np.array(arrays[name]) if name in arrays.files else None
+
         return CalibrationSolution(
             gains=arrays["gains"],
             gain_time_s=arrays["gain_time_s"],
@@ -748,6 +1144,17 @@ def read_calibration(path: str | Path) -> CalibrationSolution:
             interpolation=str(metadata["interpolation"]),
             receptors=receptors,
             antenna_position_offset_m=antenna_position,
+            antenna_position_m=optional("antenna_position_m"),
+            cross_hand_delay_s=optional("cross_hand_delay_s"),
+            cross_hand_delay_valid=optional("cross_hand_delay_valid"),
+            leakage=optional("leakage"),
+            leakage_frequency_hz=optional("leakage_frequency_hz"),
+            leakage_valid=optional("leakage_valid"),
+            rl_phase=optional("rl_phase"),
+            rl_phase_frequency_hz=optional("rl_phase_frequency_hz"),
+            rl_phase_valid=optional("rl_phase_valid"),
+            apply_parallactic_angle=bool(metadata.get("apply_parallactic_angle", False)),
+            leakage_application=str(metadata.get("leakage_application", "exact")),
             provenance=provenance,
         )
 
@@ -812,6 +1219,7 @@ def import_casa_golden_solution(
         gains = gains[:, :, 0, :]
         gain_valid = gain_valid[:, :, 0, :]
         gain_interval = np.broadcast_to(gain_interval[:, :, None], gains.shape).copy()
+        gain_interval = np.where(gain_interval <= 0.0, np.inf, gain_interval)
         _, delay, delay_valid = _pivot_casa_table(arrays, "delay", "fparam")
         # CASA K-table FPARAM uses the opposite phase slope to this module's
         # `exp(-2πi(ν-ν_ref)τ)` Jones convention.
@@ -853,6 +1261,108 @@ def import_casa_golden_solution(
             "antenna_position_application": "ecef_phase_applied",
             "calwt": False,
         },
+    )
+
+
+def _embedded_cal_frequencies(ms_frequency_hz: np.ndarray, n_cal: int) -> np.ndarray:
+    frequencies = np.asarray(ms_frequency_hz, dtype=np.float64)
+    if n_cal == frequencies.size:
+        return frequencies
+    extra = frequencies.size - n_cal
+    if n_cal < 1 or extra < 0:
+        raise ValueError("calibration table channel count is incompatible with the MS")
+    start = extra // 2
+    return frequencies[start : start + n_cal]
+
+
+def import_casa_polarization_solution(
+    pol_fixture: str | Path,
+    kbg_fixture: str | Path,
+    *,
+    label: str,
+    interpolation: str = "nearest",
+) -> CalibrationSolution:
+    """Import CASA K/B/G plus Kcross/Df/Xf for one polarisation golden case.
+
+    ``flux_angle`` uses fluxscaled G on 3C286. ``leakage_calibrator`` uses G84
+    on 3C84.  Flagged Df/Xf/Kcross rows are invalid, not identity.  CASA
+    ``INTERVAL<=0`` is treated as unbounded.  Apply uses
+    ``leakage_application='casa_parallel_preserving'``.  Kcross FPARAM is
+    negated like the parallel-hand K table.
+    """
+
+    pol_source = Path(pol_fixture)
+    pol_metadata = json.loads(pol_source.with_suffix(".json").read_text(encoding="utf-8"))
+    if label not in pol_metadata["visibility_cases"]:
+        raise ValueError(f"unknown polarisation golden case {label!r}")
+    field_id = int(pol_metadata["visibility_cases"][label]["field_id"])
+    base = import_casa_golden_solution(
+        kbg_fixture,
+        field_id=0,
+        interpolation=interpolation,
+    )
+    with np.load(pol_source) as arrays:
+        frequencies = np.asarray(arrays["frequency_hz"], dtype=np.float64)
+        antenna_position_m = np.asarray(arrays["antenna_position_m"], dtype=np.float64)
+        if label == "leakage_calibrator":
+            gain_times, gains, gain_valid = _pivot_casa_table(arrays, "leakage_gain", "cparam")
+            interval_times, gain_interval, _ = _pivot_casa_table(
+                arrays, "leakage_gain", "interval"
+            )
+            if not np.array_equal(interval_times, gain_times):
+                raise ValueError("G84 interval and parameter coordinates differ")
+            gains = gains[:, :, 0, :]
+            gain_valid = gain_valid[:, :, 0, :]
+            gain_interval = np.broadcast_to(gain_interval[:, :, None], gains.shape).copy()
+            gain_interval = np.where(gain_interval <= 0.0, np.inf, gain_interval)
+            base = replace(
+                base,
+                gains=gains,
+                gain_time_s=gain_times,
+                gain_valid=gain_valid,
+                gain_interval_s=gain_interval,
+            )
+        elif label != "flux_angle":
+            raise ValueError(f"unsupported polarisation golden case {label!r}")
+        _, kcross, kcross_valid = _pivot_casa_table(arrays, "kcross", "fparam")
+        cross_hand_delay_s = -kcross[0, :, 0, :] * 1e-9
+        cross_hand_delay_valid = kcross_valid[0, :, 0, :]
+        _, leakage, leakage_valid = _pivot_casa_table(arrays, "dterms", "cparam")
+        leakage = leakage[0]
+        leakage_valid = leakage_valid[0]
+        _, rl_phase, rl_phase_valid = _pivot_casa_table(arrays, "angle", "cparam")
+        rl_phase = rl_phase[0, :, :, 0]
+        rl_phase_valid = rl_phase_valid[0, :, :, 0]
+        leakage_frequency_hz = _embedded_cal_frequencies(frequencies, leakage.shape[1])
+        rl_phase_frequency_hz = _embedded_cal_frequencies(frequencies, rl_phase.shape[1])
+    correlations = tuple(Correlation(value) for value in pol_metadata["correlations"])
+    provenance = {
+        **dict(base.provenance),
+        "polarization_source": pol_source.name,
+        "polarization_label": label,
+        "field_id": field_id,
+        "gain_table": "leakage_gain" if label == "leakage_calibrator" else "flux_gain",
+        "kcross_convention": "negated_ns_like_K",
+        "xf_convention": "diag(CPARAM, 1)",
+        "df_flagged": "invalid",
+        "jones_order": "GKB Kcross D X P",
+        "leakage_application": "casa_parallel_preserving",
+    }
+    return replace(
+        base,
+        correlations=correlations,
+        antenna_position_m=antenna_position_m,
+        cross_hand_delay_s=cross_hand_delay_s,
+        cross_hand_delay_valid=cross_hand_delay_valid,
+        leakage=leakage,
+        leakage_frequency_hz=leakage_frequency_hz,
+        leakage_valid=leakage_valid,
+        rl_phase=rl_phase,
+        rl_phase_frequency_hz=rl_phase_frequency_hz,
+        rl_phase_valid=rl_phase_valid,
+        apply_parallactic_angle=True,
+        leakage_application="casa_parallel_preserving",
+        provenance=provenance,
     )
 
 

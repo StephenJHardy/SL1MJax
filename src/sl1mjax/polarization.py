@@ -8,7 +8,8 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
-from numpy.typing import ArrayLike as NumpyArrayLike, NDArray
+from numpy.typing import ArrayLike as NumpyArrayLike
+from numpy.typing import NDArray
 
 
 class ReceptorBasis(StrEnum):
@@ -243,6 +244,48 @@ def invert_jones(jones: NumpyArrayLike) -> NDArray[np.complex128]:
     return inverse
 
 
+def multiply_jones(left: NumpyArrayLike, right: NumpyArrayLike) -> NDArray[np.complex128]:
+    """Return ``left @ right`` with broadcasting on leading axes."""
+
+    return np.matmul(np.asarray(left), np.asarray(right))
+
+
+def leakage_jones_matrices(d_terms: NumpyArrayLike) -> NDArray[np.complex128]:
+    """Build CASA Df Jones ``[[1, D_R], [D_L, 1]]`` from two leakage parameters."""
+
+    leakage = np.asarray(d_terms)
+    if leakage.shape[-1] != 2:
+        raise ValueError("leakage terms must have a trailing axis of length 2")
+    matrices = np.zeros(leakage.shape[:-1] + (2, 2), dtype=np.result_type(leakage, np.complex128))
+    matrices[..., 0, 0] = 1.0
+    matrices[..., 1, 1] = 1.0
+    matrices[..., 0, 1] = leakage[..., 0]
+    matrices[..., 1, 0] = leakage[..., 1]
+    return matrices
+
+
+def receptor_phase_jones(
+    phase_r: NumpyArrayLike,
+    phase_l: NumpyArrayLike | None = None,
+) -> NDArray[np.complex128]:
+    """Diagonal circular Jones from per-receptor complex factors."""
+
+    right = np.asarray(phase_r)
+    left = np.ones_like(right) if phase_l is None else np.asarray(phase_l)
+    matrices = np.zeros(np.broadcast_shapes(right.shape, left.shape) + (2, 2), dtype=np.complex128)
+    matrices[..., 0, 0] = np.broadcast_to(right, matrices.shape[:-2])
+    matrices[..., 1, 1] = np.broadcast_to(left, matrices.shape[:-2])
+    return matrices
+
+
+def circular_parallactic_jones(parallactic_angle_rad: NumpyArrayLike) -> NDArray[np.complex128]:
+    """CASA circular P Jones: ``diag(e^{-iχ}, e^{+iχ})``."""
+
+    angle = np.asarray(parallactic_angle_rad, dtype=np.float64)
+    rotation = np.exp(-1j * angle)
+    return receptor_phase_jones(rotation, np.conjugate(rotation))
+
+
 def apply_jones_to_coherency(
     coherency: NumpyArrayLike,
     jones_p: NumpyArrayLike,
@@ -259,7 +302,12 @@ def apply_jones_to_coherency(
 def circular_stokes_from_correlations(
     visibility: NumpyArrayLike,
     correlations: tuple[Correlation, ...],
-) -> tuple[NDArray[np.complex128], NDArray[np.complex128], NDArray[np.complex128], NDArray[np.complex128]]:
+) -> tuple[
+    NDArray[np.complex128],
+    NDArray[np.complex128],
+    NDArray[np.complex128],
+    NDArray[np.complex128],
+]:
     """Unpack Stokes I, Q, U, V from circular products.
 
     CASA circular convention: ``RR=I+V``, ``LL=I-V``, ``RL=Q+iU``,

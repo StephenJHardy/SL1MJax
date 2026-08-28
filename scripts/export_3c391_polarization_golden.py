@@ -135,8 +135,9 @@ def export_polarization_golden(
         "effects": {
             "input": "raw DATA with deterministic tutorial flags",
             "model": (
-                "CASA MODEL_DATA after setjy (3C286 Perley-Butler 2017 I plus "
-                "casaguide 11.2% / 66° Q/U, 3C84 manual unpolarised I)"
+                "CASA MODEL_DATA after setjy (3C286 Perley-Butler 2017 I "
+                "replaced by casaguide constant 11.2% / 66° IQUV; "
+                "3C84 manual unpolarised I)"
             ),
             "reference": "CASA CORRECTED_DATA after K/B/G plus Kcross/Df/Xf",
         },

@@ -61,8 +61,8 @@ def test_local_ms_has_four_circular_products_and_3c84() -> None:
     if not measurement_set.is_dir():
         pytest.skip("local 3C391 Measurement Set is not present")
 
-    from casacore import tables
     import numpy as np
+    from casacore import tables
 
     with tables.table(str(measurement_set / "POLARIZATION"), readonly=True, ack=False) as table:
         corr_type = np.asarray(table.getcol("CORR_TYPE"))
@@ -81,6 +81,8 @@ def test_three_c286_casaguide_qu_matches_nrao_recipe() -> None:
     assert polarised == pytest.approx(0.112 * 7.74664)
     assert stokes_q == pytest.approx(polarised * math.cos(math.radians(66.0)))
     assert stokes_u == pytest.approx(polarised * math.sin(math.radians(66.0)))
+    assert "constant IQUV" in module.THREE_C286_POLARISED_SPECTRAL_MODEL
+    assert "Perley-Butler" in module.THREE_C286_POLARISED_SPECTRAL_MODEL
 
 
 def test_stokes_i_from_setjy_reads_nested_fluxd() -> None:

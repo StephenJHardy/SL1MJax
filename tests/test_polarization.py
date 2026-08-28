@@ -264,3 +264,14 @@ def test_leakage_jones_mixes_stokes_i_into_cross_hands() -> None:
         observed, invert_jones(jones_p), invert_jones(jones_q)
     )
     np.testing.assert_allclose(corrected, sky, atol=1e-14)
+
+
+def test_leakage_jones_matrices_match_casa_df_layout() -> None:
+    from sl1mjax.polarization import leakage_jones_matrices, receptor_phase_jones
+
+    d_r, d_l = 0.04 - 0.02j, -0.03 + 0.01j
+    matrices = leakage_jones_matrices(np.array([d_r, d_l]))
+    np.testing.assert_allclose(matrices, [[1.0, d_r], [d_l, 1.0]])
+    phase = receptor_phase_jones(np.exp(1j * 0.3))
+    np.testing.assert_allclose(phase[0, 0], np.exp(1j * 0.3))
+    np.testing.assert_allclose(phase[1, 1], 1.0)

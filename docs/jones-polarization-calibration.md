@@ -135,12 +135,11 @@ to correct), and unpacks. Diagonal G/K/B promote to diagonal 2×2 matrices.
 Schema 1 files are read and promoted by inferring receptors from the
 products.
 
-Leakage \(D\) is not stored on the solution yet. ``apply_calibration``
-still builds *diagonal* 2×2 matrices from G/K/B.
-``apply_jones_to_coherency`` accepts full 2×2 Jones in unit tests, including
-a non-diagonal \(D\) mixing Stokes I into RL/LR. That is not yet the
-production apply path. Diagonal solvers still require one parallel-hand
-product per receptor; 2×2 RL/LR *solving* is later.
+Leakage \(D\), cross-hand delay, R–L phase, and circular parallactic
+angle can now be stored on the solution and applied. ``apply_calibration``
+builds \(J=J_{GKB}J_{\mathrm{Kcross}}J_D J_X J_P\) with \(P\) closest to
+the sky. Diagonal solvers still require one parallel-hand product per
+receptor; 2×2 RL/LR *solving* is later.
 
 This packing is the feed coherency. It is not the sky Stokes-V packing
 \(V=(RR-LL)/2\) used by circular contrast.
@@ -203,11 +202,8 @@ Shipped shape:
   diagonal 2×2 matrices;
 - schema v2 write; schema 1 read with promotion.
 
-Not stored yet, apply-ready:
+Not stored yet, apply-ready later:
 
-- R–L delay and phase;
-- leakage \(D\);
-- feed/parallactic rotation;
 - direction-dependent beam.
 
 Gates:
@@ -221,28 +217,41 @@ Gates:
 Still later in this item: serialized gauge choices and calibrator anchors
 beyond what schema v1 already stored.
 
-### 2. CASA full-polarisation 3C391 reference — in progress 2026-08-28
+### 2. CASA full-polarisation 3C391 reference — CASA oracle and JAX apply 2026-08-28; JAX solves next
 
 On the local `data/3c391_work_v2` MS, after the current K/B/G tables:
 
 1. Cross-hand delay (`Kcross` / equivalent).
 2. Leakage on 3C84 (`Df` or `Df+QU` according to parallactic coverage).
-3. R–L phase / polarisation angle on 3C286 (`Xf`), with the Perley–Butler
-   model including \(V=0\) and the known EVPA.
+3. R–L phase / polarisation angle on 3C286 (`Xf`), with a polarised
+   3C286 model including \(V=0\) and the casaguide \(Q/U\).
 4. Apply to calibrators and target fields.
 5. Export a second compact golden: all four correlations, unaveraged
    channels, 3C286 and 3C84 rows, useful parallactic coverage, and the new
    tables.
 
+CASA steps 1–5 are done. The polarised 3C286 `setjy` is a **constant
+IQUV point source** across the 126 MHz band. It replaces the
+channel-dependent / resolved Perley–Butler intensity model. That follows
+the historical casaguide and is adequate for this first D/X reference.
+It must not become the production calibrator model for spectral
+discovery.
+
 JAX then:
 
-1. Import and apply CASA D, X, and cross-hand delay through the matrix
-   path.
-2. Compare corrected RR, RL, LR, and LL to CASA `CORRECTED_DATA` with a
-   bounded, explained RMS (the K/B/G analogue of \(6.5\times 10^{-4}\)).
-3. Solve the same terms in JAX, one at a time, with connected holdouts.
-4. Check closure, residual calibrator polarisation, and transfer to C1.
-5. Keep CASA and JAX solutions in the fixture.
+1. Import and apply CASA D, X, and cross-hand delay through named
+   operators. Exact 2×2 \(D^{-1} C D^{-H}\) creates \(\sim 1.3\%\) false
+   Stokes \(V\) on 3C286 (\(v \approx -1.28\times 10^{-2}\) versus CASA
+   \(-2.13\times 10^{-4}\)) and is **not** the CASA apply. CASA
+   `CORRECTED` RR/LL follow the diagonal chain. The CASA-oracle operator
+   (`casa_parallel_preserving`) takes parallel hands from
+   G/K/B+Kcross+X+P and cross-hands from the full 2×2. The golden gates
+   RR/LL, channel-wise \(I,Q,U,V\), and \(V/I\), and JAX flags unsolved
+   Df/Xf channels from the table domain rather than receiving
+   `post_apply_flag` as input.
+2. Solve the same terms in JAX, one at a time, with connected holdouts.
+3. Check closure, residual calibrator polarisation, and transfer to C1.
+4. Keep CASA and JAX solutions in the fixture.
 
 Do not average in frequency before this calibration and its discovery
 tests.
@@ -369,11 +378,15 @@ D/X golden.
 2. ~~CASA polcal on the local 3C391 MS, with a polarised 3C286 model,
    disjoint NPZ labels, restored input flags, and tests that both cases
    load and that corrected 3C286 recovers 11.2% / 66°.~~ Done 2026-08-28.
-   The CASA tables are a D/X *oracle for import*, not yet applied in JAX.
-3. JAX import/apply of CASA D/X/Kcross reproducing `CORRECTED_DATA`; then
-   JAX solves.
-4. 3C286/3C84 polarisation floor.
-5. Only then a target \(q+iu\) / \(v\) model on C1.
+3. ~~JAX import/apply of CASA D/X/Kcross as a single 2×2, gated only on
+   aggregate RMS.~~ That over-claimed: exact \(D\) produced \(\sim 1.3\%\)
+   false \(V\). Replaced by two named operators (`exact` and
+   `casa_parallel_preserving`). The CASA-oracle path is gated on RR/LL,
+   \(I,Q,U,V\), and \(V/I\), with solution validity (not borrowed
+   `post_apply_flag` as the apply mask). JAX *solves* are next.
+4. JAX *solves* for Kcross / Df / Xf, one at a time, with connected holdouts.
+5. 3C286/3C84 polarisation floor.
+6. Only then a target \(q+iu\) / \(v\) model on C1.
 
 The MS `WEATHER` join can proceed in parallel. It must not delay the
 3C391 D/X golden.
@@ -396,9 +409,7 @@ Done:
 
 Not done:
 
-- JAX import/apply of CASA `Kcross` / `Df` / `Xf` (tables and golden exist;
-  `apply_calibration` is still diagonal G/K/B only).
-- Stored leakage, R–L delay/phase, or 2×2 *solvers*.
+- JAX *solves* for Kcross / Df / Xf (import/apply exists).
 - Site-meteorology join.
 
 ### 2026-08-28 — first polcal is not an oracle
@@ -450,10 +461,51 @@ Exported fixture
 | `angle` | 26 rows, 54 ch | Xf; median phase \(\approx +56^\circ\); unflagged |
 
 The 3C84 residual is a same-scan floor, not independent leakage
-validation. JAX still does not import or apply these tables.
+validation.
 
 NRAO sequences polcal before fluxscale; this path still uses already
 fluxscaled G on 3C286 plus a dedicated G84 on 3C84.
+
+The second `setjy` is a constant IQUV point source. It does not
+invalidate this narrowband CASA oracle. A later production 3C286 model
+must restore channel-dependent Stokes I (Perley–Butler or equivalent)
+and a polarised \(Q/U\) spectrum, not freeze one IQUV across the band.
+
+### 2026-08-28 — JAX import/apply of Kcross, Df, Xf
+
+`import_casa_polarization_solution` reads the K/B/G golden plus the
+polarisation golden. Apply order, matching CASA `applycal(parang=True)`
+on this dataset:
+
+\[
+J = J_{GKB}\,J_{\mathrm{Kcross}}\,J_D\,J_X\,J_P
+\]
+
+Two D operators:
+
+- `exact`: invert the full 2×2 product. Required for synthetic round-trips
+  and future JAX solves. It does **not** reproduce CASA RR/LL or calibrator
+  \(V/I\).
+- `casa_parallel_preserving`: parallel hands from the diagonal chain
+  (G/K/B+Kcross+X+P, no D); cross-hands from the full 2×2 including D.
+  This is the CASA-oracle apply. Import sets this.
+
+Conventions:
+
+- Kcross FPARAM is negated like parallel-hand K (`\(\tau_{\mathrm{s}}=-\mathrm{FPARAM}\times 10^{-9}\)`) and uses \(\nu-\nu_{\mathrm{ref}}\). The delay lives on receptor R; L is zero.
+- Df is CASA `[[1, D_R], [D_L, 1]]`. Flagged antennas store \(|D|\sim 1\) junk. Those rows are **invalid**, not \(D=0\).
+- Xf CPARAM is unit-amplitude; Jones is `diag(CPARAM, 1)`. Unsolved channels (outside the 54-channel `5~58` table) are invalid; nearest-edge D/X is not applied.
+- Circular P is `diag(e^{-iχ}, e^{+iχ})` with \(\chi\) from WGS84 **geodetic** latitude, antenna ECEF, time, and phase centre.
+- CASA `INTERVAL<=0` (G84) is unbounded.
+- `propagate_weights=True` is refused when a leakage term is present: diagonal \(J_{ii}J_{jj}^*\) is not a D-term covariance.
+- Exact \(D\) requires a complete unflagged coherency; a bad hand flags the whole sample. The CASA hybrid keeps product-local RR/LL flags. `corrupt_model` refuses `casa_parallel_preserving`.
+- Kcross, Df, Xf, and circular P require receptors `(R, L)`.
+- Written solutions are schema v3. Schema 1–2 readers reject v3 rather than applying diagonal G/K/B and ignoring D/X.
+
+The CASA-oracle golden now checks RR/LL, \(I,Q,U,V\), and \(V/I\), and
+JAX flags unsolved Df/Xf channels from the table. Exact 2×2 remains a
+separate operator and still produces the false \(V\) if used as CASA
+apply. JAX solves for these terms are not started.
 
 ### 2026-08-28 — local 3C391 MS and first polcal
 
@@ -492,16 +544,32 @@ paths. Polarisation solves write to `data/3c391/reference-pol`.
   blocks still call `identity_solution` with `Correlation.I`. That is a
   scalar Jones per antenna (`Receptor.I`), not a feed. Q/U/V as
   correlation products still cannot be Jones-packed.
-- **Apply and solve diverged.** `apply_calibration` still builds only
-  diagonal 2×2 matrices from G/K/B. Full 2×2 Jones is available through
-  `apply_jones_to_coherency`, not the production apply path. The Optax
-  G/K/B solvers still treat the last visibility axis as one parallel hand
-  per receptor and reject four-product blocks. That is intentional until
-  D/X import and solves exist.
+- **Apply and solve diverged.** `apply_calibration` now composes G/K/B with
+  optional Kcross, Df, Xf, and circular P. The Optax G/K/B solvers still
+  treat the last visibility axis as one parallel hand per receptor and
+  reject four-product blocks. D/X *solves* do not exist yet.
+- **Flagged Df is junk, not identity.** CASA leaves \(|D|\approx 1\) in
+  flagged leakage rows. Applying those values as Jones destroys RR/LL.
+  Invalid Df/Xf/Kcross now flag the visibility. \(D=0\) is not a stand-in
+  for a missing solution.
+- **Full 2×2 \(D\) vs CASA RR/LL.** After G/K/B, CASA `CORRECTED` RR/LL
+  already match at \(7\times 10^{-4}\). Inserting Df as a full 2×2 moves
+  parallel hands by \(\sim 2\%\) and creates \(\sim 1.3\%\) false Stokes
+  \(V\). CASA import uses `casa_parallel_preserving`; `exact` remains for
+  physics and future solves.
+- **Flagged hands mix under exact \(D\).** A full 2×2 uses every product.
+  Exact apply flags the whole sample if any hand is missing or flagged.
+  The CASA hybrid keeps product-local flags on RR/LL and still requires a
+  complete coherency for RL/LR. `corrupt_model` refuses the hybrid: it is
+  not an invertible Jones chain.
 - **Casaguide 66° is not IAU EVPA.** The NRAO 3C391 recipe sets
   \(Q=P\cos 66^\circ\), \(U=P\sin 66^\circ\). IAU \(\chi\) is half that
   argument (\(\approx 33^\circ\)). Follow the casaguide formula; do not
   substitute 33° into `setjy`.
+- **Constant IQUV is not the production 3C286 spectrum.** The polarised
+  `setjy` overwrites `3C286_C.im` with one I, Q, U, V for every channel.
+  Fine for this 126 MHz D/X oracle; not the calibrator model for
+  spectral-index or RM discovery.
 - **NPZ key collision.** Naming the 3C84 visibility case `leakage` while
   the Df table used the same prefix overwrote coordinates and flags. The
   case is now `leakage_calibrator`; the table prefix is `dterms`.

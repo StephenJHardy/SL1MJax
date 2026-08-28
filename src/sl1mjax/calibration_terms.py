@@ -84,6 +84,59 @@ def elevation_rad(coordinates: CalibrationCoordinates) -> np.ndarray:
     return np.asarray(np.arcsin(np.clip(source_ecef @ up.T, -1.0, 1.0)))
 
 
+WGS84_A_M = 6378137.0
+WGS84_E2 = 6.69437999014e-3
+
+
+def geodetic_latitude_rad(antenna_position_m: np.ndarray) -> np.ndarray:
+    """WGS84 geodetic latitude from ECEF antenna positions, radians."""
+
+    position = np.asarray(antenna_position_m, dtype=np.float64)
+    if position.ndim != 2 or position.shape[1] != 3:
+        raise ValueError("antenna_position_m must have shape (antenna, 3)")
+    equatorial = np.hypot(position[:, 0], position[:, 1])
+    b_m = WGS84_A_M * np.sqrt(1.0 - WGS84_E2)
+    e_prime2 = WGS84_E2 / (1.0 - WGS84_E2)
+    theta = np.arctan2(position[:, 2] * WGS84_A_M, equatorial * b_m)
+    return np.arctan2(
+        position[:, 2] + e_prime2 * b_m * np.sin(theta) ** 3,
+        equatorial - WGS84_E2 * WGS84_A_M * np.cos(theta) ** 3,
+    )
+
+
+def parallactic_angle_rad(
+    time_s: np.ndarray,
+    phase_centre_rad: tuple[float, float],
+    antenna_position_m: np.ndarray,
+) -> np.ndarray:
+    """Alt-az parallactic angle for each row and antenna, radians.
+
+    Uses the same GMST as antenna-position and elevation Jones.  Sign
+    matches CASA circular P Jones ``diag(e^{-iχ}, e^{+iχ})``.
+    """
+
+    times = np.asarray(time_s, dtype=np.float64)
+    position = np.asarray(antenna_position_m, dtype=np.float64)
+    latitude = geodetic_latitude_rad(position)
+    longitude = np.arctan2(position[:, 1], position[:, 0])
+    mjd = times / 86400.0
+    julian_date = mjd + 2_400_000.5
+    gmst = np.deg2rad(
+        np.mod(
+            280.46061837 + 360.98564736629 * (julian_date - 2_451_545.0),
+            360.0,
+        )
+    )
+    right_ascension, declination = phase_centre_rad
+    hour_angle = gmst[:, None] + longitude[None, :] - right_ascension
+    numerator = np.cos(latitude)[None, :] * np.sin(hour_angle)
+    denominator = (
+        np.sin(latitude)[None, :] * np.cos(declination)
+        - np.cos(latitude)[None, :] * np.sin(declination) * np.cos(hour_angle)
+    )
+    return np.arctan2(numerator, denominator)
+
+
 def airmass_from_elevation(
     elevation: np.ndarray, *, minimum_elevation_rad: float = 0.0
 ) -> np.ndarray:

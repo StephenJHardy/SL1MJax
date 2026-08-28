@@ -26,6 +26,12 @@ POST_POLCAL_FLAG_VERSION = "sl1mjax_post_polcal"
 THREE_C286_FRACTIONAL_POLARISATION = 0.112
 # NRAO 3C391 casaguide uses this angle in Q=P cos θ, U=P sin θ (not 2χ).
 THREE_C286_CASAGUIDE_ANGLE_DEG = 66.0
+# Second setjy writes a constant IQUV point source. Adequate for this
+# narrowband D/X oracle; not the production spectral calibrator model.
+THREE_C286_POLARISED_SPECTRAL_MODEL = (
+    "constant IQUV across the 126 MHz band; replaces Perley-Butler "
+    "channel-dependent / resolved Stokes I"
+)
 
 
 def default_measurement_set() -> Path:
@@ -254,6 +260,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     stokes_i = stokes_i_from_setjy(setjy_flux)
     polarised_flux, stokes_q, stokes_u = three_c286_casaguide_qu(stokes_i)
+    # Casaguide: polarised point source at one I. This overwrites the
+    # channel-dependent Perley-Butler / 3C286_C.im Stokes-I model.
     setjy_polarised = setjy(
         vis=vis,
         field=FLUX_CALIBRATOR,
@@ -285,6 +293,7 @@ def main(argv: list[str] | None = None) -> int:
         "stokes_u_jy": stokes_u,
         "stokes_v_jy": 0.0,
         "linear_flux_jy": polarised_flux,
+        "spectral_model": THREE_C286_POLARISED_SPECTRAL_MODEL,
     }
 
     for path in pol.values():

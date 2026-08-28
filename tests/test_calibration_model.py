@@ -17,6 +17,7 @@ from sl1mjax.calibration import (
     read_calibration,
     write_calibration,
 )
+from sl1mjax.calibration_terms import geodetic_latitude_rad, parallactic_angle_rad
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis
 
@@ -192,6 +193,23 @@ def test_schema_v1_promotes_receptors_from_parallel_hands(tmp_path: Path) -> Non
     np.testing.assert_array_equal(restored.gains, solution.gains)
 
 
+def test_schema_v2_promotes_without_leakage_application(tmp_path: Path) -> None:
+    solution = _solution()
+    path = tmp_path / "schema_v2.npz"
+    write_calibration(solution, path)
+    metadata_path = path.with_suffix(".json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata.pop("leakage_application")
+    metadata["schema_version"] = 2
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+
+    restored = read_calibration(path)
+
+    assert restored.leakage_application == "exact"
+    assert restored.provenance["promoted_from_schema"] == 2
+    np.testing.assert_array_equal(restored.gains, solution.gains)
+
+
 def test_identity_four_products_uses_two_receptors_not_four() -> None:
     solution = identity_solution(
         antenna_count=2,
@@ -288,3 +306,355 @@ def test_two_receptor_solution_applies_to_four_product_block() -> None:
     )
     corrected = apply_calibration(four_product, solution)
     np.testing.assert_allclose(corrected.visibility, sky, atol=2e-14)
+
+
+def test_kcross_leakage_and_rl_phase_round_trip() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9, 1.1e9]),
+        time_s=np.array([0.0]),
+    )
+    leakage = np.zeros((2, 2, 2), dtype=np.complex128)
+    leakage[0, :, 0] = 0.05 + 0.01j
+    leakage[1, :, 1] = -0.04 + 0.02j
+    rl_phase = np.ones((2, 2), dtype=np.complex128)
+    rl_phase[0] = np.exp(1j * 0.4)
+    solution = replace(
+        solution,
+        cross_hand_delay_s=np.array([[2.0e-9, 0.0], [0.0, 0.0]]),
+        cross_hand_delay_valid=np.ones((2, 2), dtype=bool),
+        leakage=leakage,
+        leakage_frequency_hz=np.array([1.0e9, 1.1e9]),
+        leakage_valid=np.ones((2, 2, 2), dtype=bool),
+        rl_phase=rl_phase,
+        rl_phase_frequency_hz=np.array([1.0e9, 1.1e9]),
+        rl_phase_valid=np.ones((2, 2), dtype=bool),
+    )
+    sky = np.array(
+        [[[3.0, 0.4 + 0.2j, 0.4 - 0.2j, 3.0], [3.1, 0.35 + 0.1j, 0.35 - 0.1j, 3.1]]],
+        dtype=np.complex128,
+    )
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9, 1.1e9]),
+        visibility=np.asarray(
+            corrupt_model(
+                sky,
+                solution,
+                time_s=np.array([0.0]),
+                frequency_hz=np.array([1.0e9, 1.1e9]),
+                antenna1=np.array([0]),
+                antenna2=np.array([1]),
+            )
+        ),
+        weight=np.ones_like(sky, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    corrected = apply_calibration(block, solution)
+    np.testing.assert_allclose(corrected.visibility, sky, atol=2e-12)
+
+
+def test_flagged_leakage_flags_visibility_not_identity() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    junk = np.array([[[1.05 - 0.05j, 0.95 - 0.05j]], [[0.0, 0.0]]])
+    solution = replace(
+        solution,
+        leakage=junk,
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.array([[[False, False]], [[True, True]]]),
+    )
+    sky = np.array([[[4.0, 0.0, 0.0, 4.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    with pytest.raises(ValueError, match="validity domain"):
+        apply_calibration(block, solution)
+    corrected = apply_calibration(block, solution, extrapolate=True)
+    assert np.all(corrected.flag)
+    np.testing.assert_array_equal(corrected.visibility, np.zeros_like(sky))
+
+
+def test_leakage_frequency_domain_is_not_silently_extrapolated() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9, 1.1e9]),
+        time_s=np.array([0.0]),
+    )
+    solution = replace(
+        solution,
+        leakage=np.zeros((2, 1, 2), dtype=np.complex128),
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+    )
+    sky = np.ones((1, 2, 4), dtype=np.complex128)
+    sky[..., 1:3] = 0.0
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9, 1.1e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    with pytest.raises(ValueError, match="validity domain"):
+        apply_calibration(block, solution)
+    corrected = apply_calibration(block, solution, extrapolate=True)
+    assert not np.any(corrected.flag[:, 0, :])
+    assert np.all(corrected.flag[:, 1, :])
+
+
+def test_propagate_weights_rejected_when_leakage_present() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    solution = replace(
+        solution,
+        leakage=np.zeros((2, 1, 2), dtype=np.complex128),
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+    )
+    sky = np.array([[[4.0, 0.0, 0.0, 4.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    with pytest.raises(ValueError, match="propagate_weights"):
+        apply_calibration(block, solution, propagate_weights=True)
+
+
+def test_casa_parallel_preserving_keeps_parallel_hands() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    leakage = np.full((2, 1, 2), 0.08 + 0.02j)
+    solution = replace(
+        solution,
+        leakage=leakage,
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+    )
+    sky = np.array([[[4.0, 0.4 + 0.2j, 0.4 - 0.2j, 4.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    exact = apply_calibration(block, solution)
+    casa = apply_calibration(
+        block, replace(solution, leakage_application="casa_parallel_preserving")
+    )
+    np.testing.assert_allclose(casa.visibility[..., 0], sky[..., 0], atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 3], sky[..., 3], atol=1e-12)
+    assert np.max(np.abs(exact.visibility[..., 0] - sky[..., 0])) > 1e-3
+    assert np.max(np.abs(casa.visibility[..., 1] - exact.visibility[..., 1])) < 1e-12
+
+
+def _leakage_solution(
+    correlations: tuple[Correlation, ...], *, casa: bool = False
+) -> CalibrationSolution:
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    return replace(
+        solution,
+        leakage=np.full((2, 1, 2), 0.08 + 0.02j),
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        leakage_application="casa_parallel_preserving" if casa else "exact",
+    )
+
+
+def test_flagged_cross_hand_does_not_contaminate_exact_parallel_outputs() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = _leakage_solution(correlations)
+    sky = np.array([[[4.0, 1.0e6 + 0.0j, 0.0, 4.0]]], dtype=np.complex128)
+    flag = np.zeros(sky.shape, dtype=bool)
+    flag[..., 1] = True
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=flag,
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    exact = apply_calibration(block, solution)
+    assert np.all(exact.flag)
+    np.testing.assert_array_equal(exact.visibility, np.zeros_like(sky))
+    casa = apply_calibration(block, _leakage_solution(correlations, casa=True))
+    assert np.all(casa.flag[..., 1])
+    assert np.all(casa.flag[..., 2])
+    assert not np.any(casa.flag[..., 0])
+    assert not np.any(casa.flag[..., 3])
+    np.testing.assert_allclose(casa.visibility[..., 0], 4.0, atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 3], 4.0, atol=1e-12)
+
+
+def test_exact_leakage_refuses_incomplete_coherency() -> None:
+    four = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    two = (Correlation.RR, Correlation.LL)
+    sky = np.array([[[4.0, 4.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=two,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    with pytest.raises(ValueError, match="complete two-feed coherency"):
+        apply_calibration(block, _leakage_solution(four))
+    casa = apply_calibration(block, _leakage_solution(four, casa=True))
+    np.testing.assert_allclose(casa.visibility, sky, atol=1e-12)
+    assert not np.any(casa.flag)
+
+
+def test_corrupt_model_refuses_casa_parallel_preserving() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    sky = np.array([[[4.0, 0.4, 0.4, 4.0]]], dtype=np.complex128)
+    with pytest.raises(ValueError, match="apply-only CASA oracle"):
+        corrupt_model(
+            sky,
+            _leakage_solution(correlations, casa=True),
+            time_s=np.array([0.0]),
+            frequency_hz=np.array([1.0e9]),
+            antenna1=np.array([0]),
+            antenna2=np.array([1]),
+        )
+
+
+def test_circular_polarization_terms_require_rl_receptors() -> None:
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=(Correlation.XX, Correlation.YY),
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    with pytest.raises(ValueError, match=r"receptors \(R, L\)"):
+        replace(
+            solution,
+            leakage=np.zeros((2, 1, 2), dtype=np.complex128),
+            leakage_frequency_hz=np.array([1.0e9]),
+            leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        )
+    with pytest.raises(ValueError, match=r"receptors \(R, L\)"):
+        replace(
+            solution,
+            apply_parallactic_angle=True,
+            antenna_position_m=np.array(
+                [[-1601.0e3, -5042.0e3, 3554.0e3], [-1601.0e3, -5042.0e3, 3554.0e3]]
+            ),
+        )
+
+
+def test_polarization_fields_round_trip(tmp_path: Path) -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    solution = replace(
+        solution,
+        antenna_position_m=np.array(
+            [[-1601.0e3, -5042.0e3, 3554.0e3], [-1601.0e3, -5042.0e3, 3554.0e3]]
+        ),
+        cross_hand_delay_s=np.array([[1.0e-9, 0.0], [1.0e-9, 0.0]]),
+        cross_hand_delay_valid=np.ones((2, 2), dtype=bool),
+        leakage=np.zeros((2, 1, 2), dtype=np.complex128),
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        rl_phase=np.ones((2, 1), dtype=np.complex128),
+        rl_phase_frequency_hz=np.array([1.0e9]),
+        rl_phase_valid=np.ones((2, 1), dtype=bool),
+        apply_parallactic_angle=True,
+    )
+    path = tmp_path / "pol_solution.npz"
+    write_calibration(solution, path)
+    restored = read_calibration(path)
+    np.testing.assert_array_equal(restored.cross_hand_delay_s, solution.cross_hand_delay_s)
+    np.testing.assert_array_equal(restored.leakage, solution.leakage)
+    np.testing.assert_array_equal(restored.rl_phase, solution.rl_phase)
+    assert restored.apply_parallactic_angle is True
+    assert restored.leakage_application == "exact"
+    metadata = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+    assert metadata["apply_parallactic_angle"] is True
+    assert metadata["schema_version"] == CALIBRATION_SCHEMA_VERSION
+    assert metadata["leakage_application"] == "exact"
+
+
+def test_parallactic_angle_uses_wgs84_geodetic_latitude() -> None:
+    position = np.array([[-1_601_185.0, -5_041_977.0, 3_554_875.0]])
+    geocentric = float(np.arctan2(position[0, 2], np.hypot(position[0, 0], position[0, 1])))
+    geodetic = float(geodetic_latitude_rad(position)[0])
+    assert np.rad2deg(geodetic) == pytest.approx(34.08, abs=0.05)
+    assert np.rad2deg(geodetic - geocentric) == pytest.approx(0.18, abs=0.05)
+    chi = parallactic_angle_rad(
+        np.array([0.0]),
+        (np.deg2rad(202.78), np.deg2rad(10.58)),
+        position,
+    )
+    assert np.isfinite(chi).all()
