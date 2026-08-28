@@ -1151,6 +1151,26 @@ def _relative_improvement(baseline: float, proposal: float) -> float:
     return float((baseline - proposal) / scale)
 
 
+_RELATIVE_IMPROVEMENT_EPS = float(np.finfo(np.float64).eps)
+
+
+def _holdout_not_worse(
+    holdout_improvement: float, minimum_holdout_relative_improvement: float
+) -> bool:
+    """True when holdout did not degrade beyond float64 relative noise.
+
+    Merges remove degrees of freedom.  After a physical-flux solver has
+    already fitted equal children, the data term is unchanged and the
+    relative holdout improvement sits at plus or minus a few ulps.  A
+    strict ``> 0`` gate then rejects a merge that the training objective
+    (leaf penalty) correctly wants to accept.
+    """
+
+    return holdout_improvement >= (
+        minimum_holdout_relative_improvement - _RELATIVE_IMPROVEMENT_EPS
+    )
+
+
 def _split_batch_initial_sky(
     current_fit: QuadtreeInferenceResult,
     selected: tuple[QuadtreeLeaf, ...],
@@ -2302,9 +2322,10 @@ def merge_quadtree_batch(
     Every attempt starts from the same accepted fit. Each merged parent is
     seeded with the sum of its children's flux (``QuadtreeSky.merge``'s
     definition), then all leaf fluxes are optimized together. A proposal
-    must improve both the penalized training objective and held-out loss by
-    the requested relative tolerances. Rejected batches are backtracked to
-    their strongest half, up to ``max_refits`` global optimizations.
+    must improve the penalized training objective by the requested relative
+    tolerance and must not make held-out loss worse (within float64
+    relative noise). Rejected batches are backtracked to their strongest
+    half, up to ``max_refits`` global optimizations.
     """
 
     if not selected:
@@ -2387,7 +2408,9 @@ def merge_quadtree_batch(
             np.isfinite(training_improvement)
             and np.isfinite(holdout_improvement)
             and training_improvement > minimum_training_relative_improvement
-            and holdout_improvement > minimum_holdout_relative_improvement
+            and _holdout_not_worse(
+                holdout_improvement, minimum_holdout_relative_improvement
+            )
         )
         if progress is not None:
             progress(

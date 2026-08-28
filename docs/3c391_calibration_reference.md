@@ -18,15 +18,18 @@ data/3c391_ctm_mosaic_10s_spw0.ms.tgz
 The current local preparation uses:
 
 ```text
-/Volumes/BagOfWinds/NRAO/3c391/
-  pristine/       immutable extracted MS and inventory
-  work-v2/        disposable CASA-calibrated MS
-  reference-v2/   CASA calibration tables, summaries, and plots
-  golden/         portable compact NPZ/JSON reference
+data/3c391_ctm_mosaic_10s_spw0.ms.tgz   immutable archive
+data/3c391/pristine/                    immutable extracted MS
+data/3c391_work_v2/                     disposable CASA-calibrated MS
+data/3c391/reference-v2/                K/B/G tables, summaries, and plots
+data/3c391/reference-pol/               Kcross / Df / Xf tables (polarisation)
+data/3c391/golden/                      portable compact NPZ/JSON reference
 ```
 
-All paths can be overridden with the `SL1MJAX_3C391_MS`,
-`SL1MJAX_3C391_REFERENCE`, and `SL1MJAX_3C391_GOLDEN` environment variables.
+BagOfWinds remains an optional bulk copy. Scripts default to the local
+`data/` paths above. Override with `SL1MJAX_3C391_MS`,
+`SL1MJAX_3C391_REFERENCE`, `SL1MJAX_3C391_POL_REFERENCE`, and
+`SL1MJAX_3C391_GOLDEN`.
 
 ## Dataset inventory
 

@@ -53,6 +53,18 @@ def _require_model(block: VisibilityBlock) -> np.ndarray:
     return block.model_visibility
 
 
+def _require_parallel_hand_solve(
+    block: VisibilityBlock, solution: CalibrationSolution
+) -> None:
+    """Diagonal solvers still treat the last axis as one product per receptor."""
+
+    if len(block.correlations) != solution.receptor_count:
+        raise ValueError(
+            "diagonal solvers require one parallel-hand product per receptor; "
+            "full 2×2 RL/LR solving is not implemented yet"
+        )
+
+
 def _weighted_error(
     observed: Array,
     predicted: Array,
@@ -191,6 +203,7 @@ def solve_time_gains(
         else split
     )
     model = _require_model(block)
+    _require_parallel_hand_solve(block, initial_solution)
     times, time_index = _solution_time_indices(block, gain_time_s)
     antenna_count = initial_solution.antenna_count
     receptor_count = initial_solution.receptor_count
@@ -289,6 +302,7 @@ def solve_delays(
 ) -> CalibrationFitResult:
     config = CalibrationSolveConfig() if config is None else config
     model = _require_model(block)
+    _require_parallel_hand_solve(block, initial_solution)
     fixed = _fixed_baseline(block, initial_solution, omit="delay", priors=priors)
     first = jnp.asarray(block.antenna1)
     second = jnp.asarray(block.antenna2)
@@ -344,6 +358,7 @@ def solve_bandpass(
 ) -> CalibrationFitResult:
     config = CalibrationSolveConfig() if config is None else config
     model = _require_model(block)
+    _require_parallel_hand_solve(block, initial_solution)
     fixed = _fixed_baseline(block, initial_solution, omit="bandpass", priors=priors)
     first = jnp.asarray(block.antenna1)
     second = jnp.asarray(block.antenna2)

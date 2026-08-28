@@ -4,8 +4,15 @@ import pytest
 from sl1mjax.data.synthetic import PointSource, correlations_for_basis, simulate_dataset
 from sl1mjax.polarization import (
     Correlation,
+    Receptor,
     ReceptorBasis,
+    apply_jones_to_coherency,
+    correlation_receptor_pair,
+    invert_jones,
+    pack_coherency,
+    receptors_for_correlations,
     stokes_i_to_correlations,
+    unpack_coherency,
     validate_correlations,
 )
 from sl1mjax.rime import predict_stokes_i
@@ -158,3 +165,102 @@ def test_synthetic_dataset_contains_exact_multi_correlation_truth(
         {"flux": 1.25, "l": 0.0, "m": 0.0},
         {"flux": 0.4, "l": 4.0e-4, "m": -2.0e-4},
     ]
+
+
+@pytest.mark.parametrize(
+    ("correlations", "receptors"),
+    [
+        ((Correlation.RR, Correlation.LL), (Receptor.R, Receptor.L)),
+        (
+            (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL),
+            (Receptor.R, Receptor.L),
+        ),
+        ((Correlation.XX, Correlation.YY), (Receptor.X, Receptor.Y)),
+        ((Correlation.RR,), (Receptor.R,)),
+    ],
+)
+def test_receptors_follow_feeds_not_product_count(
+    correlations: tuple[Correlation, ...], receptors: tuple[Receptor, ...]
+) -> None:
+    assert receptors_for_correlations(correlations) == receptors
+
+
+def test_stokes_i_uses_a_scalar_jones_receptor() -> None:
+    assert correlation_receptor_pair(Correlation.I) == (Receptor.I, Receptor.I)
+    assert receptors_for_correlations((Correlation.I,)) == (Receptor.I,)
+
+
+def test_stokes_v_is_not_a_feed_or_scalar_jones() -> None:
+    with pytest.raises(ValueError, match="Stokes product"):
+        correlation_receptor_pair(Correlation.V)
+    with pytest.raises(ValueError, match="Stokes Q/U/V"):
+        receptors_for_correlations((Correlation.I, Correlation.V))
+
+
+def test_pack_unpack_round_trips_and_fills_missing_slots() -> None:
+    correlations = (Correlation.RR, Correlation.LL)
+    receptors = (Receptor.R, Receptor.L)
+    visibility = np.array([[[1.0 + 0.0j, 2.0 + 3.0j]]])
+
+    packed = pack_coherency(visibility, correlations, receptors)
+    restored = unpack_coherency(packed, correlations, receptors)
+
+    assert packed.shape == (1, 1, 2, 2)
+    np.testing.assert_allclose(packed[..., 0, 0], 1.0)
+    np.testing.assert_allclose(packed[..., 1, 1], 2.0 + 3.0j)
+    np.testing.assert_allclose(packed[..., 0, 1], 0.0)
+    np.testing.assert_allclose(packed[..., 1, 0], 0.0)
+    np.testing.assert_allclose(restored, visibility)
+
+
+def test_circular_stokes_unpack_recovers_qu_from_rl_lr() -> None:
+    from sl1mjax.polarization import (
+        circular_stokes_from_correlations,
+        electric_vector_position_angle_rad,
+        fractional_linear_polarisation,
+    )
+
+    stokes_i, stokes_q, stokes_u = 7.5, -0.4, 0.7
+    rr = stokes_i
+    ll = stokes_i
+    rl = stokes_q + 1j * stokes_u
+    lr = stokes_q - 1j * stokes_u
+    visibility = np.array([rr, rl, lr, ll])
+    i, q, u, v = circular_stokes_from_correlations(
+        visibility,
+        (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL),
+    )
+    np.testing.assert_allclose(np.real(i), stokes_i)
+    np.testing.assert_allclose(np.real(q), stokes_q)
+    np.testing.assert_allclose(np.real(u), stokes_u)
+    np.testing.assert_allclose(np.real(v), 0.0, atol=1e-12)
+    assert fractional_linear_polarisation(q, u, i) == pytest.approx(
+        np.hypot(stokes_q, stokes_u) / stokes_i
+    )
+    assert electric_vector_position_angle_rad(q, u) == pytest.approx(
+        0.5 * np.arctan2(stokes_u, stokes_q)
+    )
+
+
+def test_leakage_jones_mixes_stokes_i_into_cross_hands() -> None:
+    intensity = 4.0 + 0.0j
+    sky = intensity * np.eye(2, dtype=np.complex128)
+    leakage = 0.05 + 0.02j
+    jones_p = np.array([[1.0, leakage], [leakage, 1.0]], dtype=np.complex128)
+    jones_q = np.eye(2, dtype=np.complex128)
+
+    observed = apply_jones_to_coherency(sky, jones_p, jones_q)
+    products = unpack_coherency(
+        observed,
+        (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL),
+        (Receptor.R, Receptor.L),
+    )
+
+    expected = jones_p @ sky @ jones_q.conj().T
+    np.testing.assert_allclose(observed, expected)
+    np.testing.assert_allclose(products[1], intensity * leakage)
+    np.testing.assert_allclose(products[2], intensity * leakage)
+    corrected = apply_jones_to_coherency(
+        observed, invert_jones(jones_p), invert_jones(jones_q)
+    )
+    np.testing.assert_allclose(corrected, sky, atol=1e-14)

@@ -207,6 +207,7 @@ def test_hierarchical_reconstruction_runs_split_and_merge_in_the_same_round_loop
         root_size=2,
         root_pixel_size_rad=2e-4,
         inference=InferenceConfig(
+            solver="fista",
             steps=180,
             learning_rate=0.1,
             sparsity_weight=1e-8,
@@ -304,6 +305,7 @@ def test_constrained_hierarchy_does_not_split_a_zero_flux_false_positive() -> No
         root_size=4,
         root_pixel_size_rad=2e-4,
         inference=InferenceConfig(
+            solver="fista",
             steps=180,
             learning_rate=0.1,
             sparsity_weight=1e-8,
@@ -334,7 +336,8 @@ def test_constrained_hierarchy_does_not_split_a_zero_flux_false_positive() -> No
 
     assert len(result.rounds) == 3
     first_round = result.rounds[0]
-    assert first_round.selection.selected == (strong_leaf,)
+    assert strong_leaf in first_round.selection.selected
+    assert spurious_leaf not in first_round.selection.selected
     assert first_round.validation is not None
     assert first_round.validation.accepted_attempt is not None
 

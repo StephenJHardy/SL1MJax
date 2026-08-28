@@ -26,13 +26,14 @@ from casatasks import (
 MEASUREMENT_SET = Path(
     os.environ.get(
         "SL1MJAX_3C391_MS",
-        "/Volumes/BagOfWinds/NRAO/3c391/work/3c391_ctm_mosaic_10s_spw0.ms",
+        Path(__file__).resolve().parents[1]
+        / "data/3c391_work_v2/3c391_ctm_mosaic_10s_spw0.ms",
     )
 ).resolve()
 OUTPUT = Path(
     os.environ.get(
         "SL1MJAX_3C391_REFERENCE",
-        "/Volumes/BagOfWinds/NRAO/3c391/reference",
+        Path(__file__).resolve().parents[1] / "data/3c391/reference-v2",
     )
 ).resolve()
 

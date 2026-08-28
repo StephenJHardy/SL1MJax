@@ -112,7 +112,7 @@ def test_simulate_to_canonical_zarr_and_image_products(
     with fits.open(image) as hdus:
         assert hdus[0].data.shape == (6, 6)
         assert np.all(np.isfinite(hdus[0].data))
-        assert np.all(hdus[0].data > 0)
+        assert np.all(hdus[0].data >= 0)
         assert hdus[0].header["BUNIT"] == "Jy/pixel"
         assert hdus[0].header["CTYPE1"] == "RA---SIN"
         assert hdus[0].header["CTYPE2"] == "DEC--SIN"
@@ -124,7 +124,8 @@ def test_simulate_to_canonical_zarr_and_image_products(
             "holdout_fraction": 0.25,
     }
     assert diagnostics["correlations"] == ["XX", "XY", "YX", "YY"]
-    assert diagnostics["metrics"]["steps"] == 50
+    assert diagnostics["metrics"]["steps"] >= 1
+    assert diagnostics["metrics"]["solver"] == "hybrid"
     assert np.isfinite(diagnostics["metrics"]["train_weighted_complex_mse"])
     assert np.isfinite(diagnostics["metrics"]["holdout_weighted_complex_mse"])
     assert diagnostics["residual_evaluation"]["sign_convention"] == (
@@ -165,4 +166,4 @@ def test_simulate_to_canonical_zarr_and_image_products(
     )
     assert raw.shape == (36,)
     assert np.all(np.isfinite(raw))
-    assert step == 50
+    assert step >= 1

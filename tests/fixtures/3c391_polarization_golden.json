@@ -1,0 +1,143 @@
+{
+  "calibration_tables": {
+    "angle": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.Xf0",
+      "viscal": "Xf Jones"
+    },
+    "dterms": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.Df0",
+      "viscal": "Df Jones"
+    },
+    "kcross": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "FPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.Kcross",
+      "viscal": "Kcross Jones"
+    },
+    "leakage_gain": {
+      "columns": [
+        "TIME",
+        "FIELD_ID",
+        "SPECTRAL_WINDOW_ID",
+        "ANTENNA1",
+        "ANTENNA2",
+        "INTERVAL",
+        "SCAN_NUMBER",
+        "OBSERVATION_ID",
+        "CPARAM",
+        "PARAMERR",
+        "FLAG",
+        "SNR"
+      ],
+      "row_count": 26,
+      "source": "3c391.G84",
+      "viscal": "G Jones"
+    }
+  },
+  "calibrators": {
+    "flux_angle": {
+      "field_id": 0,
+      "name": "J1331+3030"
+    },
+    "leakage_calibrator": {
+      "field_id": 9,
+      "name": "J0319+4130"
+    }
+  },
+  "casa_version": "6.7.6.14",
+  "correlation_indices": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "correlations": [
+    "RR",
+    "RL",
+    "LR",
+    "LL"
+  ],
+  "effects": {
+    "input": "raw DATA with deterministic tutorial flags",
+    "model": "CASA MODEL_DATA after setjy (3C286 Perley-Butler 2017 I plus casaguide 11.2% / 66\u00b0 Q/U, 3C84 manual unpolarised I)",
+    "reference": "CASA CORRECTED_DATA after K/B/G plus Kcross/Df/Xf"
+  },
+  "flag_version": "sl1mjax_calibration_input",
+  "flux_polarised_model": {
+    "casaguide_position_angle_deg": 66.0,
+    "fractional_polarisation": 0.112,
+    "linear_flux_jy": 0.8588778686523437,
+    "standard": "NRAO 3C391 casaguide",
+    "stokes_i_jy": 7.668552398681641,
+    "stokes_q_jy": 0.34933710110775235,
+    "stokes_u_jy": 0.784623975577107,
+    "stokes_v_jy": 0.0
+  },
+  "measurement_set": "3c391_ctm_mosaic_10s_spw0.ms",
+  "reference_antenna": "ea21",
+  "reference_directory": "reference-pol",
+  "schema_version": 1,
+  "visibility_cases": {
+    "flux_angle": {
+      "field_id": 0,
+      "row_count": 2853,
+      "scan_ids": [
+        2,
+        3,
+        37
+      ],
+      "time_count": 8
+    },
+    "leakage_calibrator": {
+      "field_id": 9,
+      "row_count": 2205,
+      "scan_ids": [
+        103
+      ],
+      "time_count": 8
+    }
+  }
+}

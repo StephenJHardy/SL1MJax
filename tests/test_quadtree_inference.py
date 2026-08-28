@@ -295,13 +295,13 @@ def test_mosaic_quadtree_validates_joint_inputs() -> None:
 
     with pytest.raises(ValueError, match="one mask per block"):
         infer_mosaic_quadtree((block,), sky.topology, (), (0.0, 0.0), config)
-    with pytest.raises(ValueError, match="currently requires solver='fista'"):
+    with pytest.raises(ValueError, match="physical-flux solver"):
         infer_mosaic_quadtree(
             (block,),
             sky.topology,
             (block.active,),
             (0.0, 0.0),
-            InferenceConfig(solver="proximal_sgd", operator_mode="explicit"),
+            InferenceConfig(solver="softplus_adam", operator_mode="explicit"),
         )
     with pytest.raises(ValueError, match="one value per topology leaf"):
         infer_mosaic_quadtree(

@@ -8,6 +8,11 @@ import jax.numpy as jnp
 from jax import Array
 from jax.typing import ArrayLike
 
+from sl1mjax.circular_contrast import (
+    parallel_hand_intensities,
+    requires_circular_parallel_hands,
+    uses_split_parallel_operator,
+)
 from sl1mjax.polarization import Correlation, stokes_i_to_correlations
 from sl1mjax.sky import (
     CompoundPixelBasis,
@@ -310,6 +315,8 @@ def _pack_parallel_correlations(
             columns.append(ll)
         elif correlation is Correlation.I:
             columns.append(0.5 * (rr + ll))
+        elif correlation is Correlation.V:
+            columns.append(0.5 * (rr - ll))
         else:
             columns.append(jnp.zeros_like(rr))
     return jnp.stack(columns, axis=-1)
@@ -333,6 +340,7 @@ def predict_stokes_i(
     beam_weights: ArrayLike | None = None,
     beam_weights_rr: ArrayLike | None = None,
     beam_weights_ll: ArrayLike | None = None,
+    circular_contrast: ArrayLike | None = None,
 ) -> Array:
     """Predict correlations for integrated Stokes-I pixel/component fluxes.
 
@@ -340,6 +348,8 @@ def predict_stokes_i(
     is applied by default. Set ``include_projection`` only for a brightness
     density explicitly integrated in direction-cosine coordinates. Non-delta
     pixel widths are standard deviations measured in grid pixel spacings.
+    ``circular_contrast`` is the shared-support Stokes-V fraction v with
+    I_RR = I(1+v) and I_LL = I(1-v).
     """
 
     intensity_array = jnp.asarray(intensity, dtype=jnp.float64).ravel()
@@ -351,6 +361,8 @@ def predict_stokes_i(
         raise ValueError("intensity, l, and m must contain the same number of components")
     if chunk_size < 1:
         raise ValueError("chunk_size must be positive")
+    if circular_contrast is not None:
+        requires_circular_parallel_hands(correlations)
     selected_basis = pixel_basis or DeltaPixelBasis()
     baseline_gain = None
     if fixed_gains is not None:
@@ -359,9 +371,9 @@ def predict_stokes_i(
             gains[jnp.asarray(antenna2)]
         )
 
-    def _apply(weights: Array | None) -> Array:
+    def _apply(selected_intensity: Array, weights: Array | None) -> Array:
         scalar = _scalar_from_intensity(
-            intensity_array,
+            selected_intensity,
             l_array,
             m_array,
             uvw_array,
@@ -376,11 +388,16 @@ def predict_stokes_i(
             return scalar * baseline_gain[:, None]
         return scalar
 
-    if beam_weights_rr is None or beam_weights_ll is None:
-        weights = None if beam_weights is None else jnp.asarray(beam_weights)
-        return stokes_i_to_correlations(_apply(weights), correlations)
+    rr_beam = None if beam_weights_rr is None else jnp.asarray(beam_weights_rr)
+    ll_beam = None if beam_weights_ll is None else jnp.asarray(beam_weights_ll)
+    stokes_beam = None if beam_weights is None else jnp.asarray(beam_weights)
+    if not uses_split_parallel_operator(circular_contrast, rr_beam, ll_beam):
+        return stokes_i_to_correlations(_apply(intensity_array, stokes_beam), correlations)
+    rr_intensity, ll_intensity = parallel_hand_intensities(
+        intensity_array, circular_contrast
+    )
     return _pack_parallel_correlations(
-        _apply(jnp.asarray(beam_weights_rr)),
-        _apply(jnp.asarray(beam_weights_ll)),
+        _apply(rr_intensity, stokes_beam if rr_beam is None else rr_beam),
+        _apply(ll_intensity, stokes_beam if ll_beam is None else ll_beam),
         correlations,
     )

@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import numpy as np
 import pytest
 
 from sl1mjax.calibration import (
+    CALIBRATION_SCHEMA_VERSION,
     CalibrationSolution,
     align_solution_gauge,
     apply_calibration,
@@ -16,7 +18,7 @@ from sl1mjax.calibration import (
     write_calibration,
 )
 from sl1mjax.data.canonical import VisibilityBlock
-from sl1mjax.polarization import Correlation, ReceptorBasis
+from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis
 
 
 def _solution() -> CalibrationSolution:
@@ -163,6 +165,126 @@ def test_solution_is_pytree_and_round_trips(tmp_path: Path) -> None:
     restored = read_calibration(path)
 
     assert restored.correlations == solution.correlations
+    assert restored.receptors == (Receptor.R, Receptor.L)
     assert restored.reference_antenna == solution.reference_antenna
     np.testing.assert_array_equal(restored.gains, solution.gains)
     np.testing.assert_array_equal(restored.bandpass, solution.bandpass)
+    metadata = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+    assert metadata["schema_version"] == CALIBRATION_SCHEMA_VERSION
+    assert metadata["receptors"] == ["R", "L"]
+
+
+def test_schema_v1_promotes_receptors_from_parallel_hands(tmp_path: Path) -> None:
+    solution = _solution()
+    path = tmp_path / "legacy.npz"
+    write_calibration(solution, path)
+    metadata_path = path.with_suffix(".json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata.pop("receptors")
+    metadata["schema_version"] = 1
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+
+    restored = read_calibration(path)
+
+    assert restored.receptors == (Receptor.R, Receptor.L)
+    assert restored.receptor_count == 2
+    assert restored.provenance["promoted_from_schema"] == 1
+    np.testing.assert_array_equal(restored.gains, solution.gains)
+
+
+def test_identity_four_products_uses_two_receptors_not_four() -> None:
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=(Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL),
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    assert solution.receptors == (Receptor.R, Receptor.L)
+    assert solution.gains.shape == (1, 2, 2)
+    assert solution.delays_s.shape == (2, 2)
+    assert solution.bandpass.shape == (2, 1, 2)
+
+
+def test_diagonal_jones_corrects_cross_hands_on_four_product_data() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    gains = solution.gains.copy()
+    gains[0, 0, :] = np.array([1.5 + 0.0j, 0.5 + 0.0j])
+    gains[0, 1, :] = np.array([0.8 - 0.2j, 1.2 + 0.4j])
+    solution = replace(solution, gains=gains)
+    sky = np.array([[[3.0 + 0.0j, 0.4 + 0.1j, 0.2 - 0.3j, 2.5 + 0.0j]]])
+    corrupted = np.asarray(
+        corrupt_model(
+            sky,
+            solution,
+            time_s=np.array([0.0]),
+            frequency_hz=np.array([1.0e9]),
+            antenna1=np.array([0]),
+            antenna2=np.array([1]),
+        )
+    )
+    g_p = gains[0, 0]
+    g_q = gains[0, 1]
+    expected = np.array(
+        [
+            [
+                [
+                    g_p[0] * sky[0, 0, 0] * np.conj(g_q[0]),
+                    g_p[0] * sky[0, 0, 1] * np.conj(g_q[1]),
+                    g_p[1] * sky[0, 0, 2] * np.conj(g_q[0]),
+                    g_p[1] * sky[0, 0, 3] * np.conj(g_q[1]),
+                ]
+            ]
+        ]
+    )
+    np.testing.assert_allclose(corrupted, expected)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=corrupted,
+        weight=np.ones_like(corrupted, dtype=np.float64),
+        flag=np.zeros(corrupted.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    corrected = apply_calibration(block, solution)
+    np.testing.assert_allclose(corrected.visibility, sky, atol=1e-14)
+
+
+def test_two_receptor_solution_applies_to_four_product_block() -> None:
+    solution = _solution()
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    n_row, n_chan = 6, 2
+    sky = np.ones((n_row, n_chan, 4), dtype=np.complex128)
+    sky[..., 1] = 0.1 + 0.02j
+    sky[..., 2] = 0.05 - 0.04j
+    four_product = replace(
+        _block(np.ones((n_row, n_chan, 2), dtype=np.complex128)),
+        visibility=sky,
+        weight=np.ones((n_row, n_chan, 4)),
+        flag=np.zeros((n_row, n_chan, 4), dtype=bool),
+        correlations=correlations,
+    )
+    four_product = replace(
+        four_product,
+        visibility=np.asarray(
+            corrupt_model(
+                sky,
+                replace(solution, correlations=correlations),
+                time_s=four_product.time_s,
+                frequency_hz=four_product.frequency_hz,
+                antenna1=four_product.antenna1,
+                antenna2=four_product.antenna2,
+            )
+        ),
+    )
+    corrected = apply_calibration(four_product, solution)
+    np.testing.assert_allclose(corrected.visibility, sky, atol=2e-14)

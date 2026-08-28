@@ -13,6 +13,11 @@ import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
 
+from sl1mjax.circular_contrast import (
+    parallel_hand_intensities,
+    requires_circular_parallel_hands,
+    uses_split_parallel_operator,
+)
 from sl1mjax.polarization import Correlation, stokes_i_to_correlations
 from sl1mjax.rime import (
     SPEED_OF_LIGHT_M_S,
@@ -422,6 +427,7 @@ def predict_stokes_i_explicit(
     beam_weights: ArrayLike | None = None,
     beam_weights_rr: ArrayLike | None = None,
     beam_weights_ll: ArrayLike | None = None,
+    circular_contrast: ArrayLike | None = None,
 ) -> Array:
     """Predict Stokes-I correlations with the explicit exact DFT operator."""
 
@@ -430,6 +436,9 @@ def predict_stokes_i_explicit(
     frequency = jnp.asarray(
         frequency_hz, dtype=selected_config.real_dtype
     )
+    intensity_array = jnp.asarray(intensity, dtype=selected_config.real_dtype).ravel()
+    if circular_contrast is not None:
+        requires_circular_parallel_hands(correlations)
     baseline_gain = None
     if fixed_gains is not None:
         gains = jnp.asarray(fixed_gains, dtype=selected_config.complex_dtype)
@@ -437,9 +446,9 @@ def predict_stokes_i_explicit(
             gains[jnp.asarray(antenna2)]
         )
 
-    def _apply(weights: ArrayLike | None) -> Array:
+    def _apply(selected_intensity: Array, weights: ArrayLike | None) -> Array:
         scalar = _explicit_scalar(
-            intensity,
+            selected_intensity,
             l,
             m,
             uvw,
@@ -453,10 +462,15 @@ def predict_stokes_i_explicit(
             return scalar * baseline_gain[:, None]
         return scalar
 
-    if beam_weights_rr is None or beam_weights_ll is None:
-        return stokes_i_to_correlations(_apply(beam_weights), correlations)
+    rr_beam = beam_weights_rr
+    ll_beam = beam_weights_ll
+    if not uses_split_parallel_operator(circular_contrast, rr_beam, ll_beam):
+        return stokes_i_to_correlations(_apply(intensity_array, beam_weights), correlations)
+    rr_intensity, ll_intensity = parallel_hand_intensities(
+        intensity_array, circular_contrast
+    )
     return _pack_parallel_correlations(
-        _apply(beam_weights_rr),
-        _apply(beam_weights_ll),
+        _apply(rr_intensity, beam_weights if rr_beam is None else rr_beam),
+        _apply(ll_intensity, beam_weights if ll_beam is None else ll_beam),
         correlations,
     )

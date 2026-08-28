@@ -1,4 +1,12 @@
-"""Measure temporal cadence, drift, and jumps in CASA calibration tables."""
+"""Instrument-weather statistics: how calibration terms change over time.
+
+"Weather" here is an allegory for the intervening medium and hardware
+state that move the calibration, not the site meteorology table.  The
+script measures solution cadence, drift, and jumps, and which features
+move on which timescales.  Joining CASA ``WEATHER`` / ``SYSPOWER`` /
+``CALDEVICE`` is a later side branch; this output is still the right
+input for those tests.
+"""
 
 from __future__ import annotations
 
@@ -221,7 +229,12 @@ def analyze_table(path: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "Summarise how CASA calibration solutions change with time "
+            "(instrument 'weather': cadence and jumps, not site meteorology)."
+        )
+    )
     parser.add_argument("root", type=Path)
     parser.add_argument(
         "--output", type=Path, default=Path("outputs/calibration_weather.json")

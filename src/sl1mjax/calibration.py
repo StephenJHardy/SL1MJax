@@ -1,4 +1,11 @@
-"""Diagonal parallel-hand calibration solutions, application, and CASA bridges."""
+"""Jones calibration solutions, application, and CASA bridges.
+
+Schema v1 stored one complex gain per correlation product and applied a
+scalar ``J_p J_q*`` per hand.  Schema v2 stores one Jones term per *feed
+receptor* and applies ``C_obs = J_p C_sky J_q^H``.
+Diagonal G, K, and B promote to diagonal 2×2 matrices.  Schema 1 files are
+read and promoted.
+"""
 
 from __future__ import annotations
 
@@ -16,19 +23,39 @@ from jax.typing import ArrayLike
 from sl1mjax.calibration_terms import (
     CalibrationChain,
     CalibrationCoordinates,
-    prior_baseline_jones,
 )
 from sl1mjax.data.canonical import VisibilityBlock, VisibilityDataset
-from sl1mjax.polarization import Correlation, ReceptorBasis
+from sl1mjax.polarization import (
+    Correlation,
+    Receptor,
+    ReceptorBasis,
+    apply_jones_to_coherency,
+    correlation_receptor_pair,
+    diagonal_jones_matrices,
+    invert_jones,
+    pack_coherency,
+    receptors_for_correlations,
+    unpack_coherency,
+)
 
-CALIBRATION_SCHEMA_VERSION = 1
+CALIBRATION_SCHEMA_VERSION = 2
+SUPPORTED_CALIBRATION_SCHEMA_VERSIONS = frozenset({1, 2})
 SPEED_OF_LIGHT_M_S = 299_792_458.0
 
 
 @jax.tree_util.register_pytree_node_class
 @dataclass(frozen=True)
 class CalibrationSolution:
-    """Portable diagonal Jones terms on explicit time/frequency coordinates."""
+    """Portable Jones terms on explicit time/frequency coordinates.
+
+    ``gains``, ``delays_s``, and ``bandpass`` are diagonal per *receptor*
+    (R/L or X/Y), not per packed correlation product.  Application builds
+    *diagonal* 2×2 Jones matrices from those terms and forms
+    ``J_p C J_q^H``.  Off-diagonal leakage and R–L phase are not stored
+    yet.  Full 2×2 matrices can be applied through
+    ``apply_jones_to_coherency``; ``apply_calibration`` itself still
+    constructs only the diagonal promotion of G/K/B.
+    """
 
     gains: np.ndarray
     gain_time_s: np.ndarray
@@ -43,6 +70,7 @@ class CalibrationSolution:
     reference_antenna: int
     reference_frequency_hz: float
     interpolation: str = "nearest"
+    receptors: tuple[Receptor, ...] | None = None
     antenna_position_offset_m: np.ndarray | None = None
     provenance: dict[str, Any] = field(default_factory=dict)
 
@@ -69,6 +97,15 @@ class CalibrationSolution:
             "correlations",
             tuple(Correlation(value) for value in self.correlations),
         )
+        inferred = receptors_for_correlations(self.correlations)
+        if self.receptors is None:
+            object.__setattr__(self, "receptors", inferred)
+        else:
+            object.__setattr__(
+                self,
+                "receptors",
+                tuple(Receptor(value) for value in self.receptors),
+            )
         if self.antenna_position_offset_m is not None:
             object.__setattr__(
                 self,
@@ -83,9 +120,18 @@ class CalibrationSolution:
 
     @property
     def receptor_count(self) -> int:
-        return len(self.correlations)
+        assert self.receptors is not None
+        return len(self.receptors)
 
     def validate(self) -> None:
+        assert self.receptors is not None
+        if not self.receptors:
+            raise ValueError("at least one receptor is required")
+        if len(set(self.receptors)) != len(self.receptors):
+            raise ValueError("receptors must be unique")
+        required = receptors_for_correlations(self.correlations)
+        if any(receptor not in self.receptors for receptor in required):
+            raise ValueError("receptors must include every feed used by correlations")
         receptors = self.receptor_count
         if self.gains.ndim != 3 or self.gains.shape[2] != receptors:
             raise ValueError("gains must have shape (time, antenna, receptor)")
@@ -133,6 +179,7 @@ class CalibrationSolution:
         )
         auxiliary = (
             self.correlations,
+            self.receptors,
             self.reference_antenna,
             self.reference_frequency_hz,
             self.interpolation,
@@ -144,7 +191,14 @@ class CalibrationSolution:
     def tree_unflatten(
         cls, auxiliary: tuple[Any, ...], children: tuple[Any, ...]
     ) -> CalibrationSolution:
-        correlations, reference_antenna, reference_frequency_hz, interpolation, raw = auxiliary
+        (
+            correlations,
+            receptors,
+            reference_antenna,
+            reference_frequency_hz,
+            interpolation,
+            raw,
+        ) = auxiliary
         return cls(
             gains=children[0],
             gain_time_s=children[1],
@@ -159,6 +213,7 @@ class CalibrationSolution:
             reference_antenna=reference_antenna,
             reference_frequency_hz=reference_frequency_hz,
             interpolation=interpolation,
+            receptors=receptors,
             antenna_position_offset_m=children[9],
             provenance=json.loads(raw),
         )
@@ -184,20 +239,23 @@ def identity_solution(
 ) -> CalibrationSolution:
     frequencies = np.asarray(frequency_hz, dtype=np.float64)
     times = np.asarray(time_s, dtype=np.float64)
-    receptors = len(correlations)
+    products = tuple(Correlation(value) for value in correlations)
+    receptors = receptors_for_correlations(products)
+    n_receptor = len(receptors)
     return CalibrationSolution(
-        gains=np.ones((times.size, antenna_count, receptors), dtype=np.complex128),
+        gains=np.ones((times.size, antenna_count, n_receptor), dtype=np.complex128),
         gain_time_s=times,
-        gain_valid=np.ones((times.size, antenna_count, receptors), dtype=bool),
-        gain_interval_s=np.zeros((times.size, antenna_count, receptors), dtype=np.float64),
-        delays_s=np.zeros((antenna_count, receptors)),
-        delay_valid=np.ones((antenna_count, receptors), dtype=bool),
-        bandpass=np.ones((antenna_count, frequencies.size, receptors), dtype=np.complex128),
+        gain_valid=np.ones((times.size, antenna_count, n_receptor), dtype=bool),
+        gain_interval_s=np.zeros((times.size, antenna_count, n_receptor), dtype=np.float64),
+        delays_s=np.zeros((antenna_count, n_receptor)),
+        delay_valid=np.ones((antenna_count, n_receptor), dtype=bool),
+        bandpass=np.ones((antenna_count, frequencies.size, n_receptor), dtype=np.complex128),
         bandpass_frequency_hz=frequencies,
-        bandpass_valid=np.ones((antenna_count, frequencies.size, receptors), dtype=bool),
-        correlations=correlations,
+        bandpass_valid=np.ones((antenna_count, frequencies.size, n_receptor), dtype=bool),
+        correlations=products,
         reference_antenna=reference_antenna,
         reference_frequency_hz=float(np.mean(frequencies)),
+        receptors=receptors,
     )
 
 
@@ -238,24 +296,20 @@ def _frequency_indices(
     return indices
 
 
-def baseline_jones(
+def _sampled_antenna_jones(
     solution: CalibrationSolution,
     time_s: ArrayLike,
     frequency_hz: ArrayLike,
-    antenna1: ArrayLike,
-    antenna2: ArrayLike,
     *,
-    extrapolate: bool = False,
-    phase_centre_rad: tuple[float, float] | None = None,
-    priors: CalibrationChain | None = None,
-    spectral_window_id: int = 0,
-) -> tuple[Array, Array]:
-    """Evaluate `J_p conj(J_q)` and its validity for each parallel hand."""
+    extrapolate: bool,
+    phase_centre_rad: tuple[float, float] | None,
+    priors: CalibrationChain | None,
+    spectral_window_id: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return diagonal antenna Jones and validity: row, channel, antenna, receptor."""
 
     times = np.asarray(time_s, dtype=np.float64)
     frequencies = np.asarray(frequency_hz, dtype=np.float64)
-    first = np.asarray(antenna1, dtype=np.int32)
-    second = np.asarray(antenna2, dtype=np.int32)
     gains = _interpolate_gains(solution, times)
     frequency_indices = _frequency_indices(solution, frequencies, extrapolate=extrapolate)
     bandpass = solution.bandpass[:, frequency_indices, :]
@@ -295,19 +349,12 @@ def baseline_jones(
             2j * np.pi * frequencies[None, :, None] * path_error_m[:, None, :] / SPEED_OF_LIGHT_M_S
         )
         antenna_jones *= position_jones[:, :, :, None]
-    # antenna_jones: row, channel, antenna, receptor
-    row = np.arange(times.size)[:, None, None]
-    channel = np.arange(frequencies.size)[None, :, None]
-    receptor = np.arange(solution.receptor_count)[None, None, :]
-    j1 = antenna_jones[row, channel, first[:, None, None], receptor]
-    j2 = antenna_jones[row, channel, second[:, None, None], receptor]
-    valid_gain = solution.gain_valid
     nearest_gain = np.empty(
         (times.size, solution.antenna_count, solution.receptor_count), dtype=bool
     )
     for antenna in range(solution.antenna_count):
         for selected_receptor in range(solution.receptor_count):
-            valid = valid_gain[:, antenna, selected_receptor]
+            valid = solution.gain_valid[:, antenna, selected_receptor]
             if not np.any(valid):
                 nearest_gain[:, antenna, selected_receptor] = False
                 continue
@@ -324,25 +371,19 @@ def baseline_jones(
             nearest_gain[:, antenna, selected_receptor] = domain_valid & np.isfinite(
                 solution.gains[valid, antenna, selected_receptor][indices]
             )
-    v1 = (
-        nearest_gain[np.arange(times.size), first, :][:, None, :]
-        & solution.delay_valid[first, :][:, None, :]
-        & np.transpose(bandpass_valid[first, :, :], (0, 1, 2))
+    antenna_valid = (
+        nearest_gain[:, None, :, :]
+        & solution.delay_valid[None, None, :, :]
+        & np.transpose(bandpass_valid, (1, 0, 2))[None, :, :, :]
+        & np.isfinite(antenna_jones)
+        & (np.abs(antenna_jones) > 0)
     )
-    v2 = (
-        nearest_gain[np.arange(times.size), second, :][:, None, :]
-        & solution.delay_valid[second, :][:, None, :]
-        & np.transpose(bandpass_valid[second, :, :], (0, 1, 2))
-    )
-    baseline = j1 * np.conj(j2)
-    baseline_valid = v1 & v2
     if priors is not None and priors.terms:
         if priors.antenna_position_m is None:
             raise ValueError("prior calibration requires antenna positions")
         if phase_centre_rad is None:
             raise ValueError("prior calibration requires phase_centre_rad")
-        prior_value, prior_valid = prior_baseline_jones(
-            priors,
+        prior_jones, prior_valid = priors.evaluate(
             CalibrationCoordinates(
                 time_s=times,
                 frequency_hz=frequencies,
@@ -350,13 +391,123 @@ def baseline_jones(
                 phase_centre_rad=phase_centre_rad,
                 antenna_position_m=priors.antenna_position_m,
                 receptor_count=solution.receptor_count,
-            ),
-            first,
-            second,
+            )
         )
-        baseline *= prior_value
-        baseline_valid &= prior_valid
-    return jnp.asarray(baseline), jnp.asarray(baseline_valid)
+        antenna_jones = antenna_jones * prior_jones
+        antenna_valid = antenna_valid & prior_valid
+    return antenna_jones, antenna_valid
+
+
+def _gather_antenna(
+    values: np.ndarray,
+    antenna: np.ndarray,
+) -> np.ndarray:
+    row = np.arange(values.shape[0])[:, None, None]
+    channel = np.arange(values.shape[1])[None, :, None]
+    receptor = np.arange(values.shape[3])[None, None, :]
+    return values[row, channel, antenna[:, None, None], receptor]
+
+
+def _product_validity(
+    antenna_valid: np.ndarray,
+    antenna1: np.ndarray,
+    antenna2: np.ndarray,
+    correlations: tuple[Correlation, ...],
+    receptors: tuple[Receptor, ...],
+) -> np.ndarray:
+    first = _gather_antenna(antenna_valid, antenna1)
+    second = _gather_antenna(antenna_valid, antenna2)
+    index = {receptor: i for i, receptor in enumerate(receptors)}
+    valid = np.empty((*first.shape[:2], len(correlations)), dtype=bool)
+    for slot, correlation in enumerate(correlations):
+        left, right = correlation_receptor_pair(correlation)
+        valid[..., slot] = first[..., index[left]] & second[..., index[right]]
+    return valid
+
+
+def _product_scale(
+    jones_p: np.ndarray,
+    jones_q: np.ndarray,
+    correlations: tuple[Correlation, ...],
+    receptors: tuple[Receptor, ...],
+) -> np.ndarray:
+    """Diagonal Jones product per packed correlation: ``J_p,ii J_q,jj*``."""
+
+    index = {receptor: i for i, receptor in enumerate(receptors)}
+    scale = np.empty((*jones_p.shape[:-2], len(correlations)), dtype=np.complex128)
+    for slot, correlation in enumerate(correlations):
+        left, right = correlation_receptor_pair(correlation)
+        i = index[left]
+        j = index[right]
+        scale[..., slot] = jones_p[..., i, i] * np.conj(jones_q[..., j, j])
+    return scale
+
+
+def _jones_matrices_for_block(
+    solution: CalibrationSolution,
+    time_s: ArrayLike,
+    frequency_hz: ArrayLike,
+    antenna1: ArrayLike,
+    antenna2: ArrayLike,
+    *,
+    extrapolate: bool,
+    phase_centre_rad: tuple[float, float] | None,
+    priors: CalibrationChain | None,
+    spectral_window_id: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return ``J_p``, ``J_q``, and per-receptor antenna validity."""
+
+    first = np.asarray(antenna1, dtype=np.int32)
+    second = np.asarray(antenna2, dtype=np.int32)
+    antenna_jones, antenna_valid = _sampled_antenna_jones(
+        solution,
+        time_s,
+        frequency_hz,
+        extrapolate=extrapolate,
+        phase_centre_rad=phase_centre_rad,
+        priors=priors,
+        spectral_window_id=spectral_window_id,
+    )
+    matrices = diagonal_jones_matrices(antenna_jones)
+    row = np.arange(matrices.shape[0])[:, None, None, None]
+    channel = np.arange(matrices.shape[1])[None, :, None, None]
+    receptor_i = np.arange(matrices.shape[3])[None, None, :, None]
+    receptor_j = np.arange(matrices.shape[4])[None, None, None, :]
+    jones_p = matrices[row, channel, first[:, None, None, None], receptor_i, receptor_j]
+    jones_q = matrices[row, channel, second[:, None, None, None], receptor_i, receptor_j]
+    return jones_p, jones_q, antenna_valid
+
+
+def baseline_jones(
+    solution: CalibrationSolution,
+    time_s: ArrayLike,
+    frequency_hz: ArrayLike,
+    antenna1: ArrayLike,
+    antenna2: ArrayLike,
+    *,
+    extrapolate: bool = False,
+    phase_centre_rad: tuple[float, float] | None = None,
+    priors: CalibrationChain | None = None,
+    spectral_window_id: int = 0,
+) -> tuple[Array, Array]:
+    """Evaluate `J_p conj(J_q)` and its validity for each receptor."""
+
+    first = np.asarray(antenna1, dtype=np.int32)
+    second = np.asarray(antenna2, dtype=np.int32)
+    antenna_jones, antenna_valid = _sampled_antenna_jones(
+        solution,
+        time_s,
+        frequency_hz,
+        extrapolate=extrapolate,
+        phase_centre_rad=phase_centre_rad,
+        priors=priors,
+        spectral_window_id=spectral_window_id,
+    )
+    j1 = _gather_antenna(antenna_jones, first)
+    j2 = _gather_antenna(antenna_jones, second)
+    v1 = _gather_antenna(antenna_valid, first)
+    v2 = _gather_antenna(antenna_valid, second)
+    return jnp.asarray(j1 * np.conj(j2)), jnp.asarray(v1 & v2)
 
 
 def corrupt_model(
@@ -372,21 +523,37 @@ def corrupt_model(
     priors: CalibrationChain | None = None,
     spectral_window_id: int = 0,
 ) -> Array:
-    baseline, valid = baseline_jones(
+    assert solution.receptors is not None
+    model = np.asarray(model_visibility)
+    if model.shape[-1] != len(solution.correlations):
+        raise ValueError("model visibility last axis must match solution correlations")
+    first = np.asarray(antenna1, dtype=np.int32)
+    second = np.asarray(antenna2, dtype=np.int32)
+    jones_p, jones_q, antenna_valid = _jones_matrices_for_block(
         solution,
         time_s,
         frequency_hz,
-        antenna1,
-        antenna2,
+        first,
+        second,
         extrapolate=extrapolate,
         phase_centre_rad=phase_centre_rad,
         priors=priors,
         spectral_window_id=spectral_window_id,
     )
-    model = jnp.asarray(model_visibility)
-    if model.shape != baseline.shape:
-        raise ValueError("model visibility must match the solution parallel hands")
-    return jnp.where(valid, baseline * model, 0.0)
+    valid = _product_validity(
+        antenna_valid,
+        first,
+        second,
+        solution.correlations,
+        solution.receptors,
+    )
+    packed = pack_coherency(model, solution.correlations, solution.receptors)
+    corrupted = unpack_coherency(
+        apply_jones_to_coherency(packed, jones_p, jones_q),
+        solution.correlations,
+        solution.receptors,
+    )
+    return jnp.asarray(np.where(valid, corrupted, 0.0))
 
 
 def apply_calibration(
@@ -397,9 +564,11 @@ def apply_calibration(
     extrapolate: bool = False,
     priors: CalibrationChain | None = None,
 ) -> VisibilityBlock:
-    if block.correlations != solution.correlations:
-        raise ValueError("block correlations must exactly match solution correlations")
-    baseline, valid = baseline_jones(
+    assert solution.receptors is not None
+    required = receptors_for_correlations(block.correlations)
+    if any(receptor not in solution.receptors for receptor in required):
+        raise ValueError("solution receptors must cover every feed in the block")
+    jones_p, jones_q, antenna_valid = _jones_matrices_for_block(
         solution,
         block.time_s,
         block.frequency_hz,
@@ -410,20 +579,34 @@ def apply_calibration(
         priors=priors,
         spectral_window_id=block.spectral_window_id,
     )
-    baseline_array = np.asarray(baseline)
-    valid_array = np.asarray(valid) & np.isfinite(baseline_array) & (np.abs(baseline_array) > 0)
+    valid_array = _product_validity(
+        antenna_valid,
+        np.asarray(block.antenna1, dtype=np.int32),
+        np.asarray(block.antenna2, dtype=np.int32),
+        block.correlations,
+        solution.receptors,
+    )
+    jones_p_inv = invert_jones(jones_p)
+    jones_q_inv = invert_jones(jones_q)
+    finite_inverse = np.all(np.isfinite(jones_p_inv), axis=(-2, -1)) & np.all(
+        np.isfinite(jones_q_inv), axis=(-2, -1)
+    )
+    valid_array = valid_array & finite_inverse[..., None]
     if not extrapolate and np.any(block.active & ~valid_array):
         raise ValueError("active visibility lies outside the calibration solution validity domain")
-    corrected = np.divide(
-        block.visibility,
-        baseline_array,
-        out=np.zeros_like(block.visibility),
-        where=valid_array,
+    packed = pack_coherency(block.visibility, block.correlations, solution.receptors)
+    corrected = unpack_coherency(
+        apply_jones_to_coherency(packed, jones_p_inv, jones_q_inv),
+        block.correlations,
+        solution.receptors,
     )
+    corrected = np.where(valid_array, corrected, 0.0)
     flag = block.flag | ~valid_array
-    weight = (
-        block.weight * np.abs(baseline_array) ** 2 if propagate_weights else block.weight.copy()
-    )
+    if propagate_weights:
+        scale = _product_scale(jones_p, jones_q, block.correlations, solution.receptors)
+        weight = block.weight * np.abs(scale) ** 2
+    else:
+        weight = block.weight.copy()
     provenance = {
         **dict(block.provenance),
         "calibration": {
@@ -436,6 +619,7 @@ def apply_calibration(
             "solution_provenance": solution.provenance,
             "prior_provenance": None if priors is None else priors.provenance,
             "prior_terms": ([] if priors is None else [term.kind for term in priors.terms]),
+            "receptors": [value.value for value in solution.receptors],
         },
     }
     return replace(
@@ -512,6 +696,7 @@ def write_calibration(solution: CalibrationSolution, path: str | Path) -> None:
             {
                 "schema_version": CALIBRATION_SCHEMA_VERSION,
                 "correlations": [value.value for value in solution.correlations],
+                "receptors": [value.value for value in solution.receptors or ()],
                 "reference_antenna": solution.reference_antenna,
                 "reference_frequency_hz": solution.reference_frequency_hz,
                 "interpolation": solution.interpolation,
@@ -528,8 +713,21 @@ def write_calibration(solution: CalibrationSolution, path: str | Path) -> None:
 def read_calibration(path: str | Path) -> CalibrationSolution:
     source = Path(path)
     metadata = json.loads(source.with_suffix(".json").read_text(encoding="utf-8"))
-    if metadata.get("schema_version") != CALIBRATION_SCHEMA_VERSION:
-        raise ValueError(f"unsupported calibration schema {metadata.get('schema_version')}")
+    schema_version = metadata.get("schema_version")
+    if schema_version not in SUPPORTED_CALIBRATION_SCHEMA_VERSIONS:
+        raise ValueError(f"unsupported calibration schema {schema_version}")
+    correlations = tuple(Correlation(value) for value in metadata["correlations"])
+    receptors: tuple[Receptor, ...] | None
+    if schema_version == 1:
+        receptors = None
+    else:
+        receptors = tuple(Receptor(value) for value in metadata["receptors"])
+    provenance = dict(metadata.get("provenance", {}))
+    if schema_version != CALIBRATION_SCHEMA_VERSION:
+        provenance = {
+            **provenance,
+            "promoted_from_schema": schema_version,
+        }
     with np.load(source, allow_pickle=True) as arrays:
         antenna_position = arrays["antenna_position_offset_m"]
         if antenna_position.size == 0:
@@ -544,12 +742,13 @@ def read_calibration(path: str | Path) -> CalibrationSolution:
             bandpass=arrays["bandpass"],
             bandpass_frequency_hz=arrays["bandpass_frequency_hz"],
             bandpass_valid=arrays["bandpass_valid"],
-            correlations=tuple(Correlation(value) for value in metadata["correlations"]),
+            correlations=correlations,
             reference_antenna=int(metadata["reference_antenna"]),
             reference_frequency_hz=float(metadata["reference_frequency_hz"]),
             interpolation=str(metadata["interpolation"]),
+            receptors=receptors,
             antenna_position_offset_m=antenna_position,
-            provenance=dict(metadata.get("provenance", {})),
+            provenance=provenance,
         )
 
 

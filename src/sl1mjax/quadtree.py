@@ -318,6 +318,19 @@ def quadtree_sky_from_regular_grid(
     return QuadtreeSky(grid, grid.root_leaves(), flux_array)
 
 
+def _broadcast_circular_contrast(
+    circular_contrast: ArrayLike | None, leaf_count: int
+) -> Array | None:
+    if circular_contrast is None:
+        return None
+    contrast = jnp.asarray(circular_contrast)
+    if contrast.size == 1:
+        return jnp.broadcast_to(contrast.reshape(()), (leaf_count,))
+    if contrast.shape != (leaf_count,):
+        raise ValueError("circular_contrast must be scalar or one value per leaf")
+    return contrast
+
+
 def _prediction_inputs(
     flux: ArrayLike,
     topology: QuadtreeTopology,
@@ -325,6 +338,7 @@ def _prediction_inputs(
     beam_weights_rr: ArrayLike | None,
     beam_weights_ll: ArrayLike | None,
     centers_lm: tuple[ArrayLike, ArrayLike] | None = None,
+    circular_contrast: ArrayLike | None = None,
 ) -> tuple[
     Array,
     np.ndarray,
@@ -353,6 +367,9 @@ def _prediction_inputs(
         "beam_weights": beam_weights,
         "beam_weights_rr": beam_weights_rr,
         "beam_weights_ll": beam_weights_ll,
+        "circular_contrast": _broadcast_circular_contrast(
+            circular_contrast, len(topology.leaves)
+        ),
     }
     for name, value in component_arrays.items():
         if value is not None:
@@ -386,6 +403,7 @@ def predict_quadtree_stokes_i(
     beam_weights_rr: ArrayLike | None = None,
     beam_weights_ll: ArrayLike | None = None,
     centers_lm: tuple[ArrayLike, ArrayLike] | None = None,
+    circular_contrast: ArrayLike | None = None,
     **predict_kwargs: Any,
 ) -> Array:
     """Predict correlations for a quadtree sky.
@@ -415,6 +433,7 @@ def predict_quadtree_stokes_i(
         beam_weights_rr,
         beam_weights_ll,
         centers_lm,
+        circular_contrast,
     )
     total: Array | None = None
     for level in sorted(set(levels.tolist())):
@@ -455,6 +474,7 @@ def predict_quadtree_stokes_i_explicit(
     beam_weights_rr: ArrayLike | None = None,
     beam_weights_ll: ArrayLike | None = None,
     centers_lm: tuple[ArrayLike, ArrayLike] | None = None,
+    circular_contrast: ArrayLike | None = None,
 ) -> Array:
     """Predict a quadtree sky with the streamed explicit DFT and adjoint.
 
@@ -471,6 +491,7 @@ def predict_quadtree_stokes_i_explicit(
         beam_weights_rr,
         beam_weights_ll,
         centers_lm,
+        circular_contrast,
     )
     total: Array | None = None
     for level in sorted(set(levels.tolist())):

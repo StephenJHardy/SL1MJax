@@ -18,6 +18,7 @@ from sl1mjax.calibration_inference import (
     solve_time_gains,
 )
 from sl1mjax.data.synthetic import CalibrationSyntheticCase, simulate_calibration_case
+from sl1mjax.polarization import Correlation
 from sl1mjax.split import calibration_split
 
 
@@ -163,3 +164,34 @@ def test_calibration_checkpoint_round_trip(tmp_path: Path) -> None:
     assert restored.stage == result.stage
     assert restored.losses == result.losses
     np.testing.assert_array_equal(restored.solution.gains, result.solution.gains)
+
+
+def test_diagonal_solver_rejects_four_product_blocks() -> None:
+    case = simulate_calibration_case(terms=("G",), seed=1)
+    block = replace(
+        case.block,
+        visibility=np.concatenate(
+            [case.block.visibility, np.zeros_like(case.block.visibility)],
+            axis=-1,
+        ),
+        weight=np.concatenate(
+            [case.block.weight, case.block.weight],
+            axis=-1,
+        ),
+        flag=np.concatenate(
+            [case.block.flag, np.ones_like(case.block.flag)],
+            axis=-1,
+        ),
+        correlations=(
+            Correlation.RR,
+            Correlation.LL,
+            Correlation.RL,
+            Correlation.LR,
+        ),
+        model_visibility=np.concatenate(
+            [case.block.model_visibility, np.zeros_like(case.block.model_visibility)],
+            axis=-1,
+        ),
+    )
+    with pytest.raises(ValueError, match="one parallel-hand product per receptor"):
+        solve_time_gains(block, _identity(case), config=CalibrationSolveConfig(iterations=1))

@@ -35,6 +35,12 @@ from sl1mjax.catalog import (  # noqa: E402
     select_catalog_guard_atoms,
     write_radio_catalog,
 )
+from sl1mjax.circular_contrast import (  # noqa: E402
+    apply_global_circular_contrast,
+    clip_circular_contrast,
+    fit_global_circular_contrast,
+    parallel_hand_intensities,
+)
 from sl1mjax.composite import (  # noqa: E402
     MosaicCompositeInferenceResult,
     MosaicPointComponent,
@@ -91,7 +97,7 @@ from sl1mjax.inference import (  # noqa: E402
     positive_l1_kkt_residual,
     predict_mosaic_quadtree,
 )
-from sl1mjax.polarization import Correlation, ReceptorBasis  # noqa: E402
+from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis  # noqa: E402
 from sl1mjax.quadtree import (  # noqa: E402
     QuadtreeGrid,
     QuadtreeLeaf,
@@ -246,6 +252,7 @@ __all__ = [
     "QuadtreeObjectiveMetrics",
     "RefinementAttempt",
     "RefinementBatchResult",
+    "Receptor",
     "ReceptorBasis",
     "RadioCatalogSource",
     "RequantizerTerm",
@@ -273,6 +280,7 @@ __all__ = [
     "VisibilityDataset",
     "advance_merge_hysteresis",
     "apply_calibration",
+    "apply_global_circular_contrast",
     "apply_residual_handling",
     "audit_existing_flags",
     "baseline_group_masks",
@@ -282,6 +290,7 @@ __all__ = [
     "blind_search_spatial_sky_variation",
     "batched_exact_residual_haar_scores",
     "batched_residual_haar_scores",
+    "clip_circular_contrast",
     "compare_haar_to_oracle",
     "compare_lookahead_to_oracle",
     "compare_merge_lookahead_to_oracle",
@@ -295,6 +304,7 @@ __all__ = [
     "exhaustive_single_merge_oracle",
     "exhaustive_single_split_oracle",
     "gaussian_primary_beam",
+    "fit_global_circular_contrast",
     "fit_grouped_real_sky_component",
     "fit_real_sky_component",
     "infer_regular_grid",
@@ -308,6 +318,7 @@ __all__ = [
     "interleaved_time_fold_masks",
     "interleaved_time_folds",
     "inject_sky_component",
+    "parallel_hand_intensities",
     "positive_l1_kkt_residual",
     "identity_solution",
     "leaves_exceeding_error_bound",

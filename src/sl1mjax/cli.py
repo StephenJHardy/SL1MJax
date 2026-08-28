@@ -75,7 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument(
         "--solver",
         choices=("softplus_adam", "fista", "proximal_sgd", "hybrid"),
-        default="softplus_adam",
+        default="hybrid",
+        help=(
+            "Flux solver (default: hybrid). Saved Adam optimizer state can be "
+            "continued only with softplus_adam."
+        ),
     )
     image.add_argument("--batch-size-rows", type=int, default=1024)
     image.add_argument("--random-seed", type=int, default=0)

@@ -77,6 +77,7 @@ def _smooth_fit(seed: int = 13) -> tuple[VisibilityBlock, np.ndarray, np.ndarray
     holdout[:16] = True
     train = block.active & ~holdout
     config = InferenceConfig(
+        solver="fista",
         steps=180,
         learning_rate=0.1,
         sparsity_weight=1e-8,
@@ -107,6 +108,7 @@ def _structured_fit(seed: int = 13) -> tuple[VisibilityBlock, np.ndarray, np.nda
     holdout[:16] = True
     train = block.active & ~holdout
     config = InferenceConfig(
+        solver="fista",
         steps=180,
         learning_rate=0.1,
         sparsity_weight=1e-8,
@@ -153,7 +155,7 @@ def test_local_merge_lookahead_conserves_flux_for_a_smooth_region() -> None:
         block,
         fit,
         train,
-        InferenceConfig(sparsity_weight=1e-8),
+        InferenceConfig(solver="fista", sparsity_weight=1e-8),
         holdout_mask=holdout,
         approximation=GaussianApproximation.PARAXIAL,
     )
@@ -173,7 +175,7 @@ def test_local_merge_lookahead_rejects_genuine_child_detail() -> None:
         block,
         fit,
         train,
-        InferenceConfig(sparsity_weight=1e-8),
+        InferenceConfig(solver="fista", sparsity_weight=1e-8),
         holdout_mask=holdout,
         approximation=GaussianApproximation.PARAXIAL,
     )
@@ -185,6 +187,7 @@ def test_local_merge_lookahead_rejects_genuine_child_detail() -> None:
 def test_merge_lookahead_matches_exhaustive_oracle_on_smooth_region() -> None:
     block, train, holdout, fit = _smooth_fit()
     config = InferenceConfig(
+        solver="fista",
         steps=180,
         learning_rate=0.1,
         sparsity_weight=1e-8,
@@ -220,7 +223,7 @@ def test_merge_lookahead_matches_exhaustive_oracle_on_smooth_region() -> None:
 
 def test_merge_hysteresis_requires_two_consecutive_eligible_rounds() -> None:
     block, train, holdout, fit = _smooth_fit()
-    config = InferenceConfig(sparsity_weight=1e-8)
+    config = InferenceConfig(solver="fista", sparsity_weight=1e-8)
     lookahead = local_four_sibling_merge_lookahead(
         block,
         fit,
@@ -365,6 +368,7 @@ def test_select_bulk_merges_gates_on_cooldown_directly() -> None:
 def test_merge_quadtree_batch_accepts_and_conserves_flux() -> None:
     block, train, holdout, fit = _smooth_fit()
     config = InferenceConfig(
+        solver="fista",
         steps=180,
         learning_rate=0.1,
         sparsity_weight=1e-8,
@@ -394,6 +398,7 @@ def test_merge_quadtree_batch_accepts_and_conserves_flux() -> None:
 def test_merge_quadtree_batch_rejects_structured_region() -> None:
     block, train, holdout, fit = _structured_fit()
     config = InferenceConfig(
+        solver="fista",
         steps=180,
         learning_rate=0.1,
         sparsity_weight=1e-8,
@@ -420,7 +425,7 @@ def test_merge_quadtree_batch_rejects_structured_region() -> None:
 
 def test_merge_quadtree_batch_rejects_invalid_or_incomplete_candidates() -> None:
     block, train, holdout, fit = _smooth_fit()
-    config = InferenceConfig(sparsity_weight=1e-8)
+    config = InferenceConfig(solver="fista", sparsity_weight=1e-8)
 
     with pytest.raises(ValueError, match="not mergeable"):
         merge_quadtree_batch(

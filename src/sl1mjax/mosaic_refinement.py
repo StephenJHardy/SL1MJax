@@ -18,6 +18,7 @@ from sl1mjax.hierarchical_imaging import AdaptiveRefinementConfig
 from sl1mjax.inference import (
     InferenceConfig,
     MosaicQuadtreeInferenceResult,
+    _require_physical_flux_solver,
     infer_mosaic_quadtree,
 )
 from sl1mjax.objective import effective_weight
@@ -775,8 +776,9 @@ def reconstruct_mosaic_hierarchical(
 
     if config.inference.operator_mode != "explicit":
         raise ValueError("adaptive mosaic imaging requires operator_mode='explicit'")
-    if config.inference.solver != "fista":
-        raise ValueError("adaptive mosaic imaging currently requires solver='fista'")
+    _require_physical_flux_solver(
+        config.inference.solver, context="adaptive mosaic imaging"
+    )
     synthesized_beam = None
     resolution_max_depth = None
     effective_max_depth = config.max_depth

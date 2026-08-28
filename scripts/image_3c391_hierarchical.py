@@ -458,7 +458,7 @@ def main() -> int:
     parser.add_argument(
         "--solver",
         choices=("softplus_adam", "fista", "proximal_sgd", "hybrid"),
-        default="softplus_adam",
+        default="hybrid",
     )
     parser.add_argument("--batch-size-rows", type=int, default=1024)
     parser.add_argument("--random-seed", type=int, default=0)

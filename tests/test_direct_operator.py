@@ -321,6 +321,7 @@ def test_explicit_operator_runs_inside_jitted_optax_inference() -> None:
         grid,
         block.active,
         InferenceConfig(
+            solver="softplus_adam",
             steps=3,
             learning_rate=0.1,
             patience=4,

@@ -17,6 +17,7 @@ from sl1mjax.calibration_inference import (
     solve_time_gains,
     transfer_flux_scale,
 )
+from sl1mjax.polarization import Receptor
 from sl1mjax.split import calibration_split
 
 FIXTURE = Path(__file__).parent / "fixtures" / "3c391_calibration_golden.npz"
@@ -95,6 +96,9 @@ def test_imported_casa_kbg_application_reproduces_corrected_visibilities() -> No
         )
         < 2e-3
     )
+    assert solution.receptors == (Receptor.R, Receptor.L)
+    assert solution.receptor_count == 2
+    assert solution.gains.shape[-1] == 2
     assert solution.provenance["antenna_position_application"] == "ecef_phase_applied"
 
 

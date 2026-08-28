@@ -35,6 +35,13 @@ from sl1mjax.sky import (
 
 @dataclass(frozen=True)
 class InferenceConfig:
+    """Positive-flux inference settings.
+
+    ``solver`` defaults to ``hybrid`` (proximal SGD, then FISTA).  Passing a
+    saved ``initial_optimizer_state`` still requires an explicit
+    ``solver="softplus_adam"``; other solvers raise.
+    """
+
     steps: int = 500
     learning_rate: float = 0.05
     sparsity_weight: float = 1e-4
@@ -44,7 +51,7 @@ class InferenceConfig:
     patience: int = 100
     min_delta: float = 1e-9
     validation_interval: int = 10
-    solver: Literal["softplus_adam", "fista", "proximal_sgd", "hybrid"] = "softplus_adam"
+    solver: Literal["softplus_adam", "fista", "proximal_sgd", "hybrid"] = "hybrid"
     batch_size_rows: int = 1024
     random_seed: int = 0
     hybrid_sgd_fraction: float = 0.5
@@ -67,7 +74,7 @@ class InferenceResult:
     best_step: int
     steps: int
     converged: bool
-    solver: str = "softplus_adam"
+    solver: str = "hybrid"
     objective_steps: tuple[int, ...] = ()
     stationarity_history: tuple[float, ...] = ()
     stationarity_steps: tuple[int, ...] = ()
@@ -94,7 +101,7 @@ class QuadtreeInferenceResult:
     best_step: int
     steps: int
     converged: bool
-    solver: str = "softplus_adam"
+    solver: str = "hybrid"
     objective_steps: tuple[int, ...] = ()
     stationarity_history: tuple[float, ...] = ()
     stationarity_steps: tuple[int, ...] = ()
@@ -141,11 +148,41 @@ class _PositiveFluxFit:
     best_step: int
     steps: int
     converged: bool
-    solver: str = "softplus_adam"
+    solver: str = "hybrid"
     objective_steps: tuple[int, ...] = ()
     stationarity_history: tuple[float, ...] = ()
     stationarity_steps: tuple[int, ...] = ()
     kkt_residual: float = float("nan")
+
+
+PHYSICAL_FLUX_SOLVERS = frozenset({"fista", "proximal_sgd", "hybrid"})
+
+
+def _require_physical_flux_solver(solver: str, *, context: str) -> None:
+    if solver not in PHYSICAL_FLUX_SOLVERS:
+        raise ValueError(
+            f"{context} requires a physical-flux solver "
+            f"(fista, proximal_sgd, or hybrid); got {solver!r}"
+        )
+
+
+def _full_problem_batch_objective(
+    smooth_objective: Callable[[jax.Array], jax.Array],
+) -> Callable[[jax.Array, jax.Array, jax.Array], jax.Array]:
+    """Use the full-data smooth objective as a proximal-GD batch.
+
+    Mosaic and composite fits do not yet expose a block-aware row sampler.
+    Hybrid and proximal SGD can still run as full-problem proximal steps
+    followed, for hybrid, by a FISTA finish.
+    """
+
+    def batch_smooth_objective(
+        flux: jax.Array, rows: jax.Array, valid_rows: jax.Array
+    ) -> jax.Array:
+        del rows, valid_rows
+        return smooth_objective(flux)
+
+    return batch_smooth_objective
 
 
 def create_optimizer(config: InferenceConfig) -> optax.GradientTransformation:
@@ -328,6 +365,15 @@ def _fit_positive_flux(
         solver="softplus_adam",
         objective_steps=tuple(range(1, len(objectives) + 1)),
     )
+
+
+def _physical_batch_objective_or_none(
+    solver: str,
+    smooth_objective: Callable[[jax.Array], jax.Array],
+) -> Callable[[jax.Array, jax.Array, jax.Array], jax.Array] | None:
+    if solver == "fista":
+        return None
+    return _full_problem_batch_objective(smooth_objective)
 
 
 def _fit_physical_flux(
@@ -1211,20 +1257,21 @@ def infer_mosaic_quadtree(
     the pointing centres. The approximation is negligible for the few-arcmin
     3C391 mosaic, but should be revisited for degree-scale mosaics.
 
-    This first joint implementation deliberately supports deterministic FISTA
-    only. A stochastic mosaic solver needs a block-aware row sampler so its
-    gradient remains unbiased across pointings.
+    Hybrid and proximal SGD currently take full-mosaic proximal steps rather
+    than sampling rows across pointings. A block-aware sampler can replace
+    that later without changing the sky parameterisation.
     """
 
-    configuration = config or InferenceConfig(solver="fista")
+    configuration = config or InferenceConfig(solver="hybrid", operator_mode="explicit")
     if not blocks:
         raise ValueError("blocks must contain at least one visibility block")
     if len(train_masks) != len(blocks):
         raise ValueError("train_masks must contain one mask per block")
     if holdout_masks is not None and len(holdout_masks) != len(blocks):
         raise ValueError("holdout_masks must contain one mask per block")
-    if configuration.solver != "fista":
-        raise ValueError("mosaic quadtree inference currently requires solver='fista'")
+    _require_physical_flux_solver(
+        configuration.solver, context="mosaic quadtree inference"
+    )
     if configuration.operator_mode != "explicit":
         raise ValueError("mosaic quadtree inference requires operator_mode='explicit'")
     if configuration.smoothness_weight != 0:
@@ -1398,7 +1445,7 @@ def infer_mosaic_quadtree(
         configuration,
         full_terms,
         smooth_objective,
-        None,
+        _physical_batch_objective_or_none(configuration.solver, smooth_objective),
         holdout_data,
         has_holdout=has_holdout,
         eligible_rows=np.ones(1, dtype=bool),

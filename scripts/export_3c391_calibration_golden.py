@@ -13,19 +13,21 @@ from casacore import tables
 MEASUREMENT_SET = Path(
     os.environ.get(
         "SL1MJAX_3C391_MS",
-        "/Volumes/BagOfWinds/NRAO/3c391/work-v2/3c391_ctm_mosaic_10s_spw0.ms",
+        Path(__file__).resolve().parents[1]
+        / "data/3c391_work_v2/3c391_ctm_mosaic_10s_spw0.ms",
     )
 )
 REFERENCE = Path(
     os.environ.get(
         "SL1MJAX_3C391_REFERENCE",
-        "/Volumes/BagOfWinds/NRAO/3c391/reference-v2",
+        Path(__file__).resolve().parents[1] / "data/3c391/reference-v2",
     )
 )
 OUTPUT = Path(
     os.environ.get(
         "SL1MJAX_3C391_GOLDEN",
-        "/Volumes/BagOfWinds/NRAO/3c391/golden/3c391_calibration_golden.npz",
+        Path(__file__).resolve().parents[1]
+        / "data/3c391/golden/3c391_calibration_golden.npz",
     )
 )
 

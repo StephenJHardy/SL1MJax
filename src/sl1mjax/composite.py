@@ -24,6 +24,8 @@ from sl1mjax.inference import (
     InferenceConfig,
     _fit_physical_flux,
     _inference_dtypes,
+    _physical_batch_objective_or_none,
+    _require_physical_flux_solver,
     _validate_inference_inputs,
 )
 from sl1mjax.objective import effective_weight
@@ -417,15 +419,16 @@ def infer_mosaic_composite(
     weights need to be comparable across groups.
     """
 
-    configuration = config or InferenceConfig(solver="fista")
+    configuration = config or InferenceConfig(solver="hybrid", operator_mode="explicit")
     if not blocks:
         raise ValueError("blocks must contain at least one visibility block")
     if len(train_masks) != len(blocks):
         raise ValueError("train_masks must contain one mask per block")
     if holdout_masks is not None and len(holdout_masks) != len(blocks):
         raise ValueError("holdout_masks must contain one mask per block")
-    if configuration.solver != "fista":
-        raise ValueError("composite mosaic inference currently requires solver='fista'")
+    _require_physical_flux_solver(
+        configuration.solver, context="composite mosaic inference"
+    )
     if configuration.operator_mode != "explicit":
         raise ValueError("composite mosaic inference requires operator_mode='explicit'")
     if configuration.smoothness_weight != 0:
@@ -549,7 +552,7 @@ def infer_mosaic_composite(
         configuration,
         full_terms,
         smooth_objective,
-        None,
+        _physical_batch_objective_or_none(configuration.solver, smooth_objective),
         holdout_data,
         has_holdout=has_holdout,
         eligible_rows=np.ones(1, dtype=bool),

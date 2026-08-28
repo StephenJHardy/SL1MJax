@@ -39,6 +39,7 @@ def reconstruction() -> Iterator[
         seed=11,
     ).blocks[0]
     config = InferenceConfig(
+        solver="softplus_adam",
         steps=120,
         learning_rate=0.12,
         sparsity_weight=1e-5,
@@ -134,6 +135,7 @@ def test_structured_holdout_and_diagnostics_are_correlation_aware(
             size=grid.size,
             pixel_size_rad=grid.pixel_size_rad,
             inference=InferenceConfig(
+                solver="softplus_adam",
                 steps=50,
                 learning_rate=0.12,
                 sparsity_weight=1e-5,
