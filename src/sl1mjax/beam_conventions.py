@@ -391,6 +391,17 @@ def perley2016_frequency_support_hz() -> tuple[float, float]:
     return windows[0].frequency_hz, windows[-1].frequency_hz
 
 
+def perley2016_frequency_is_supported(frequency_hz: ArrayLike) -> NDArray[np.bool_]:
+    """Return where a frequency lies inside the Table 5 C-band interval."""
+
+    frequency = np.asarray(frequency_hz, dtype=np.float64)
+    low, high = perley2016_frequency_support_hz()
+    return np.asarray(
+        np.isfinite(frequency) & (frequency >= low) & (frequency <= high),
+        dtype=np.bool_,
+    )
+
+
 def casa_nearest_switch_frequency_hz(
     lower: Perley2016CBandWindow, upper: Perley2016CBandWindow
 ) -> float:

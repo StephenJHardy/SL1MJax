@@ -86,6 +86,14 @@ Direction-dependent beam conventions are frozen in
 - The Perley 2016 C-band polynomial fails closed outside 4.052–7.948 GHz
   and outside its 5% power radius. `casa_nearest` is a CASA-parity policy,
   not a spectral interpolation model.
+- The voltage-beam evaluator returns Jones on axes
+  `(antenna, direction, channel, R/L, R/L)`. Scalar backends are
+  diagonal. Perley voltage is the real nonnegative \(\sqrt{P}\). Airy
+  voltage is the signed blocked-aperture pattern; that extra \(\pi\)
+  phase is an analytic assumption, not part of the scalar power model.
+  A composite uses Perley in its spatial support and Airy only for
+  in-band directions outside that radius. The handover policy is
+  explicit. Imaging still uses the static Airy power path.
 
 ## Weights, flags, and objective
 

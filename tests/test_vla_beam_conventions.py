@@ -39,6 +39,7 @@ from sl1mjax.beam_conventions import (
     nearest_perley2016_cband_window,
     nrao_gaussian_fwhm_arcmin,
     observation_3c391_crosses_casa_nearest_switch,
+    perley2016_frequency_is_supported,
     perley2016_stokes_i_power,
     perley2016_stokes_i_validity,
     require_beam_calibration_state,
@@ -112,6 +113,10 @@ def test_perley2016_fails_closed_outside_frequency_and_radius_support() -> None:
     assert bool(perley2016_stokes_i_validity(60.0, 4.6e9, window)) is False
     outside = perley2016_stokes_i_power(60.0, 4.6e9, window, require_valid=False)
     assert np.isnan(outside)
+    assert bool(perley2016_frequency_is_supported(4.052e9))
+    assert bool(perley2016_frequency_is_supported(7.948e9))
+    assert not bool(perley2016_frequency_is_supported(1.4e9))
+    assert not bool(perley2016_frequency_is_supported(1.0e10))
 
 
 def test_casa_nearest_is_not_an_interpolation_policy() -> None:

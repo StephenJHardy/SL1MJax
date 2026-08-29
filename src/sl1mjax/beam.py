@@ -235,12 +235,14 @@ def _gaussian_power(
     )
 
 
-def _airy_power(
+def _airy_voltage(
     l: np.ndarray,
     m: np.ndarray,
     frequency: np.ndarray,
     catalog: VLABeamCatalog,
 ) -> NDArray[np.float64]:
+    """Return the blocked-Airy voltage, zero beyond the catalog cutoff."""
+
     angular_radius = _angular_radius(l, m)
     wavelength = SPEED_OF_LIGHT_M_S / frequency
     argument = (
@@ -250,9 +252,19 @@ def _airy_power(
     voltage = (
         _jinc(argument) - blockage_ratio**2 * _jinc(blockage_ratio * argument)
     ) / (1.0 - blockage_ratio**2)
-    power = np.square(voltage)
     max_radius = catalog.airy_max_radius_rad(frequency)
-    return np.asarray(np.where(angular_radius <= max_radius, power, 0.0), dtype=np.float64)
+    return np.asarray(
+        np.where(angular_radius <= max_radius, voltage, 0.0), dtype=np.float64
+    )
+
+
+def _airy_power(
+    l: np.ndarray,
+    m: np.ndarray,
+    frequency: np.ndarray,
+    catalog: VLABeamCatalog,
+) -> NDArray[np.float64]:
+    return np.asarray(np.square(_airy_voltage(l, m, frequency, catalog)), dtype=np.float64)
 
 
 def gaussian_primary_beam(

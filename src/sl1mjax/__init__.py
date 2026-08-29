@@ -235,6 +235,15 @@ from sl1mjax.sky_recovery import (  # noqa: E402
     temporal_support_mask,
 )
 from sl1mjax.split import interleaved_time_fold_masks, interleaved_time_folds  # noqa: E402
+from sl1mjax.voltage_beam import (  # noqa: E402
+    AnalyticAiryVoltageBeam,
+    BeamCoordinates,
+    BeamEvaluation,
+    CompositeHandoverPolicy,
+    CompositeScalarVoltageBeam,
+    Perley2016CBandVoltageBeam,
+    beam_coordinates,
+)
 
 __all__ = [
     "Correlation",
@@ -242,7 +251,10 @@ __all__ = [
     "BulkSplitSelection",
     "BaselineHoldout",
     "BaselineSearchSplit",
+    "AnalyticAiryVoltageBeam",
     "BeamCalibrationState",
+    "BeamCoordinates",
+    "BeamEvaluation",
     "BlindSpatialVariationSearchResult",
     "BlindSkyVariationSearchResult",
     "CalibrationFitResult",
@@ -252,6 +264,8 @@ __all__ = [
     "CalibrationCoordinates",
     "CalibrationSolution",
     "CalibrationSolveConfig",
+    "CompositeHandoverPolicy",
+    "CompositeScalarVoltageBeam",
     "CatalogGuardAtom",
     "COMPOUND_N4_BASIS",
     "CompoundPixelBasis",
@@ -307,6 +321,7 @@ __all__ = [
     "RecoveryScore",
     "ResidualHaarScore",
     "OpacityTerm",
+    "Perley2016CBandVoltageBeam",
     "PolarizationFloor",
     "SquarePixelBasis",
     "SingleMergeEvaluation",
@@ -327,6 +342,7 @@ __all__ = [
     "apply_residual_handling",
     "audit_existing_flags",
     "baseline_group_masks",
+    "beam_coordinates",
     "baseline_split_scores",
     "blind_search_quadtree_sky_variation",
     "blind_search_sky_variation",

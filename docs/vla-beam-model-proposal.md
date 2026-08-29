@@ -628,6 +628,15 @@ about twice the Memo 195 total. It stays off.
 Deliverable: the full-Jones interface with exact parity for the accepted
 Stokes-I Airy model.
 
+**Status (2026-08-29):** complete. `BeamCoordinates`, `BeamEvaluation`, and
+`VoltageBeamModel` live in `src/sl1mjax/voltage_beam.py`.
+`AnalyticAiryVoltageBeam` returns a signed blocked-aperture diagonal voltage
+whose Stokes-I power matches `VLAPrimaryBeam`. The sign is an extra
+\(\pi\)-phase assumption and is recorded as
+`signed_blocked_aperture_voltage`. The static power operator remains the
+imaging path. Validity is per sample; provenance records calibration
+state, receptor order, and ignored antenna/PA coordinates.
+
 ### Phase 3: empirical scalar C-band backend
 
 1. Import the VLA C-band empirical radial coefficients with their provenance.
@@ -639,6 +648,18 @@ Stokes-I Airy model.
 
 Deliverable: a measured scalar main-beam model without losing the known outer
 sky.
+
+**Status (2026-08-29):** complete for the fail-closed Perley evaluator, not
+the predict path and not an independent CASA golden. `Perley2016CBandVoltageBeam`
+evaluates Table 5 as nonnegative \(\sqrt{P}\) with `casa_nearest` only.
+Support fails closed outside 4.052–7.948 GHz and the 5% radius. Width and
+attenuation are consistent with the transcribed table and stay within ~6%
+of the OSS \(42/\nu\) HWHM. That is not a live `PBMath1DEVLA` comparison.
+`CompositeScalarVoltageBeam` uses Perley in its spatial support and Airy
+only for in-band directions outside that radius. The handover is an
+explicit policy: `match_power` continues power at the 5% radius;
+`hard_splice` is the discontinuous join. Imaging still uses the static
+Airy operator.
 
 ### Phase 4: streamed per-timestep operator
 
@@ -929,11 +950,11 @@ approximation.
 
 ## Immediate next step
 
-Phase 1 scalar inventory is complete. Do not build a cache. Do not treat
-CASSBEAM or holography filenames as a frozen full-Jones reference.
+Do not start Phase 4. The composite handover and frequency-support rules
+are now explicit, but the evaluator is still not connected to a streamed
+operator or the 3C391 predict path.
 
-Implement the Phase 2 evaluator contract and wrap the current Airy beam as a
-normalized diagonal voltage Jones. This creates a regression-safe path from
-the present model to the streamed per-timestep operator. Profile only after
-the direct empirical and full-Jones candidates can be compared on the same
-3C391 partitions.
+Do not build a cache. Do not treat CASSBEAM or holography filenames as a
+frozen full-Jones reference. Do not replace the 3C391 Airy predict path.
+A compact frozen CASA `PBMath1DEVLA` sample is still required before any
+CASA-parity gate is described as complete.

@@ -3,8 +3,8 @@
 Phase 1 of [`vla-beam-model-proposal.md`](vla-beam-model-proposal.md). The
 scalar C-band inventory and internal coordinate conventions are frozen. The
 full-polarisation artifact and the physical antenna-frame orientation are
-identified routes, not frozen references. This document does not define a
-cache or a voltage-beam evaluator.
+identified routes, not frozen references. Phases 2 and 3 add the voltage
+evaluator; they do not add a cache or change the Airy predict path.
 
 The machine-readable inventory lives in
 [`src/sl1mjax/beam_conventions.py`](../src/sl1mjax/beam_conventions.py) and
@@ -225,13 +225,37 @@ produce \(I\rightarrow Q/U\). Off-diagonal Jones is required for the
 rotating linear-polarisation leakage seen in the 64″ ancestor \(Q/U\)
 experiment.
 
-## What Phase 1 does not do
+## Voltage evaluator
 
-- No voltage-beam evaluator (`VoltageBeamModel` is Phase 2)
+Phases 2 and 3 add `src/sl1mjax/voltage_beam.py`. The Jones axes are
+`(antenna, direction, channel, receptor_out, receptor_in)` with receptors
+`(R, L)`. Perley voltage is the real nonnegative square root of Stokes-I
+power. Airy voltage is the signed blocked-aperture pattern. Array-average
+backends ignore antenna id, parallactic angle, and elevation.
+
+| Backend | Role |
+| --- | --- |
+| `AnalyticAiryVoltageBeam` | Exact power parity with `VLAPrimaryBeam` |
+| `Perley2016CBandVoltageBeam` | Memo 195 Table 5, `casa_nearest` only |
+| `CompositeScalarVoltageBeam` | In-band Perley support; explicit Airy handover |
+
+The imaging predict path still uses the static Airy power operator.
+
+The composite Airy fallback is spatial and in-band only. Frequencies
+outside 4.052–7.948 GHz stay unsupported. `match_power` scales Airy so
+power is continuous at the Perley 5% radius; `hard_splice` keeps the
+~19% power jump and must be requested. Neither handover is a physical
+far-sidelobe model.
+
+Width tests check the transcribed Table 5 HWHM, not a live CASA
+`PBMath1DEVLA` sample.
+
+## Still open after Phases 1–3
+
 - No cache format
-- No empirical backend in the predict path (Phase 3)
-- No streamed per-timestep operator (Phase 4)
+- No streamed per-timestep operator; do not start Phase 4 yet
+- No frozen CASA `PBMath1DEVLA` beam samples
+- No empirical backend in the 3C391 predict path
 - No frozen CASSBEAM configuration or acquired holography checksum
 - No physically verified antenna-frame polarisation orientation
-- No change to the 3C391 Airy production beam
 - No finer sky regions, RM, self-cal, or spatial \(V\)
