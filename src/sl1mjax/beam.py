@@ -1,9 +1,11 @@
 """VLA primary-beam catalog and on-grid power patterns.
 
 The Airy dish, blockage, and maximum radius match CASA ``vpmanager.setpbairy``
-defaults for the VLA. Beam squint is the usual feed offset: RR and LL power
-peaks are displaced by a fixed fraction of the Gaussian FWHM, in opposite
-directions, scaling as ``1/frequency``.
+defaults for the VLA. Optional beam squint displaces each receptor by
+``VLA_SQUINT_FWHM_FRACTION`` of the Gaussian FWHM, in opposite directions,
+scaling as ``1/frequency``. That stored value is a receptor half-offset, so
+the total RCP–LCP separation is twice as large. It is not evidence-grade;
+see ``beam_conventions``.
 """
 
 from __future__ import annotations
@@ -20,6 +22,10 @@ VLA_DISH_DIAMETER_M = 25.0
 VLA_BLOCKAGE_DIAMETER_M = 2.5
 VLA_GAUSSIAN_FWHM_FACTOR = 1.02
 VLA_AIRY_MAX_RADIUS_RAD_AT_1GHZ = np.deg2rad(0.8)
+# Receptor half-offset as a fraction of Gaussian FWHM. Opposite hands
+# therefore have a total RCP–LCP separation of 0.12 FWHM. Published totals
+# are ~0.05–0.06 FWHM (EVLA Memo 195: 2.4 arcmin·GHz). Do not enable for
+# evidence-grade work; see sl1mjax.beam_conventions.
 VLA_SQUINT_FWHM_FRACTION = 0.06
 VLA_SQUINT_REFERENCE_HZ = 1.0e9
 

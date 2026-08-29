@@ -606,6 +606,16 @@ Cache interpolation is a model approximation and must be validated as such.
 Deliverable: a short reference inventory and frozen convention tests. Do not
 begin with a cache format.
 
+**Status (2026-08-29):** scalar reference inventory complete; full-polarisation
+artifact and antenna-frame oracle identified but not yet frozen. See
+[`vla-beam-reference-inventory.md`](vla-beam-reference-inventory.md),
+`src/sl1mjax/beam_conventions.py`, and `tests/test_vla_beam_conventions.py`.
+The C-band scalar source is Perley 2016 / EVLA Memo 195 Table 5. CASSBEAM
+export and the archived holography grids are identified routes, not pinned
+references. Physical feed-frame PA and R/L sign remain a Phase 5/6 blocker.
+The unused Airy squint stores a receptor half-offset of 0.06 FWHM and is
+about twice the Memo 195 total. It stays off.
+
 ### Phase 2: evaluator contract and analytic backend
 
 1. Add `BeamCoordinates`, `BeamEvaluation`, and `VoltageBeamModel`.
@@ -919,14 +929,10 @@ approximation.
 
 ## Immediate next step
 
-Do not build a cache first.
+Phase 1 scalar inventory is complete. Do not build a cache. Do not treat
+CASSBEAM or holography filenames as a frozen full-Jones reference.
 
-Create the Phase 1 C-band reference inventory and freeze the beam conventions.
-In particular, identify the source of the scalar empirical coefficients, the
-best available full-Jones C-band artifact or physical oracle, and the meaning
-of the published squint separation.
-
-Then implement the evaluator contract and wrap the current Airy beam as a
+Implement the Phase 2 evaluator contract and wrap the current Airy beam as a
 normalized diagonal voltage Jones. This creates a regression-safe path from
 the present model to the streamed per-timestep operator. Profile only after
 the direct empirical and full-Jones candidates can be compared on the same

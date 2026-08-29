@@ -62,6 +62,31 @@ migration. Scalar antenna gains act as
 `g[antenna1] * conj(g[antenna2])` on every correlation. The initial imager uses
 identity or externally supplied fixed gains.
 
+When circular products are unpacked to Stokes, the CASA convention is
+`RR=I+V`, `LL=I-V`, `RL=Q+iU`, `LR=Q-iU`. Jones axes are `(R, L)`. Circular
+P Jones is `diag(e^{-iχ}, e^{+iχ})` with the alt-az parallactic angle from
+WGS84 geodetic latitude.
+
+## Primary beam
+
+Direction-dependent beam conventions are frozen in
+[`vla-beam-reference-inventory.md`](vla-beam-reference-inventory.md) and
+`sl1mjax.beam_conventions`.
+
+- Sky-frame `(l, m)` are the same direction cosines as above: `l` east, `m`
+  north.
+- After `casa_parang_true` calibration the voltage beam is normalized to
+  `E(0)=I`. On-axis G, D, X, and P are not applied again inside the beam.
+- Unknown calibration-state identifiers are rejected.
+- The unused analytic squint stores a receptor half-offset of 0.06 FWHM.
+  Published VLA totals are ~0.05–0.06 FWHM. Squint stays off until that
+  audit is closed.
+- Antenna-frame feed position angle and R/L sign are internal conventions
+  only. They are not a physically verified C-band oracle.
+- The Perley 2016 C-band polynomial fails closed outside 4.052–7.948 GHz
+  and outside its 5% power radius. `casa_nearest` is a CASA-parity policy,
+  not a spectral interpolation model.
+
 ## Weights, flags, and objective
 
 A visibility contributes only when it is unflagged, finite, and has a finite

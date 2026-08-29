@@ -65,7 +65,9 @@ Accepted:
 
 Deferred until the on-axis 2×2 path passes:
 
-- Direction-dependent beam Mueller terms and squint-as-leakage.
+- Direction-dependent beam Mueller terms and squint-as-leakage. C-band
+  artifacts and conventions are inventoried in
+  [`vla-beam-reference-inventory.md`](vla-beam-reference-inventory.md).
 - Multi-component synchrotron plus free-free polarised mixtures as a
   production sky.
 - RM-synthesis or spatially varying RM. The 4.536–4.662 GHz span is about

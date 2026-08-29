@@ -10,6 +10,11 @@ from sl1mjax.beam import (  # noqa: E402
     gaussian_primary_beam,
     primary_beam_from_name,
 )
+from sl1mjax.beam_conventions import (  # noqa: E402
+    BeamCalibrationState,
+    cband_reference_artifacts,
+    require_beam_calibration_state,
+)
 from sl1mjax.calibration import (  # noqa: E402
     CalibrationSolution,
     apply_calibration,
@@ -237,6 +242,7 @@ __all__ = [
     "BulkSplitSelection",
     "BaselineHoldout",
     "BaselineSearchSplit",
+    "BeamCalibrationState",
     "BlindSpatialVariationSearchResult",
     "BlindSkyVariationSearchResult",
     "CalibrationFitResult",
@@ -334,6 +340,7 @@ __all__ = [
     "consensus_split_leaves",
     "CoarseStokesIRegion",
     "calibrator_polarization_floor",
+    "cband_reference_artifacts",
     "compare_linear_polarization_models",
     "declare_coarse_stokes_i_regions",
     "diagnose_calibration",
@@ -392,6 +399,7 @@ __all__ = [
     "quadtree_objective_metrics",
     "refine_quadtree_batch",
     "radec_to_lmn",
+    "require_beam_calibration_state",
     "read_dataset",
     "score_recovery_residual",
     "spectral_interval_candidates",
