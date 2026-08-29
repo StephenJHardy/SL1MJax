@@ -105,8 +105,11 @@ Direction-dependent beam conventions are frozen in
   applies \(E P\). Unfrozen full Jones refuses evaluation, including
   `voltage_beam_for_mode("full_jones")`. A full-Jones interpolator must
   not run until the nominal diagonal/co-polar mode meets a declared
-  CASA `awp2` main-lobe tolerance. That oracle is not implemented yet
-  and must test absolute co-polar location. Holography is sought
+  CASA `awp2` main-lobe tolerance. Stage 1 compares CASA's default
+  EVLA ray-traced `awp2` `.pb` with the committed CASSBEAM evaluator
+  and is not frozen. Stage 2 compares complex visibilities after
+  Stage 1 is accepted. Loading CASSBEAM tables into CASA is not that
+  oracle. Holography is sought
   only if residuals remain significant. A full-Jones artifact replaces analytic
   squint when it already contains squint, and must not re-apply
   on-axis D/X/P after `casa_parang_true`. Beyond full-Jones support

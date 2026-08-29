@@ -42,6 +42,11 @@ from sl1mjax.calibration_terms import (  # noqa: E402
     OpacityTerm,
     RequantizerTerm,
 )
+from sl1mjax.casa_awp2_oracle import (  # noqa: E402
+    compare_frozen_power_oracle,
+    polarization_oracle_is_frozen,
+    power_oracle_is_frozen,
+)
 from sl1mjax.cassbeam_beam import (  # noqa: E402
     BeamImagingMode,
     CassbeamCBandVoltageBeam,
@@ -290,6 +295,7 @@ __all__ = [
     "CalibrationCoordinates",
     "CalibrationSolution",
     "CassbeamCBandVoltageBeam",
+    "compare_frozen_power_oracle",
     "CalibrationSolveConfig",
     "CompositeHandoverPolicy",
     "CompositeScalarVoltageBeam",
@@ -409,6 +415,8 @@ __all__ = [
     "exhaustive_single_split_oracle",
     "gaussian_primary_beam",
     "full_jones_reference_is_frozen",
+    "polarization_oracle_is_frozen",
+    "power_oracle_is_frozen",
     "fit_global_circular_contrast",
     "fit_global_linear_polarization",
     "fit_global_fractional_polarization",

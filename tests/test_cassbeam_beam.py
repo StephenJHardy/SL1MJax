@@ -5,7 +5,6 @@ import pytest
 
 from sl1mjax.beam_conventions import OBSERVATION_3C391_FREQUENCY_HZ
 from sl1mjax.cassbeam_beam import (
-    CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE,
     CASA_PARANG_PARALLACTIC_BASIS,
     CASSBEAM_CBAND_MODEL_ID,
     CASSBEAM_OUTER_AIRY_MAX_RADIUS_RAD_AT_1GHZ,
@@ -310,14 +309,3 @@ def test_mode_factory_keeps_scalar_backends() -> None:
     assert load_cassbeam_cband_artifact().pin.contents.squint is TermPresence.PRESENT
     with pytest.raises(ValueError, match="replace analytic squint"):
         refuse_analytic_squint_composition(load_cassbeam_cband_artifact().pin.contents)
-
-
-@pytest.mark.skip(reason="CASA awp2 oracle is not implemented")
-def test_casa_awp2_main_lobe_contract() -> None:
-    """Documented gate only. SL1MJAX_CASA_AWP2 cannot run it yet.
-
-    The oracle must test the absolute co-polar location against CASSBEAM
-    dephased DC, not only radial main-lobe power.
-    """
-
-    assert CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE == pytest.approx(0.05)

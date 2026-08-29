@@ -116,8 +116,11 @@ row. Receptor main-lobe centroid separation is approximately Memo 195
 
 `diagonal_copolar` evaluates these tables and is not CASA-accepted.
 Experimental `full_jones` refuses evaluation while the pin is unfrozen.
-Neither mode is the imaging path. The CASA `awp2` oracle is not
-implemented.
+Neither mode is the imaging path. The CASA `awp2` power oracle is
+implemented as a comparison against frozen FITS; products are not
+frozen yet. CASA uses its default EVLA ray-traced A-term; SL1MJax
+evaluates the committed CASSBEAM tables. The full-polarisation
+visibility oracle waits for that freeze.
 
 ## Freeze rule
 

@@ -781,8 +781,12 @@ separation is approximately Memo 195 \(2.4/\nu\) arcmin.
 `uncalibrated` applies \(E_{\rm feed}P\). Signs remain physically
 unverified. Beyond the raster the evaluator returns to the scalar
 composite and clears `off_diagonal_valid`. The CASA `awp2` oracle is
-not implemented and must test absolute co-polar location as well as
-main-lobe power. `full_jones_reference_is_frozen()` is false.
+a two-stage contract: Stage 1 compares CASA's default EVLA ray-traced
+`.pb` with the committed CASSBEAM evaluator (centre, FWHM, residual);
+Stage 2 compares complex visibilities and is not implemented until
+Stage 1 is frozen. `awp2` does not take a `vpmanager` / `vptable`
+beam. `full_jones_reference_is_frozen()` is false.
+`diagonal_copolar` is not CASA-accepted.
 
 Deliverable: an accepted diagonal/co-polar C-band mode with CASA `awp2`
 parity in the main lobe, plus an experimental full-Jones path that does
@@ -1035,10 +1039,14 @@ approximation.
 
 ## Immediate next step
 
-Implement a real CASA `awp2` oracle and accept `diagonal_copolar` only
-after that comparison. The oracle must test absolute co-polar location
-as well as main-lobe power. `SL1MJAX_CASA_AWP2=1` does not run the
-gate yet.
+Run `scripts/generate_casa_awp2_power_oracle.py` on Bacchus with CASA
+6. It must use `awp2`'s default EVLA ray-traced A-term
+(`vptable=""`, no `vpmanager`). Copy the FITS and checksummed
+manifest into `src/sl1mjax/data/casa_awp2_oracle/` and freeze only
+after `compare_frozen_power_oracle()` accepts centre, FWHM, and
+residual power. Then implement Stage 2 (`I`, `I+Q`, `I+U`, `I+V`
+predictions).
+Do not invert CASA visibilities back into Jones.
 Do not start 3C391 imaging on this artifact. Do not enable the unused
 Airy `0.06` FWHM half-offset. Do not build a cache. Do not replace the
 3C391 Airy predict path.

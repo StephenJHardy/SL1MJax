@@ -287,7 +287,8 @@ instead. Feed-frame PA is still physically unverified.
   not CASA-accepted and not the imaging path. Nearest generated node
   within 64 MHz; raster scale is CASSBEAM `λ/(F N dx)`; origin is
   dephased DC after even-N `reflectMatrix2`; unfrozen full Jones
-  refuses evaluation; CASA `awp2` oracle is not implemented
+  refuses evaluation; CASA `awp2` Stage-1 comparison exists but is
+  not frozen; Stage 2 waits for that freeze
 - Packaged `vla-1500MHz.in` is L-band and is not a C-band configuration
 - No acquired Perley holography path or checksum
 - No correlation-aware orientation-oracle *values* (the sample list is
