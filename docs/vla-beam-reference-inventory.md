@@ -85,10 +85,10 @@ Identified C-band routes, not frozen references:
 
 1. Export a 2×2 voltage Jones from CASSBEAM / CASA geometric optics (Brisken
    2003; Jagannathan et al. 2017). Bacchus has Ubuntu `cassbeam` 1.1-4build2.
-   Still unpinned: the nominal C-band input, transmit-to-receive conversion,
-   native Jones basis and element order, direction-axis orientation,
-   numerical settings, and an output hash. The packaged 1.5 GHz example is
-   not that input.
+   The nominal C-band input, numerical settings, and output hashes are in
+   `src/sl1mjax/data/cassbeam_cband/`. Still unpinned: transmit-to-receive
+   conversion, direction-axis orientation, and CASA `awp2` acceptance.
+   The packaged 1.5 GHz example is not that input.
 2. Reconstruct a measured Jones from the archived Perley holography grids
    (`CHOLO` FITAB/FITTP and `C-BEAM-ffffpp` UVHOL files) only if
    accepted-mode residuals remain significant. Still unpinned: an acquired
@@ -283,8 +283,11 @@ instead. Feed-frame PA is still physically unverified.
   `CHOLO-*`, or `UVHOL` products
 - Compact holography must be requested from NRAO; do not start with the
   ~150 GB FITAB/FITTP databases
-- Bacchus has Ubuntu `cassbeam` 1.1-4build2 at `/usr/bin/cassbeam`; no
-  C-band input or output checksum is pinned
+- Nominal CASSBEAM C-band Jones generated on Bacchus and checksummed;
+  not CASA-accepted and not the imaging path. Nearest generated node
+  within 64 MHz; raster scale is CASSBEAM `λ/(F N dx)`; origin is
+  dephased DC after even-N `reflectMatrix2`; unfrozen full Jones
+  refuses evaluation; CASA `awp2` oracle is not implemented
 - Packaged `vla-1500MHz.in` is L-band and is not a C-band configuration
 - No acquired Perley holography path or checksum
 - No correlation-aware orientation-oracle *values* (the sample list is

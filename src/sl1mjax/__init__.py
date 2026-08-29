@@ -42,6 +42,12 @@ from sl1mjax.calibration_terms import (  # noqa: E402
     OpacityTerm,
     RequantizerTerm,
 )
+from sl1mjax.cassbeam_beam import (  # noqa: E402
+    BeamImagingMode,
+    CassbeamCBandVoltageBeam,
+    diagonal_copolar_is_casa_accepted,
+    voltage_beam_for_mode,
+)
 from sl1mjax.catalog import (  # noqa: E402
     CatalogGuardAtom,
     RadioCatalogSource,
@@ -268,6 +274,7 @@ __all__ = [
     "BaselineHoldout",
     "BaselineSearchSplit",
     "AnalyticAiryVoltageBeam",
+    "BeamImagingMode",
     "BeamCalibrationState",
     "BeamCoordinates",
     "BeamEvaluation",
@@ -282,6 +289,7 @@ __all__ = [
     "CalibrationChain",
     "CalibrationCoordinates",
     "CalibrationSolution",
+    "CassbeamCBandVoltageBeam",
     "CalibrationSolveConfig",
     "CompositeHandoverPolicy",
     "CompositeScalarVoltageBeam",
@@ -384,6 +392,7 @@ __all__ = [
     "cband_reference_artifacts",
     "compare_linear_polarization_models",
     "declare_coarse_stokes_i_regions",
+    "diagonal_copolar_is_casa_accepted",
     "diagnose_calibration",
     "dirty_image_and_psf",
     "deterministic_calibrator_cohort_split",
@@ -444,6 +453,7 @@ __all__ = [
     "radec_to_lmn",
     "require_beam_calibration_state",
     "require_frozen_full_jones_reference",
+    "voltage_beam_for_mode",
     "read_dataset",
     "score_recovery_residual",
     "spectral_interval_candidates",

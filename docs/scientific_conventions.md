@@ -97,14 +97,21 @@ Direction-dependent beam conventions are frozen in
   in-band directions outside that radius. The handover policy is
   explicit. The streamed operator applies \(E_p C E_q^H\) at each exact
   unique time. Imaging still uses the static Airy power path.
-  Phase 6 generates a nominal CASSBEAM C-band Jones first. A full-Jones
-  interpolator must not run until the nominal diagonal/co-polar mode
-  meets a declared CASA `awp2` main-lobe tolerance. Holography is sought
+  Phase 6 generates a nominal CASSBEAM C-band Jones first. That
+  evaluator uses nearest generated nodes within 64 MHz and CASSBEAM
+  `λ/(F N dx)` raster coordinates. The stored origin is the dephased
+  FFT DC after CASSBEAM's even-N `reflectMatrix2`, not the documented
+  centre row. `casa_parang_true` applies \(P^H E P\); `uncalibrated`
+  applies \(E P\). Unfrozen full Jones refuses evaluation, including
+  `voltage_beam_for_mode("full_jones")`. A full-Jones interpolator must
+  not run until the nominal diagonal/co-polar mode meets a declared
+  CASA `awp2` main-lobe tolerance. That oracle is not implemented yet
+  and must test absolute co-polar location. Holography is sought
   only if residuals remain significant. A full-Jones artifact replaces analytic
   squint when it already contains squint, and must not re-apply
   on-axis D/X/P after `casa_parang_true`. Beyond full-Jones support
-  the default is a tapered return to the scalar composite; off-diagonal
-  response is unsupported there. Do not hard-splice complex Jones
+  the default is a tapered return to the scalar composite;
+  `off_diagonal_valid` is cleared there. Do not hard-splice complex Jones
   onto Airy or Perley.
 
 ## Weights, flags, and objective

@@ -1,0 +1,23 @@
+% Nominal Jansky VLA C-band CASSBEAM input.
+% Geometry is the packaged VLA Cassegrain example. Frequency is C-band.
+% The feed is the geometric-optics nominal, not a measured EVLA C-band feed.
+% L-band example pathologies (dfeed_x, focus, dsub_z) are omitted.
+name = VLA
+sub_h = 8.47852
+feed_x = -0.6896837
+feed_y = -0.6896837
+feed_z = 1.67640
+geom = vla_geom
+feedtaper = 10.0
+feedthetamax = 9.26
+legwidth = 0.27
+legfoot = 7.55
+legapex = 10.93876
+hole_radius = 2.0
+roughness = 0.00035
+freq = 4.564
+gridsize = 64
+pixelsperbeam = 6
+out = vla-cband-4564
+compute = jp
+Trec = 10

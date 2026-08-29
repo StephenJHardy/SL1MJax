@@ -763,11 +763,26 @@ the earlier 6C/6D split remain constraints, not optional later work.
 7. Seek processed holography only if those residuals remain significant.
    Do not start with the ~150 GB FITAB/FITTP databases.
 
-**Status (2026-08-29):** Bacchus has Ubuntu `cassbeam` 1.1-4build2 at
-`/usr/bin/cassbeam`. No C-band input or output is pinned.
-`FullJonesVoltageBeam` still refuses to evaluate.
-`full_jones_reference_is_frozen()` is false. See
-[`vla_cband_full_jones_acquisition.md`](vla_cband_full_jones_acquisition.md).
+**Status (2026-08-29):** Bacchus generated nominal C-band Jones at 4.564
+and 4.692 GHz with Ubuntu `cassbeam` 1.1-4build2. The tables live in
+`src/sl1mjax/data/cassbeam_cband/` with checksums. Modes
+`static_scalar`, `streamed_scalar`, `diagonal_copolar`, and
+`full_jones` exist. Diagonal/co-polar is not CASA-accepted.
+`full_jones` is experimental and refuses evaluation while unfrozen.
+Imaging still uses static Airy. Frequencies use the nearest generated
+node within 64 MHz (covers 3C391 SPW0; 7 GHz is refused). Raster
+coordinates use CASSBEAM `λ/(F N dx)`, not `fwhm/pixelsperbeam`.
+The stored origin is the dephased FFT DC after CASSBEAM's even-N
+`reflectMatrix2` (\(l\) at \(N/2-1\), \(m\) at \(N/2\)), not the
+documented centre row. That one-pixel \(l\) shift is an indexing
+offset, not a physical pointing. Receptor main-lobe centroid
+separation is approximately Memo 195 \(2.4/\nu\) arcmin.
+`casa_parang_true` applies \(P^H E_{\rm feed}(R_{-\chi}s)\,P\);
+`uncalibrated` applies \(E_{\rm feed}P\). Signs remain physically
+unverified. Beyond the raster the evaluator returns to the scalar
+composite and clears `off_diagonal_valid`. The CASA `awp2` oracle is
+not implemented and must test absolute co-polar location as well as
+main-lobe power. `full_jones_reference_is_frozen()` is false.
 
 Deliverable: an accepted diagonal/co-polar C-band mode with CASA `awp2`
 parity in the main lobe, plus an experimental full-Jones path that does
@@ -1020,12 +1035,13 @@ approximation.
 
 ## Immediate next step
 
-Write a declared nominal C-band CASSBEAM input and generate the compact
-oracle samples on Bacchus with the pinned 1.1-4build2 binary. Do not
-run `vla-1500MHz.in`. Do not implement an interpolating full-Jones
-imaging mode until the nominal diagonal/co-polar path meets the CASA
-`awp2` gate. Do not enable the unused Airy `0.06` FWHM half-offset. Do
-not build a cache. Do not replace the 3C391 Airy predict path.
+Implement a real CASA `awp2` oracle and accept `diagonal_copolar` only
+after that comparison. The oracle must test absolute co-polar location
+as well as main-lobe power. `SL1MJAX_CASA_AWP2=1` does not run the
+gate yet.
+Do not start 3C391 imaging on this artifact. Do not enable the unused
+Airy `0.06` FWHM half-offset. Do not build a cache. Do not replace the
+3C391 Airy predict path.
 
 The Phase 5 fixed-sky transfer diagnostic on the frozen 3C391 sky
 (static Airy, composite, squinted composite) remains the next imaging

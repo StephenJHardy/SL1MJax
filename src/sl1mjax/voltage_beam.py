@@ -121,11 +121,18 @@ class BeamCoordinates:
 
 @dataclass(frozen=True)
 class BeamEvaluation:
-    """Voltage Jones on the contract axes ``(antenna, direction, channel, 2, 2)``."""
+    """Voltage Jones on the contract axes ``(antenna, direction, channel, 2, 2)``.
+
+    ``off_diagonal_valid`` is the leakage support mask. It defaults to
+    ``valid``, which is correct for diagonal models whose zeros are the
+    model. Full Jones must clear it where leakage is unsupported so a
+    later Stokes operator cannot treat those zeros as known leakage.
+    """
 
     jones: np.ndarray
     valid: np.ndarray
     provenance: dict[str, object]
+    off_diagonal_valid: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         jones = np.asarray(self.jones)
@@ -134,8 +141,18 @@ class BeamEvaluation:
             raise ValueError("jones must have shape (antenna, direction, channel, 2, 2)")
         if valid.shape != jones.shape[:3]:
             raise ValueError("valid must match jones (antenna, direction, channel)")
+        if self.off_diagonal_valid is None:
+            off_diagonal_valid = valid
+        else:
+            off_diagonal_valid = np.asarray(self.off_diagonal_valid, dtype=bool)
+            if off_diagonal_valid.shape != valid.shape:
+                raise ValueError(
+                    "off_diagonal_valid must match valid "
+                    "(antenna, direction, channel)"
+                )
         object.__setattr__(self, "jones", jones)
         object.__setattr__(self, "valid", valid)
+        object.__setattr__(self, "off_diagonal_valid", off_diagonal_valid)
 
 
 class VoltageBeamModel(Protocol):

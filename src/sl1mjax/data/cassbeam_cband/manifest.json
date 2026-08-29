@@ -1,0 +1,32 @@
+{
+  "artifact_id": "cassbeam_nominal_cband",
+  "kind": "electromagnetic",
+  "quantity": "voltage_jones_2x2",
+  "frozen": false,
+  "casa_awp2_accepted": false,
+  "host": "bacchus",
+  "package": "cassbeam 1.1-4build2",
+  "reported_version": "1.0",
+  "binary": "/usr/bin/cassbeam",
+  "work_directory": "/home/stephen/sl1mjax-cassbeam-cband-20260829",
+  "native_basis": "circular",
+  "native_column_order": ["Re_RR", "Im_RR", "Re_LR", "Im_LR", "Re_RL", "Im_RL", "Re_LL", "Im_LL"],
+  "transmit_receive": "transmit_native_reciprocity_unverified",
+  "direction_axis_orientation": "cassbeam_l_then_m_unverified",
+  "antenna_averaging": "array_average",
+  "feed": "packaged_vla_geometric_optics_nominal",
+  "pathologies": "none",
+  "frequencies_mhz": [4564, 4692],
+  "gridsize": 64,
+  "pixelsperbeam": 6,
+  "files": {
+    "vla-cband-4564.in": "bde1d3d97704e5937888453fa5ba8e302b42835a43770a7b963306c73eede5c6",
+    "vla-cband-4692.in": "641e4843c12cb06638d3f6e9ee35622975a5456293d449d5a1fbc15c29f24490",
+    "vla_geom": "fe927c848d4be23bcfc7c7b35997fdd4b746b4d5d7e263d3236c452e1b591f80",
+    "vla-cband-4564.jones.dat": "58eb8e118c8cebdf4ea26f6f4e20a65fb90292c5706faf9363196654e6949be7",
+    "vla-cband-4564.params": "7ddd365fd30969f90b96842cf8365e6d736be9e1d92ff66caf0316ef1e47f233",
+    "vla-cband-4692.jones.dat": "4b97cf7cefcd922ffd91156255ef54dd14cf43476deac9873fa097d3559ef3ba",
+    "vla-cband-4692.params": "4ec70b230a1b35b605a42a6e047d772c3fe18e4a4db9b18872ad5731162ae0e9"
+  },
+  "notes": "Nominal CASSBEAM C-band Jones generated on Bacchus. Not CASA-accepted. Off-diagonal response is experimental. Feed-frame PA and transmit-to-receive conversion remain unverified. Raster coordinates use CASSBEAM λ/(F N dx); compute=jp does not write beampixelscale. Origin is the dephased FFT DC after even-N reflectMatrix2 (l at N/2-1, m at N/2), not the documented centre row. Receptor main-lobe centroid separation is approximately Memo 195 2.4/ν arcmin. Frequencies use the nearest generated node within 64 MHz."
+}

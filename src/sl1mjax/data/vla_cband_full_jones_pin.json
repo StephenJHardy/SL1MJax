@@ -1,5 +1,5 @@
 {
-  "catalog_version": "phase-6-bacchus-cassbeam-2026-08-29",
+  "catalog_version": "phase-6-nominal-cassbeam-2026-08-29",
   "schema_version": 1,
   "frozen": false,
   "convention_oracle_route": "cassbeam_go",

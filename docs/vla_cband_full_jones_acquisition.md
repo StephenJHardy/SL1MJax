@@ -98,10 +98,26 @@ not a C-band configuration.
 A general OS install is acceptable. Do not invoke `/usr/bin/cassbeam`
 from the imager. Do not generate the oracle from `vla-1500MHz.in`.
 
-The next generator step is a declared nominal C-band input: VLA
-geometry, C-band frequencies (4.564 and 4.692 GHz first), and an
-explicit statement that the feed is the packaged geometric-optics
-nominal, not a measured EVLA C-band feed.
+### Generated nominal tables (2026-08-29)
+
+Bacchus wrote Jones rasters at 4.564 and 4.692 GHz into
+`/home/stephen/sl1mjax-cassbeam-cband-20260829`. Copies and checksums
+are in `src/sl1mjax/data/cassbeam_cband/`. Inputs use packaged VLA
+geometry and omit the L-band `dfeed_x` / `focus` / `dsub_z`
+pathologies. CASSBEAM reports `version = 1.0` even though the package
+is 1.1-4build2. Mean FWHM is within about 3% of `42/ν`. Average
+pointing offset is ~0. Off-diagonal Jones is ~10⁻² of the co-polar
+amplitude. Raster coordinates use CASSBEAM `λ/(F N dx)`. The stored
+origin is the dephased FFT DC after even-N `reflectMatrix2`
+(\(l\) at \(N/2-1\), \(m\) at \(N/2\)), not the documented centre
+row. Receptor main-lobe centroid separation is approximately Memo 195
+\(2.4/\nu\) arcmin. Frequencies use the nearest generated node within
+64 MHz.
+
+`diagonal_copolar` evaluates these tables and is not CASA-accepted.
+Experimental `full_jones` refuses evaluation while the pin is unfrozen.
+Neither mode is the imaging path. The CASA `awp2` oracle is not
+implemented.
 
 ## Freeze rule
 

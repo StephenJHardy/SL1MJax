@@ -28,7 +28,7 @@ from sl1mjax.beam_conventions import (
 from sl1mjax.polarization import Receptor
 from sl1mjax.voltage_beam import BeamCoordinates, BeamEvaluation
 
-FULL_JONES_PIN_CATALOG_VERSION = "phase-6-bacchus-cassbeam-2026-08-29"
+FULL_JONES_PIN_CATALOG_VERSION = "phase-6-nominal-cassbeam-2026-08-29"
 FULL_JONES_PIN_SCHEMA_VERSION = 1
 FULL_JONES_MODEL_ID = "full_jones_unfrozen"
 
