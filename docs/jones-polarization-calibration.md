@@ -30,15 +30,38 @@ Accepted:
   first, then solving in JAX one term at a time.
 - Keep calibration frequency structure conservative and calibrator-anchored.
 - Treat a 3C391 \(v\) or \(q+iu\) detection as credible only if it exceeds
-  the apparent polarisation recovered on nominally unpolarised or known-EVPA
-  calibrator scans, on held-out frequency channels as well as baselines,
-  times, and pointings.
-- First target sky after that floor: constant \(v\), complex \(q+iu\) with at
-  most one RM, and no independent per-pixel spectral indices until validation
-  demands them.
-- Inventory BagOfWinds for polarimetric products, but do not block 3C391
-  polcal on finding pipeline D/X tables. The current C-band SRDP cal tarballs
-  are diagonal.
+  an *independent* calibrator floor (3C286 with Kcross/Xf solved and
+  evaluated on different scans or connected-baseline cohorts, and leakage
+  checks that are not the same 3C84 scan used to solve Df), on held-out
+  frequency channels as well as baselines, times, and pointings. Same-data
+  3C286 apply-back is an engineering residual, not that floor.
+- First target sky after frozen calibration: constant global \(q,u,v\) with
+  **no RM**. That is a detection and calibration-check model, not a spatial
+  polarisation image. It forces \(Q_k=qI_k\), \(U_k=uI_k\), \(V_k=vI_k\)
+  everywhere and can miss polarised structure that cancels globally.
+- Imaging sequence: global detection \(\to\) spatial polarisation
+  activation on the accepted Stokes-I topology \(\to\) self-cal \(\to\)
+  frequency/RM discovery. Polarisation activation is a separate decision
+  from Stokes-I spatial splits. Candidate blocks are unpolarised; joint
+  \(q,u\); \(v\); and full \(q,u,v\), with \(q^2+u^2+v^2\le 1\).
+- Stokes-I spectral discovery does not block initial polarisation imaging.
+  Reuse the accepted Stokes-I morphology at a reference frequency; defer
+  new spectral freedom.
+- Establish that constant-frequency spatial baseline before introducing
+  frequency-dependent polarisation calibration or sky terms. Per-channel
+  residuals remain diagnostics during the first imaging milestones, not
+  new fitted degrees of freedom. RM is the next frequency model after
+  that baseline, not part of the first \(q,u,v\) fit.
+- Initial diagnostic images may use `casa_parallel_preserving`. Those
+  results stay exploratory while exact 2×2 \(D\) still produces false
+  \(V\). Exact-Jones refinement is required before evidence-grade claims;
+  it does not block looking at images.
+- Anchored self-cal starts only after the frozen sky represents the
+  important spatial polarised structure. A global \(q,u,v\) model alone is
+  not enough for an extended remnant.
+- Inventory BagOfWinds for polarimetric products, but do not block first
+  3C391 images on finding pipeline D/X tables. The current C-band SRDP cal
+  tarballs are diagonal.
 
 Deferred until the on-axis 2×2 path passes:
 
@@ -48,8 +71,11 @@ Deferred until the on-axis 2×2 path passes:
 - RM-synthesis or spatially varying RM. The 4.536–4.662 GHz span is about
   2.7% in frequency; Faraday resolution is set by the \(\lambda^2\) span
   ([Brentjens & de Bruyn 2005](https://arxiv.org/abs/astro-ph/0507349)).
-- Requiring a second VLA band or configuration before the 3C391 D/X golden
-  exists.
+  Given that narrow band and the imaging-first decision, test spatial
+  polarised structure before any RM.
+- Requiring a second VLA band or configuration before first 3C391
+  polarisation images. Wider L/S data remain later RM leverage, not the
+  first imaging milestone.
 - Keep [`analyze_calibration_weather.py`](../scripts/analyze_calibration_weather.py)
   as *instrument weather*: an allegory for how the intervening medium and
   hardware state change the calibration, and on what timescales those
@@ -125,21 +151,28 @@ changed after this baseline.
 
 ### Representation
 
-[`CalibrationSolution`](../src/sl1mjax/calibration.py) is schema **v2**.
+[`CalibrationSolution`](../src/sl1mjax/calibration.py) writes schema
+**v3**. Schema v2 introduced receptors ≠ correlations. Schema v3 added
+Kcross, Df, Xf, circular P, named D operators (`exact` vs
+`casa_parallel_preserving`), and solution validity domains. Schema 1 files
+promote by inferring receptors from the products. Schema 1–2 readers
+reject v3 rather than applying diagonal G/K/B and ignoring D/X.
+
 Gains, delays, and bandpass are stored per feed receptor (`R`,`L` or
 `X`,`Y`), not per packed correlation product. `receptor_count` is
 `len(receptors)`. `(RR, RL, LR, LL)` is two receptors, not four.
 Application packs products into a 2×2 coherency, forms
 \(C^{\mathrm{obs}}=J_p C^{\mathrm{sky}} J_q^{\mathrm{H}}\) (or the inverse
 to correct), and unpacks. Diagonal G/K/B promote to diagonal 2×2 matrices.
-Schema 1 files are read and promoted by inferring receptors from the
-products.
 
-Leakage \(D\), cross-hand delay, R–L phase, and circular parallactic
-angle can now be stored on the solution and applied. ``apply_calibration``
-builds \(J=J_{GKB}J_{\mathrm{Kcross}}J_D J_X J_P\) with \(P\) closest to
-the sky. Diagonal solvers still require one parallel-hand product per
-receptor; 2×2 RL/LR *solving* is later.
+``apply_calibration`` builds
+\(J=J_{GKB}J_{\mathrm{Kcross}}J_D J_X J_P\) with \(P\) closest to the sky.
+Kcross / Df / Xf *solves* exist as NumPy direct estimators
+([`polarization_inference.py`](../src/sl1mjax/polarization_inference.py)):
+CASA-compatible initializers, not a self-calibration engine. First-order
+Df is labelled `casa_parallel_preserving`. Diagonal Optax G/K/B solvers
+still require one parallel-hand product per receptor. Exact 2×2 iterative
+refinement is later.
 
 This packing is the feed coherency. It is not the sky Stokes-V packing
 \(V=(RR-LL)/2\) used by circular contrast.
@@ -200,7 +233,8 @@ Shipped shape:
   followed by packing into RR, RL, LR, LL (or XX, XY, YX, YY);
 - diagonal \(G\), \(K\), \(B\) stored per receptor and promoted to
   diagonal 2×2 matrices;
-- schema v2 write; schema 1 read with promotion.
+- schema v2 write; schema 1 read with promotion. Polarimetric solutions
+  later write schema v3.
 
 Not stored yet, apply-ready later:
 
@@ -217,7 +251,7 @@ Gates:
 Still later in this item: serialized gauge choices and calibrator anchors
 beyond what schema v1 already stored.
 
-### 2. CASA full-polarisation 3C391 reference — CASA oracle and JAX apply 2026-08-28; JAX solves next
+### 2. CASA full-polarisation 3C391 reference — CASA oracle, JAX apply, and CASA-compatible JAX solves 2026-08-28
 
 On the local `data/3c391_work_v2` MS, after the current K/B/G tables:
 
@@ -239,18 +273,24 @@ discovery.
 
 JAX then:
 
-1. Import and apply CASA D, X, and cross-hand delay through named
-   operators. Exact 2×2 \(D^{-1} C D^{-H}\) creates \(\sim 1.3\%\) false
-   Stokes \(V\) on 3C286 (\(v \approx -1.28\times 10^{-2}\) versus CASA
-   \(-2.13\times 10^{-4}\)) and is **not** the CASA apply. CASA
-   `CORRECTED` RR/LL follow the diagonal chain. The CASA-oracle operator
-   (`casa_parallel_preserving`) takes parallel hands from
-   G/K/B+Kcross+X+P and cross-hands from the full 2×2. The golden gates
-   RR/LL, channel-wise \(I,Q,U,V\), and \(V/I\), and JAX flags unsolved
-   Df/Xf channels from the table domain rather than receiving
-   `post_apply_flag` as input.
-2. Solve the same terms in JAX, one at a time, with connected holdouts.
+1. ~~Import and apply CASA D, X, and cross-hand delay through named
+   operators.~~ Done 2026-08-28. Exact 2×2 \(D^{-1} C D^{-H}\) creates
+   \(\sim 1.3\%\) false Stokes \(V\) on 3C286
+   (\(v \approx -1.28\times 10^{-2}\) versus CASA \(-2.13\times 10^{-4}\))
+   and is **not** the CASA apply. CASA `CORRECTED` RR/LL follow the
+   diagonal chain. The CASA-oracle operator (`casa_parallel_preserving`)
+   takes parallel hands from G/K/B+Kcross+X+P and cross-hands from the
+   full 2×2. The golden gates RR/LL, channel-wise \(I,Q,U,V\), and
+   \(V/I\), and JAX flags unsolved Df/Xf channels from the table domain
+   rather than receiving `post_apply_flag` as input.
+2. ~~Solve the same terms in JAX, one at a time, with connected
+   holdouts.~~ Done 2026-08-28 as direct linear estimators (global Kcross,
+   first-order Df, shared Xf). CASA table agreement is a regression
+   oracle, not frequency-holdout evidence for per-channel D/X.
 3. Check closure, residual calibrator polarisation, and transfer to C1.
+   Diagnostic \(I,Q,U,V\) images may start with the frozen
+   `casa_parallel_preserving` chain; they stay exploratory until
+   exact-Jones refinement.
 4. Keep CASA and JAX solutions in the fixture.
 
 Do not average in frequency before this calibration and its discovery
@@ -258,16 +298,28 @@ tests.
 
 ### 3. Calibrator polarisation floor
 
-Process 3C286 and 3C84 with the same chain as the target.
+Process 3C286 and 3C84 with the same chain as the target. Distinguish
+independent floors from in-sample diagnostics.
 
 - Apparent \(v\) on 3C286 against the \(V=0\) model, with an explicit
-  uncertainty on that assumption.
-- Residual \(q,u\) on 3C286 against the known EVPA model.
-- Leakage-calibrator residual polarisation on 3C84.
+  uncertainty on that assumption. 3C286 was not used to solve Df, but
+  the same 3C286 visibilities did contribute to Kcross/Xf. Apply-back
+  on those rows is not an independent circular floor. The independent
+  check is a scan or connected-baseline solve/validation split.
+- Residual \(q,u\) on 3C286 against the known EVPA model. The same
+  split applies: apply-back is engineering; held-out 3C286 is the
+  linear-polarisation / EVPA floor.
+- Leakage-calibrator residual polarisation on 3C84 is an **in-sample
+  diagnostic**. The same single ~5-minute scan solved Df. The golden
+  CORRECTED residual linear fraction \(\approx 1.4\times 10^{-4}\) shows
+  that CASA apply-back on that scan is internally consistent. It does
+  **not** establish an independent leakage floor. An independent 3C84
+  check needs another scan, epoch, or source.
 
-A 3C391 sky term is accepted only if it exceeds that floor and remains
-consistent across frequency, time, and pointings on held-out data. This
-replaces the earlier claim that RR/LL scales identify sky Stokes \(V\).
+A 3C391 sky term is accepted only if it exceeds an independent floor and
+remains consistent across frequency, time, and pointings on held-out
+data. This replaces the earlier claim that RR/LL scales identify sky
+Stokes \(V\).
 
 ### 4. Conservative calibration frequency models
 
@@ -311,8 +363,10 @@ remain the I-only stability sample. Wider L/S data are for later RM
 leverage, not the first Jones milestone. K/Ka weather behaviour is useful
 later, not first.
 
-Do not download a new polarimetric corpus until the 3C391 D/X golden exists
-and the inventory says the current tars cannot supply D/X oracles.
+Do not download a new polarimetric corpus until the inventory says the
+current tars cannot supply D/X oracles. The 3C391 D/X golden already
+exists; this inventory is for later multi-dataset comparison, not to
+unblock first images.
 
 ### 6. Calibration uncertainty in sky evidence
 
@@ -336,24 +390,229 @@ Calibration-model selection and sky-model validation use separate
 partitions: calibrator scans, frequency blocks, antennas or baselines,
 parallactic angle, time, and mosaic pointings.
 
-### 7. Target sky ladder (after 1–3)
+### 7. Target sky ladder (after frozen calibration)
 
-1. Stokes-I spectral model (global, then component-group). This band may
-   not separate free-free; say so from held-out channels.
-2. Constant global \(q,u,v\) at a reference frequency.
-3. One global RM for \(Q/U\).
-4. Separate unpolarised and polarised emission components if (2)–(3) leave
-   structured residuals.
-5. Component-level spectral and polarisation parameters.
-6. Spatially varying polarisation or spectral factors last.
+Stokes-I spectral discovery does not block initial polarisation imaging.
+Reuse the accepted Stokes-I morphology at a reference frequency and defer
+new spectral freedom.
 
-Activate a more complex level only when held-out data support it, including
-held-out **frequency channels**. A frequency-dependent bandpass or leakage
-residual must not be allowed to masquerade as a sky spectrum.
+“Constant polarisation” currently means two different things. A global
+\(q,u,v\) fit is a useful null model. It is **not** a spatial
+polarisation image. It forces
 
-The first full-polarisation *target* model stays deliberately simple:
-constant \(v\), complex \(q+iu\) with at most one RM, shared \(I(\nu)\) only
-if the I-spectrum test asks for it.
+\[
+Q_k=qI_k,\qquad U_k=uI_k,\qquad V_k=vI_k
+\]
+
+in every pixel. It measures net, visibility-weighted fractional
+polarisation and can miss polarised regions that cancel globally.
+
+Near-term ladder:
+
+1. Apply the frozen CASA-compatible calibration and make diagnostic
+   \(I,Q,U,V\) images (`casa_parallel_preserving`). Exploratory while
+   exact 2×2 \(D\) still produces false \(V\).
+2. Fit global constant \(q,u,v\) against the frozen complex Stokes-I
+   model \(M_I\), not observed \(\mathrm{Re}(I)\). Report null versus
+   polarised loss and repeat the fit on deterministic baseline, time,
+   and channel partitions. No RM.
+3. Freeze the accepted Stokes-I topology. Test polarisation activation on
+   I-only coarse regions, not on \(Q/U\) peaks. Candidate blocks for this
+   step: unpolarised; one global \(q+iu\); joint regional \(q_r+iu_r\).
+   Keep \(v=0\) in the fitted sky and keep reporting dirty \(V\).
+4. Score those models by leave-one-pointing-out across all seven
+   pointings plus held-out baselines, times, and channels. Add
+   primary-beam-radius and parallactic-angle consistency checks. Do not
+   reuse C7 as a sealed set for choosing the regions. Polarisation-driven
+   pixel splits and spatial \(v\) wait.
+5. Only later allow polarisation-driven spatial splits or independent
+   per-pixel polarisation.
+6. Introduce RM and other frequency dependence after this
+   constant-frequency spatial baseline. One global RM is the first
+   \(Q/U\) frequency model, not a substitute for spatial structure.
+
+Direction:
+
+\[
+\text{global detection}
+\to
+\text{spatial polarisation activation}
+\to
+\text{self-cal}
+\to
+\text{frequency/RM discovery}.
+\]
+
+Activate a more complex level only when held-out data support it,
+including held-out **frequency channels** once a frequency model exists.
+A frequency-dependent bandpass or leakage residual must not be allowed
+to masquerade as a sky spectrum.
+
+Anchored self-cal starts only after the frozen sky represents the
+important spatial polarised structure. A global \(q,u,v\) model alone is
+probably inadequate for an extended remnant.
+
+## Future-state target: calibrator-anchored polarisation self-calibration
+
+The target state is not a post-hoc GP smoother over gains already solved on
+the target. It is a self-calibration model whose zero point is the external
+calibrator solution and whose permitted departures are controlled by a
+Gaussian-process prior.
+
+Write the direction-independent Jones chain as
+
+\[
+J_a(t,\nu)=\Delta G_a(t)\,J^{\mathrm{cal}}_a(t,\nu),
+\]
+
+where \(J^{\mathrm{cal}}\) is the K/B/G/Kcross/D/X/P transfer established by
+the calibrators. A residual time gain belongs at the **gain** position in
+that chain (\(\Delta G\,J^{\mathrm{cal}}\)), not as a generic right factor
+\(J^{\mathrm{cal}}\Delta J\). Once differential gains no longer commute
+with leakage, left-versus-right multiplication is a different measurement
+equation. For a diagonal receptor gain,
+
+\[
+g_{a,r}(t)=g^{\mathrm{cal}}_{a,r}(t)
+\exp\!\left[\delta A_{a,r}(t)+i\,\delta\phi_{a,r}(t)\right].
+\]
+
+The residual log-amplitude \(\delta A\) and phase \(\delta\phi\) have zero
+mean at the transferred calibrator solution. Calibrator scans anchor them
+near zero with uncertainties set by the calibrator solve. Additional latent
+points at target times may move when the target likelihood supports a move.
+The GP covariance controls how far that change propagates in time and how
+quickly the solution returns towards the calibrator transfer.
+
+A convenient implementation uses whitened latent variables,
+
+\[
+\boldsymbol\delta=L\mathbf z,\qquad \mathbf z\sim\mathcal N(0,I).
+\]
+
+Choose **one** formulation for the calibrator anchors:
+
+- condition the covariance on the anchors, so \(LL^{\mathsf T}\) already
+  encodes that constraint and the objective is the target visibility
+  likelihood plus \(\|\mathbf z\|^2\); or
+- keep an unconditional GP prior and add an explicit calibrator-anchor
+  likelihood.
+
+Do not do both. Conditioning the covariance and also adding the
+calibrator-anchor likelihood counts the anchors twice.
+
+Adding a target knot or enabling another Jones mode is an increase in model
+freedom and must pass the same validation rule as adding a sky component.
+
+[`circular_gp_gain_solution`](../src/sl1mjax/gain_time_models.py) is useful
+kernel and circular-phase groundwork, but it is not this target architecture.
+It computes a posterior-mean interpolation from an already solved gain table.
+The future solver must place the anchored GP inside the visibility objective
+and retain calibrator uncertainty. The previous 3C391 sweep also remains a
+warning against assuming that smoothing helps: native fourteen-epoch linear
+transfer beat every tested post-hoc GP. The anchored self-cal GP must compete
+against a no-self-cal transfer and an unsmoothed candidate on independent
+data.
+
+### Jones freedom ladder
+
+Use common and differential receptor coordinates so their sky degeneracies
+are explicit:
+
+\[
+\delta A_c=\tfrac12(\delta A_R+\delta A_L),\qquad
+\delta A_d=\tfrac12(\delta A_R-\delta A_L),
+\]
+
+with the same decomposition for phase.
+
+1. Enable only common R/L time-dependent gain corrections. This is the first
+   anchored-GP self-calibration mode and is closest to Stokes-I self-cal.
+2. Keep differential R/L amplitude tightly anchored because it is degenerate
+   with sky Stokes \(V\).
+3. Keep differential R--L phase tightly anchored because it rotates sky
+   \(Q/U\) and changes EVPA.
+4. Freeze Kcross, D, and X at their external-calibrator values during the
+   first target self-calibration experiments.
+5. Admit time variation in differential gains, D, or X only after independent
+   calibrator data establishes the required scale and validation data improves.
+
+Do not put an unconstrained GP on the four complex entries of a Jones matrix.
+Keep physical coordinates: log amplitude, circular phase, delay, and bounded
+complex leakage. Preserve the reference-antenna, flux, \(V=0\), and EVPA
+anchors explicitly.
+
+### Major-cycle solver
+
+The combined sky/calibration problem is non-convex even when each conditional
+block is simple. These cycles start only after the frozen sky represents
+the important spatial polarised structure (delivery B), not after a global
+\(q,u,v\) detection fit. Use observable major cycles:
+
+1. initialize Kcross, first-order Df, and Xf with the direct calibrator
+   estimators and record that they are linearised/CASA-compatible estimates;
+2. hold Jones fixed and solve or refine the sky;
+3. freeze the sky and optimize the anchored GP latent variables through an
+   exact \(2\times2\) visibility objective, with residual time gains as
+   \(\Delta G\,J^{\mathrm{cal}}\);
+4. reset sky-solver momentum and curvature estimates after a Jones update;
+5. score both blocks on held baselines, time intervals, channels, and
+   pointings;
+6. stop or reject the calibration update if it improves training data without
+   improving the pre-declared validation evidence.
+
+The exact Jones update needs a JAX-native forward model and derivatives. The
+optimizer may be Gauss--Newton, Levenberg--Marquardt, a StEFCal-style block
+update, or Optax. Use of Optax is not itself the design goal; preserving the
+measurement equation, gauges, anchors, and validation partitions is.
+
+### Delivery order
+
+**A. Diagnostic images, then global detection.** Apply the frozen external
+K/B/G/Kcross/D/X/P chain with `casa_parallel_preserving` and make
+\(I,Q,U,V\) images. Fit a constant global \(q,u,v\) model at \(\nu_0\) as
+a detection and calibration check. Do not treat that fit as a spatial
+polarisation image. Do not fit RM or another polarisation spectrum at this
+milestone. Inspect channel residuals, but do not yet give calibration or
+sky an independent value in every channel. Record the independent 3C286
+floor; treat the 3C84 residual as in-sample only. Results stay exploratory
+until exact-Jones refinement removes the false \(V\).
+
+**B. Spatial polarisation activation.** Freeze the accepted Stokes-I
+topology. Test polarisation on components or coarse regions: unpolarised;
+joint \(q,u\); \(v\); full \(q,u,v\), with \(q^2+u^2+v^2\le 1\). Activate
+\(q,u\) jointly; test \(v\) separately. Polarisation-driven spatial splits
+and independent per-pixel polarisation come only after this regional
+baseline.
+
+**C. Anchored diagonal self-calibration.** Only after the frozen sky
+represents the important spatial polarised structure, add target-time GP
+points for the common R/L gain mode as \(\Delta G\,J^{\mathrm{cal}}\).
+Compare against the unchanged calibrator transfer. Keep Kcross, D, X,
+differential R/L gains, and frequency-dependent sky polarisation fixed.
+This stage establishes whether target self-cal is useful without allowing
+it to manufacture or erase \(Q,U,V\). A global \(q,u,v\) sky is probably
+inadequate here for an extended remnant.
+
+**D. Frequency dependence.** Restore a production frequency-dependent
+3C286 model and introduce frequency freedom one term at a time. Keep
+Kcross as a physical delay, use smooth per-receptor bandpass terms, model
+D as a smooth complex spectrum, and model only residual X phase after the
+delay. Select smoothness and knot counts with held-out channels. Only then
+compare constant \(q,u,v\) with global RM, polarised spectral components,
+or other sky frequency models. Spatial polarised structure is already in
+the baseline; RM is not a substitute for it.
+
+**E. Advanced polarisation self-calibration.** Consider differential R/L or
+time-variable D/X only with multiple polarimetric calibrator scans or epochs.
+BagOfWinds supplies the candidate corpus. Target data alone must not set the
+absolute circular-polarisation scale, EVPA, or leakage gauge.
+
+The future system reaches the quality standard of the Stokes-I calibration
+only when the complete path has apply-back synthetic tests, independent
+calibrator transfer, explicit solution coverage and uncertainty, structured
+holdouts, CASA term ablations, and a sealed multi-dataset comparison. Agreement
+with the 3C391 CASA tables is an engineering oracle, not that final evidence.
 
 ## Side branch: instrument weather versus site meteorology
 
@@ -368,8 +627,8 @@ to `SYSPOWER` / `CALDEVICE` when those subtables exist, then test residual
 gain, delay, and bandpass against elevation, opacity, temperature, humidity,
 wind, and switched power. Emit JSON, plots, and a short Markdown report.
 3C391 already has `WEATHER`; several SRDP tables already have `G EVLASWPOW`.
-That join is optional and must not delay Jones schema work or the 3C391
-D/X golden.
+That join is optional and must not delay diagnostic imaging or
+exact-Jones refinement.
 
 ## Immediate next implementation
 
@@ -383,13 +642,40 @@ D/X golden.
    false \(V\). Replaced by two named operators (`exact` and
    `casa_parallel_preserving`). The CASA-oracle path is gated on RR/LL,
    \(I,Q,U,V\), and \(V/I\), with solution validity (not borrowed
-   `post_apply_flag` as the apply mask). JAX *solves* are next.
-4. JAX *solves* for Kcross / Df / Xf, one at a time, with connected holdouts.
-5. 3C286/3C84 polarisation floor.
-6. Only then a target \(q+iu\) / \(v\) model on C1.
+   `post_apply_flag` as the apply mask).
+4. ~~JAX *solves* for Kcross / Df / Xf as CASA-compatible direct
+   estimators.~~ Done 2026-08-28. First-order Df is labelled
+   `casa_parallel_preserving`; later terms are absent from staged
+   solutions; CASA table agreement is a regression oracle. Per-channel
+   D/X cannot hold out frequency.
+5. ~~Diagnostic \(I,Q,U,V\) images with the frozen CASA-compatible apply.~~
+   First slice 2026-08-29: dirty Stokes images and
+   [`diagnose_3c391_polarization.py`](../scripts/diagnose_3c391_polarization.py)
+   on the polarisation golden. Exploratory only.
+6. ~~Independent 3C286 polarisation floor (\(v\) and residual \(q,u\)).~~
+   First slice 2026-08-29 labelled same-data 3C286 `independent`; that
+   was wrong. The residual is apply-back because those rows contributed
+   to Kcross/Xf. 3C84 remains `in_sample`. The validation-grade path
+   solves Kcross/Xf on one 3C286 cohort and evaluates on another
+   (`held_out_calibrator`).
+7. ~~Global constant \(q,u,v\) as a detection and calibration check.~~
+   First slice 2026-08-29 used \(\mathrm{Re}(I)\) as the intensity and
+   only C1. That is invalid for an extended source. The validation-grade
+   fit is \(\hat p=\sum w M_I^*(Q+iU)/\sum w|M_I|^2\) against the frozen
+   mosaic prediction, with the analogous real \(v\), all seven pointings,
+   a held-out pointing, and aligned dirty \(Q/U/V\). Those maps recur.
+   Coarse joint \(q,u\) on I-only regions is the next imaging step, with
+   \(v=0\) in the sky. Self-cal and RM wait.
+8. Exact-Jones iterative refinement on a JAX-native 2×2 objective, with
+   smooth time/frequency parameterizations. Keep the direct estimators as
+   initializers; do not replace them with Optax. Extra D/X freedom only
+   when held baselines, times, *and* channels improve. Residual time gains
+   enter as \(\Delta G\,J^{\mathrm{cal}}\). Items 5–7 may run in parallel
+   with 8: look at images; do not treat them as evidence-grade until
+   exact Jones is in place.
 
-The MS `WEATHER` join can proceed in parallel. It must not delay the
-3C391 D/X golden.
+The MS `WEATHER` join can proceed in parallel. It must not delay diagnostic
+imaging or exact-Jones refinement.
 
 ## Progress log
 
@@ -409,7 +695,6 @@ Done:
 
 Not done:
 
-- JAX *solves* for Kcross / Df / Xf (import/apply exists).
 - Site-meteorology join.
 
 ### 2026-08-28 — first polcal is not an oracle
@@ -505,7 +790,12 @@ Conventions:
 The CASA-oracle golden now checks RR/LL, \(I,Q,U,V\), and \(V/I\), and
 JAX flags unsolved Df/Xf channels from the table. Exact 2×2 remains a
 separate operator and still produces the false \(V\) if used as CASA
-apply. JAX solves for these terms are not started.
+apply. JAX solves for these terms are CASA-compatible direct estimators
+(global Kcross, first-order Df labelled `casa_parallel_preserving`, shared
+Xf). They are initializers and CASA regression oracles, not a
+self-calibration engine. Per-channel D/X has no frequency holdout until a
+smooth spectral parameterization exists. Exact 2×2 iterative refinement
+is next; do not replace the direct rung with Optax.
 
 ### 2026-08-28 — local 3C391 MS and first polcal
 
@@ -547,7 +837,9 @@ paths. Polarisation solves write to `data/3c391/reference-pol`.
 - **Apply and solve diverged.** `apply_calibration` now composes G/K/B with
   optional Kcross, Df, Xf, and circular P. The Optax G/K/B solvers still
   treat the last visibility axis as one parallel hand per receptor and
-  reject four-product blocks. D/X *solves* do not exist yet.
+  reject four-product blocks. D/X *solves* are NumPy direct estimators
+  (CASA-compatible rung), not JAX-differentiable Optax. Exact 2×2
+  refinement is still ahead.
 - **Flagged Df is junk, not identity.** CASA leaves \(|D|\approx 1\) in
   flagged leakage rows. Applying those values as Jones destroys RR/LL.
   Invalid Df/Xf/Kcross now flag the visibility. \(D=0\) is not a stand-in
@@ -603,3 +895,95 @@ paths. Polarisation solves write to `data/3c391/reference-pol`.
   (RR/LL DATA/CORRECTED_DATA export). That is not the
   `CalibrationSolution` schema. `tests/test_casa_golden.py` is a different
   sky-operator golden; do not bump it for Jones work.
+- **Direct Df is linearised, not exact Jones.** `solve_leakage` is
+  first-order LS and writes `leakage_application='casa_parallel_preserving'`.
+  Identity starts must not inherit `exact`. An exact 2×2 refinement is a
+  later step.
+- **Rank-deficient D is invalid.** Per-channel leakage validity follows
+  reduced-design rank and parameter support, not “antenna appeared.”
+  \(D_R[\mathrm{ref}]=0\) is valid only if the reference antenna was
+  observed.
+- **Per-channel D/X cannot hold out frequency.** The connected split is
+  baseline-time. CASA table agreement is a regression oracle, not
+  validation evidence for enabling frequency-dependent D/X. Smooth
+  spectral parameterization is required before channel holdout.
+- **Staged polcal RMS drops later terms.** A Kcross result does not keep
+  leftover CASA D/X; train/holdout RMS are isolated to that stage.
+- **Df is a point-calibrator solver.** The first-order design uses real
+  Stokes I and refuses nonzero model \(Q,U,V\) or baseline-varying
+  coherency. Ratio estimators use weights \(w|p|^2\).
+
+### 2026-08-29 — imaging ladder: detection is not an image
+
+The calibrator-anchored Jones destination did not change. The imaging
+sequence did.
+
+A global \(q,u,v\) fit is a null model
+(\(Q_k=qI_k\), \(U_k=uI_k\), \(V_k=vI_k\)). It is not a spatial
+polarisation image and can miss cancelling structure. The first sky model
+is constant \(q,u,v\) with **no RM**. Spatial activation on the accepted
+Stokes-I topology (joint \(q,u\); \(v\) separately) comes next, then
+self-cal, then RM. Polarisation activation is a separate decision from
+Stokes-I spatial splits.
+
+The 3C84 CORRECTED residual is an in-sample diagnostic from the same scan
+that solved Df, not an independent polarisation floor. Same-data 3C286
+is apply-back, not an independent \(V=0\) / EVPA check. The independent
+3C286 floor is a scan or connected-baseline solve/validation split.
+
+Diagnostic images may start with `casa_parallel_preserving` and stay
+exploratory until exact-Jones refinement. Residual time gains belong at
+the gain position (\(\Delta G\,J^{\mathrm{cal}}\)). The GP prior must
+either condition on calibrator anchors or include an anchor likelihood,
+not both.
+
+First implementation slice: [`polarization_diagnostics.py`](../src/sl1mjax/polarization_diagnostics.py)
+forms dirty \(I,Q,U,V\), an apply-back 3C286 residual, an in-sample 3C84
+diagnostic, and a global \(q,u,v\) fit. The exploratory runner is
+[`diagnose_3c391_polarization.py`](../scripts/diagnose_3c391_polarization.py).
+The validation-grade runner is
+[`validate_3c391_global_polarization.py`](../scripts/validate_3c391_global_polarization.py):
+complex \(M_I\) regression, 3C286 holdout, all seven pointings, and
+common-sky dirty \(Q/U/V\). Coarse joint \(Q/U\) activation is the
+current imaging step; \(v\) stays off in the sky.
+
+### 2026-08-29 — validation-grade global test
+
+The first C1 global numbers used \(\mathrm{Re}(I_{\mathrm{obs}})\) and
+labelled 3C286 independent. Both are withdrawn.
+
+- The estimator is now \(\hat p=\sum w M_I^*(Q+iU)/\sum w|M_I|^2\),
+  with a real coefficient for \(v\), plus null-versus-polarised loss.
+  Observed \(\mathrm{Re}(I)\) is refused.
+- 3C286 apply-back stays labelled `apply_back`. Kcross/Xf are solved on
+  one scan/time cohort and evaluated on the other
+  (`held_out_calibrator`).
+- All seven pointings, a held-out C7, deterministic partitions, and
+  aligned dirty \(Q/U/V\) are in
+  [`outputs/3c391_global_polarization_validation/report.json`](../outputs/3c391_global_polarization_validation/report.json).
+  Dirty \(Q/U\) recur (C7 vs C1–C6 cosine \(0.86/0.88\)). A global
+  \(p_L=0.40\%\) is only modestly above the \(0.25\%\) held-out 3C286
+  floor; the morphology is the stronger evidence. C7 is no longer sealed
+  for choosing regions.
+
+### 2026-08-29 — coarse joint \(Q/U\), \(v=0\)
+
+Advance to a spatial-activation *test*, not an astrophysical
+polarisation image.
+
+- Freeze calibration, Stokes I, frequency, and averaging.
+- Declare a small I-only region set
+  (`central_inner` / `central_outer` / `widefield` from I-weighted
+  median radius). Do not cut on \(Q/U\) peaks.
+- Compare unpolarised, one global \(q+iu\), and joint regional
+  \(q_r+iu_r\). The fitted sky has \(v=0\); keep reporting dirty \(V\).
+- Score by leave-one-pointing-out across all seven pointings, plus
+  baseline/time/channel halves, beam-radius and parallactic cohorts.
+- Runner:
+  [`validate_3c391_coarse_polarization.py`](../scripts/validate_3c391_coarse_polarization.py).
+- Do not start RM, frequency-dependent polarisation, self-cal, or
+  polarisation-driven pixel splits.
+- A follow-up I-only partition uses the frozen 11,536-leaf mosaic
+  consensus grouped onto 64″ ancestor cells (not one \(q,u\) per leaf),
+  omitting the wide-field dictionary because the scalar Airy beam is
+  least trusted off-axis.

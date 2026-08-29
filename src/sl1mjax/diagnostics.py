@@ -382,32 +382,29 @@ def evaluate_residuals(
     )
 
 
-def dirty_image_and_psf(
-    block: VisibilityBlock,
+def dirty_weighted_image_and_psf(
+    weighted_visibility: np.ndarray,
+    weighted_response: np.ndarray,
+    uvw_m: np.ndarray,
+    frequency_hz: np.ndarray,
     grid: RegularGrid,
     *,
     chunk_size: int = 256,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Form naturally weighted dirty image and PSF by a direct adjoint DFT."""
+    """Form a naturally weighted dirty image from collapsed visibilities."""
 
     if chunk_size < 1:
         raise ValueError("chunk_size must be positive")
-    factors = np.asarray(stokes_i_to_correlations(1.0, block.correlations), dtype=np.complex128)
-    active_weight = np.where(block.active, block.weight, 0.0)
-    weighted_visibility = np.sum(
-        active_weight * np.conj(factors)[None, None, :] * block.visibility,
-        axis=2,
-    )
-    weighted_response = np.sum(
-        active_weight * np.abs(factors)[None, None, :] ** 2,
-        axis=2,
-    )
+    if weighted_visibility.shape != weighted_response.shape:
+        raise ValueError("weighted visibility and response must have the same shape")
     normalization = float(np.sum(weighted_response))
     if normalization <= 0:
         raise ValueError("visibility block has no active positive-weight samples")
 
     uvw_wavelengths = (
-        block.uvw_m[:, None, :] * block.frequency_hz[None, :, None] / SPEED_OF_LIGHT_M_S
+        np.asarray(uvw_m)[:, None, :]
+        * np.asarray(frequency_hz)[None, :, None]
+        / SPEED_OF_LIGHT_M_S
     )
     l, m = grid.coordinates
     dirty = np.empty(l.size, dtype=np.float64)
@@ -428,13 +425,38 @@ def dirty_image_and_psf(
         )
         adjoint = np.exp(-phase)
         dirty[start:stop] = (
-            np.real(np.sum(adjoint * weighted_visibility[..., None], axis=(0, 1))) / normalization
+            np.real(np.sum(adjoint * weighted_visibility[..., None], axis=(0, 1)))
+            / normalization
         )
         psf[start:stop] = (
-            np.real(np.sum(adjoint * weighted_response[..., None], axis=(0, 1))) / normalization
+            np.real(np.sum(adjoint * weighted_response[..., None], axis=(0, 1)))
+            / normalization
         )
     shape = (grid.size, grid.size)
     return dirty.reshape(shape), psf.reshape(shape)
+
+
+def dirty_image_and_psf(
+    block: VisibilityBlock,
+    grid: RegularGrid,
+    *,
+    chunk_size: int = 256,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Form naturally weighted dirty image and PSF by a direct adjoint DFT."""
+
+    factors = np.asarray(stokes_i_to_correlations(1.0, block.correlations), dtype=np.complex128)
+    active_weight = np.where(block.active, block.weight, 0.0)
+    return dirty_weighted_image_and_psf(
+        np.sum(
+            active_weight * np.conj(factors)[None, None, :] * block.visibility,
+            axis=2,
+        ),
+        np.sum(active_weight * np.abs(factors)[None, None, :] ** 2, axis=2),
+        block.uvw_m,
+        block.frequency_hz,
+        grid,
+        chunk_size=chunk_size,
+    )
 
 
 def evaluate_mosaic_residuals(

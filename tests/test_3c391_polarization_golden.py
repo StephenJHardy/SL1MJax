@@ -217,3 +217,80 @@ def test_imported_kcross_df_xf_reproduces_casa_corrected() -> None:
         assert solution.apply_parallactic_angle is True
         assert solution.rl_phase is not None
         assert solution.cross_hand_delay_s is not None
+
+
+def test_jax_polarization_solves_match_casa_tables() -> None:
+    from sl1mjax.calibration import apply_calibration, import_casa_polarization_solution
+    from sl1mjax.polarization_inference import (
+        solve_cross_hand_delay,
+        solve_leakage,
+        solve_polarization,
+        solve_rl_phase,
+    )
+
+    kbg = Path(__file__).parent / "fixtures" / "3c391_calibration_golden.npz"
+    if not FIXTURE.is_file() or not kbg.is_file():
+        pytest.skip("polarisation or K/B/G golden is missing")
+
+    flux = load_casa_calibration_golden(FIXTURE, label="flux_angle")
+    leakage = load_casa_calibration_golden(FIXTURE, label="leakage_calibrator")
+    flux_casa = import_casa_polarization_solution(FIXTURE, kbg, label="flux_angle")
+    leakage_casa = import_casa_polarization_solution(
+        FIXTURE, kbg, label="leakage_calibrator"
+    )
+
+    kcross = solve_cross_hand_delay(flux.block, flux_casa)
+    delay = kcross.solution.cross_hand_delay_s
+    assert delay is not None
+    assert delay[0, 0] == pytest.approx(flux_casa.cross_hand_delay_s[0, 0], abs=5e-11)
+    assert np.allclose(delay[:, 0], delay[0, 0])
+    assert np.allclose(delay[:, 1], 0.0)
+    assert kcross.solution.leakage is None
+    assert kcross.solution.rl_phase is None
+    assert kcross.solution.provenance["split_strategy"] == "connected_baseline_time"
+    assert kcross.solution.provenance["train_samples"] > 0
+    assert kcross.solution.provenance["holdout_samples"] > 0
+    assert kcross.solution.provenance["frequency_holdout"] is False
+    assert kcross.holdout_rms < kcross.solution.provenance["baseline_holdout_rms"]
+
+    dterms = solve_leakage(leakage.block, leakage_casa)
+    assert dterms.solution.leakage is not None
+    assert dterms.solution.rl_phase is None
+    assert dterms.solution.leakage_application == "casa_parallel_preserving"
+    both = dterms.solution.leakage_valid & leakage_casa.leakage_valid
+    assert np.any(both)
+    delta = np.abs(dterms.solution.leakage[both] - leakage_casa.leakage[both])
+    assert float(np.median(delta)) < 0.005
+    assert dterms.solution.provenance["frequency_parameterization"] == "per_channel"
+    assert dterms.solution.provenance["frequency_holdout"] is False
+    assert dterms.solution.provenance["holdout_samples"] > 0
+    assert dterms.holdout_rms < dterms.solution.provenance["baseline_holdout_rms"]
+
+    angle = solve_rl_phase(flux.block, flux_casa)
+    assert angle.solution.rl_phase is not None
+    valid = angle.solution.rl_phase_valid[0] & flux_casa.rl_phase_valid[0]
+    dphi = np.abs(
+        np.rad2deg(
+            np.angle(
+                angle.solution.rl_phase[0, valid]
+                * np.conjugate(flux_casa.rl_phase[0, valid])
+            )
+        )
+    )
+    assert float(np.median(dphi)) < 1.0
+    assert angle.solution.leakage is not None
+    assert angle.solution.provenance["frequency_holdout"] is False
+    assert angle.holdout_rms < angle.solution.provenance["baseline_holdout_rms"]
+
+    kcross_fit, leakage_fit, angle_fit = solve_polarization(
+        flux.block, leakage.block, flux_casa, leakage_casa
+    )
+    solved = angle_fit.solution
+    corrected = apply_calibration(flux.block, solved, extrapolate=True)
+    compare = corrected.active & ~flux.post_apply_flag
+    assert _normalized_rms(corrected.visibility, flux.corrected_visibility, compare) < 0.01
+    jax_i, _, _, jax_v = _median_stokes(corrected.visibility, compare)
+    assert abs(jax_v / jax_i) < 1.0e-3
+    assert kcross_fit.stage == "kcross"
+    assert leakage_fit.stage == "leakage"
+    assert angle_fit.stage == "rl_phase"

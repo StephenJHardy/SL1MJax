@@ -1,4 +1,8 @@
-"""Deterministic Optax solvers for diagonal parallel-hand calibration."""
+"""Deterministic Optax solvers for diagonal parallel-hand calibration.
+
+Polarisation terms (Kcross, Df, Xf) use direct linear estimators that
+follow the CASA 3C391 sequence, not Optax.
+"""
 
 from __future__ import annotations
 
@@ -176,6 +180,8 @@ def _rms_metrics(
             * np.abs(corrected.visibility[selected] - model[selected]) ** 2
         )
         denominator = np.sum(corrected.weight[selected] * np.abs(model[selected]) ** 2)
+        if denominator <= 0.0:
+            return float("inf")
         return float(np.sqrt(numerator / denominator))
 
     return metric(split.train), metric(split.holdout)
