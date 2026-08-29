@@ -22,6 +22,7 @@ from sl1mjax.beam_conventions import (
     BeamCalibrationState,
     ConventionLock,
     PerleyFrequencyPolicy,
+    SquintMagnitudePolicy,
     analytic_squint_is_evidence_grade,
     analytic_squint_quantity,
     antenna_frame_polarization_is_physically_verified,
@@ -42,10 +43,12 @@ from sl1mjax.beam_conventions import (
     perley2016_frequency_is_supported,
     perley2016_stokes_i_power,
     perley2016_stokes_i_validity,
+    receptor_squint_offset_lm_rad,
     require_beam_calibration_state,
     select_perley2016_cband_window,
     sky_east_is_positive_l,
     sky_north_is_positive_m,
+    squint_receptor_half_offset_rad,
 )
 from sl1mjax.calibration_terms import geodetic_latitude_rad, parallactic_angle_rad
 from sl1mjax.coordinates import radec_to_lmn
@@ -75,6 +78,8 @@ def test_cband_inventory_labels_kind_and_refuses_lband_as_cband() -> None:
     assert artifacts["jagannathan2021_atoz_plumber"].usable_for_cband is False
     assert artifacts["jagannathan2021_atoz_plumber"].band == "S"
     assert artifacts["sl1mjax_analytic_squint"].usable_for_cband is False
+    assert artifacts["evla195_diagonal_squint"].usable_for_cband is True
+    assert artifacts["evla195_diagonal_squint"].frozen_reference is False
     with pytest.raises(KeyError):
         artifact_by_id("missing")
 
@@ -280,6 +285,27 @@ def test_unused_squint_rotation_is_an_internal_convention() -> None:
     assert float(ll_east[0]) > float(ll_east[1])
     assert float(rr_north[1]) > float(rr_north[0])
     assert antenna_frame_polarization_is_physically_verified() is False
+
+
+def test_evla195_squint_policy_refuses_the_legacy_half_offset() -> None:
+    frequency = 4.6e9
+    half = evla195_receptor_half_offset_rad(frequency)
+    np.testing.assert_allclose(
+        squint_receptor_half_offset_rad(frequency, policy=SquintMagnitudePolicy.EVLA195),
+        half,
+    )
+    with pytest.raises(ValueError, match="not evidence-grade"):
+        squint_receptor_half_offset_rad(
+            frequency, policy=SquintMagnitudePolicy.LEGACY_ANALYTIC_HALF_OFFSET
+        )
+    dl_r, dm_r = receptor_squint_offset_lm_rad(1.0, 0.0, receptor=Receptor.R)
+    dl_l, _dm_l = receptor_squint_offset_lm_rad(1.0, 0.0, receptor=Receptor.L)
+    assert float(dl_r[0, 0]) > 0.0
+    assert float(dl_l[0, 0]) < 0.0
+    assert float(dm_r[0, 0]) == pytest.approx(0.0, abs=1e-15)
+    dl_n, dm_n = receptor_squint_offset_lm_rad(1.0, 0.5 * np.pi, receptor=Receptor.R)
+    assert float(dl_n[0, 0]) == pytest.approx(0.0, abs=1e-15)
+    assert float(dm_n[0, 0]) > 0.0
 
 
 def test_nrao_gaussian_width_matches_catalog_fwhm() -> None:

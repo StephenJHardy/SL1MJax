@@ -8,6 +8,8 @@ from sl1mjax.beam_conventions import (
     PERLEY2016_MINIMUM_VALID_POWER,
     BeamCalibrationState,
     PerleyFrequencyPolicy,
+    SquintMagnitudePolicy,
+    evla195_receptor_half_offset_rad,
     nearest_perley2016_cband_window,
     nrao_gaussian_fwhm_arcmin,
     perley2016_stokes_i_power,
@@ -19,6 +21,7 @@ from sl1mjax.voltage_beam import (
     AnalyticAiryVoltageBeam,
     CompositeHandoverPolicy,
     CompositeScalarVoltageBeam,
+    DiagonalSquintVoltageBeam,
     Perley2016CBandVoltageBeam,
     beam_coordinates,
     stokes_i_power_from_jones,
@@ -312,3 +315,112 @@ def test_pointing_offset_recenters_the_voltage_beam() -> None:
     )
     np.testing.assert_allclose(evaluation.jones[0, 0, 0], np.eye(2), atol=1e-12)
     assert stokes_i_power_from_jones(evaluation.jones)[0, 1, 0] < 1.0
+
+
+def _squint_beam() -> DiagonalSquintVoltageBeam:
+    return DiagonalSquintVoltageBeam(shape=AnalyticAiryVoltageBeam())
+
+
+def test_diagonal_squint_is_identity_on_axis_and_uses_memo_195() -> None:
+    frequency = np.array([4.6e9])
+    evaluation = _squint_beam().evaluate(
+        beam_coordinates([0.0], [0.0], frequency, parallactic_angle_rad=0.0),
+        calibration_state="casa_parang_true",
+    )
+    np.testing.assert_allclose(evaluation.jones[0, 0, 0], np.eye(2), atol=1e-12)
+    catalog = evaluation.provenance["catalog"]
+    assert isinstance(catalog, dict)
+    assert catalog["magnitude_policy"] == SquintMagnitudePolicy.EVLA195.value
+    assert catalog["legacy_analytic_half_offset_enabled"] is False
+    assert evaluation.provenance["creates_i_to_v"] is True
+    assert evaluation.provenance["creates_i_to_qu"] is False
+    assert evaluation.provenance["ignored_coordinates"] == ["elevation_rad"]
+    assert antenna_frame_still_unverified(evaluation)
+
+
+def antenna_frame_still_unverified(evaluation) -> bool:
+    catalog = evaluation.provenance["catalog"]
+    assert isinstance(catalog, dict)
+    return catalog["feed_frame_polarization"] == "physically_unverified"
+
+
+def test_diagonal_squint_refuses_the_legacy_half_offset() -> None:
+    with pytest.raises(ValueError, match="not evidence-grade"):
+        DiagonalSquintVoltageBeam(
+            shape=AnalyticAiryVoltageBeam(),
+            magnitude=SquintMagnitudePolicy.LEGACY_ANALYTIC_HALF_OFFSET,
+        )
+
+
+def test_diagonal_squint_rotates_r_to_plus_l_at_chi_zero() -> None:
+    frequency = 4.6e9
+    half = float(evla195_receptor_half_offset_rad(frequency))
+    peak = np.sin(half)
+    evaluation = _squint_beam().evaluate(
+        beam_coordinates(
+            [-peak, peak],
+            [0.0, 0.0],
+            [frequency],
+            parallactic_angle_rad=0.0,
+        ),
+        calibration_state="casa_parang_true",
+    )
+    power_r = np.abs(evaluation.jones[0, :, 0, 0, 0]) ** 2
+    power_l = np.abs(evaluation.jones[0, :, 0, 1, 1]) ** 2
+    assert float(power_r[1]) > float(power_r[0])
+    assert float(power_l[0]) > float(power_l[1])
+    north = _squint_beam().evaluate(
+        beam_coordinates(
+            [0.0, 0.0],
+            [-peak, peak],
+            [frequency],
+            parallactic_angle_rad=0.5 * np.pi,
+        ),
+        calibration_state="casa_parang_true",
+    )
+    power_r_n = np.abs(north.jones[0, :, 0, 0, 0]) ** 2
+    assert float(power_r_n[1]) > float(power_r_n[0])
+
+
+def test_diagonal_squint_makes_v_not_qu_from_unpolarised_i() -> None:
+    frequency = np.array([4.6e9])
+    half = float(evla195_receptor_half_offset_rad(4.6e9))
+    l = np.array([0.0, np.sin(3.0 * half), -np.sin(3.0 * half)])
+    evaluation = _squint_beam().evaluate(
+        beam_coordinates(l, np.zeros_like(l), frequency, parallactic_angle_rad=0.0),
+        calibration_state="casa_parang_true",
+    )
+    rr = np.abs(evaluation.jones[0, :, 0, 0, 0]) ** 2
+    ll = np.abs(evaluation.jones[0, :, 0, 1, 1]) ** 2
+    apparent_v = 0.5 * (rr - ll)
+    assert apparent_v[0] == pytest.approx(0.0, abs=1e-12)
+    assert apparent_v[1] > 0.0
+    assert apparent_v[2] < 0.0
+    np.testing.assert_allclose(evaluation.jones[..., 0, 1], 0.0)
+    np.testing.assert_allclose(evaluation.jones[..., 1, 0], 0.0)
+
+
+def test_diagonal_squint_offset_scales_as_one_over_frequency() -> None:
+    low = float(evla195_receptor_half_offset_rad(4.6e9))
+    high = float(evla195_receptor_half_offset_rad(6.9e9))
+    assert high == pytest.approx(low * 4.6 / 6.9, rel=1e-12)
+
+
+def test_diagonal_squint_accepts_composite_shape() -> None:
+    composite = CompositeScalarVoltageBeam(
+        main=Perley2016CBandVoltageBeam(),
+        outer=_extended_outer(),
+        handover=CompositeHandoverPolicy.MATCH_POWER,
+    )
+    evaluation = DiagonalSquintVoltageBeam(shape=composite).evaluate(
+        beam_coordinates(
+            [0.0, np.sin(np.deg2rad(0.25))],
+            [0.0, 0.0],
+            [4.6e9],
+            parallactic_angle_rad=0.0,
+        ),
+        calibration_state="casa_parang_true",
+    )
+    assert np.all(evaluation.valid)
+    np.testing.assert_allclose(evaluation.jones[0, 0, 0], np.eye(2), atol=1e-12)
+    assert evaluation.provenance["support_class"] == "measured_with_analytic_outer"

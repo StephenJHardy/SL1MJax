@@ -216,16 +216,16 @@ def test_pack_unpack_round_trips_and_fills_missing_slots() -> None:
 def test_circular_stokes_unpack_recovers_qu_from_rl_lr() -> None:
     from sl1mjax.polarization import (
         circular_stokes_from_correlations,
+        circular_stokes_to_coherency,
         electric_vector_position_angle_rad,
         fractional_linear_polarisation,
     )
 
     stokes_i, stokes_q, stokes_u = 7.5, -0.4, 0.7
-    rr = stokes_i
-    ll = stokes_i
-    rl = stokes_q + 1j * stokes_u
-    lr = stokes_q - 1j * stokes_u
-    visibility = np.array([rr, rl, lr, ll])
+    packed = circular_stokes_to_coherency(stokes_i, stokes_q, stokes_u, 0.0)
+    visibility = np.array(
+        [packed[0, 0], packed[0, 1], packed[1, 0], packed[1, 1]]
+    )
     i, q, u, v = circular_stokes_from_correlations(
         visibility,
         (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL),

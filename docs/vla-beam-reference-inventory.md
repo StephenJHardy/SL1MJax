@@ -3,13 +3,21 @@
 Phase 1 of [`vla-beam-model-proposal.md`](vla-beam-model-proposal.md). The
 scalar C-band inventory and internal coordinate conventions are frozen. The
 full-polarisation artifact and the physical antenna-frame orientation are
-identified routes, not frozen references. Phases 2 and 3 add the voltage
-evaluator; they do not add a cache or change the Airy predict path.
+identified routes, not frozen references. Phase 6 generates a nominal
+CASSBEAM C-band Jones first and seeks Perley holography only if accepted-mode
+residuals remain significant. Phases 2–5 add the voltage evaluator, the
+streamed operator, and Memo 195 diagonal squint; they do not add a cache or
+change the Airy predict path.
 
 The machine-readable inventory lives in
-[`src/sl1mjax/beam_conventions.py`](../src/sl1mjax/beam_conventions.py) and
-[`src/sl1mjax/data/vla_cband_perley2016.json`](../src/sl1mjax/data/vla_cband_perley2016.json).
-Tests in `tests/test_vla_beam_conventions.py` lock the conventions.
+[`src/sl1mjax/beam_conventions.py`](../src/sl1mjax/beam_conventions.py),
+[`src/sl1mjax/data/vla_cband_perley2016.json`](../src/sl1mjax/data/vla_cband_perley2016.json),
+and
+[`src/sl1mjax/data/vla_cband_full_jones_pin.json`](../src/sl1mjax/data/vla_cband_full_jones_pin.json).
+The acquisition log is
+[`vla_cband_full_jones_acquisition.md`](vla_cband_full_jones_acquisition.md).
+Tests in `tests/test_vla_beam_conventions.py` and
+`tests/test_full_jones.py` lock the conventions.
 
 ## Artifacts
 
@@ -24,6 +32,7 @@ Tests in `tests/test_vla_beam_conventions.py` lock the conventions.
 | `jagannathan2017_asolver` | electromagnetic | L/S/C | 2×2 voltage Jones | No | No packaged C-band table |
 | `jagannathan2021_atoz_plumber` | empirical | S | Zernike AIP | No | No: S-band, not C-band |
 | `iheanetu2019_lband` | empirical | L | holographic Jones | No | No: must not be used as C-band |
+| `evla195_diagonal_squint` | analytic | Cassegrain | Diagonal R/L voltage | No | Yes: Phase 5 magnitude; PA unverified |
 | `sl1mjax_analytic_squint` | analytic | any | RR/LL power | No | No: convention not evidence-grade |
 
 ### Scalar empirical source
@@ -75,17 +84,26 @@ VLA S-band Zernike coefficients.
 Identified C-band routes, not frozen references:
 
 1. Export a 2×2 voltage Jones from CASSBEAM / CASA geometric optics (Brisken
-   2003; Jagannathan et al. 2017). Still unpinned: source or binary version,
-   C-band feed and optical parameter file, transmit-to-receive conversion,
+   2003; Jagannathan et al. 2017). Bacchus has Ubuntu `cassbeam` 1.1-4build2.
+   Still unpinned: the nominal C-band input, transmit-to-receive conversion,
    native Jones basis and element order, direction-axis orientation,
-   numerical settings, and an input or output hash.
+   numerical settings, and an output hash. The packaged 1.5 GHz example is
+   not that input.
 2. Reconstruct a measured Jones from the archived Perley holography grids
-   (`CHOLO` FITAB/FITTP and `C-BEAM-ffffpp` UVHOL files). Still unpinned:
-   an acquired artifact path, immutable checksum, correlation convention in
-   the files, and the antenna-average recipe.
+   (`CHOLO` FITAB/FITTP and `C-BEAM-ffffpp` UVHOL files) only if
+   accepted-mode residuals remain significant. Still unpinned: an acquired
+   artifact path, immutable checksum, correlation convention, and the
+   antenna-average recipe.
+
+Phase 6 acquisition order, not a freeze:
+
+1. Nominal CASSBEAM C-band Jones on Bacchus, labelled electromagnetic.
+2. CASA `awp2` acceptance of the diagonal/co-polar mode.
+3. 3C391 residual inspection.
+4. Processed holography only if those residuals stay significant.
 
 Do not substitute Iheanetu (2019) L-band holography or plumber S-band
-coefficients.
+coefficients. `full_jones_reference_is_frozen()` is false.
 
 Memo 195 §6.2 records that the holographic Q/U beams were often
 phase-distorted and that RL and LR were not conjugates. A reconstructed
@@ -220,9 +238,9 @@ position angle, and sign are compared with CASA or the holography grids.
 When that happens, store half-offset and total separation as different
 named quantities.
 
-A later diagonal-squint model can produce \(I\rightarrow V\) and cannot
-produce \(I\rightarrow Q/U\). Off-diagonal Jones is required for the
-rotating linear-polarisation leakage seen in the 64″ ancestor \(Q/U\)
+`DiagonalSquintVoltageBeam` produces \(I\rightarrow V\) and cannot
+produce \(I\rightarrow Q/U\). Off-diagonal Jones is still required for
+the rotating linear-polarisation leakage seen in the 64″ ancestor \(Q/U\)
 experiment.
 
 ## Voltage evaluator
@@ -238,8 +256,11 @@ backends ignore antenna id, parallactic angle, and elevation.
 | `AnalyticAiryVoltageBeam` | Exact power parity with `VLAPrimaryBeam` |
 | `Perley2016CBandVoltageBeam` | Memo 195 Table 5, `casa_nearest` only |
 | `CompositeScalarVoltageBeam` | In-band Perley support; explicit Airy handover |
+| `DiagonalSquintVoltageBeam` | Memo 195 R/L offset; \(\chi\) rotation; \(E(0)=I\) |
 
 The imaging predict path still uses the static Airy power operator.
+`predict_voltage_beam` is the Phase 4 reference operator: one Jones slice
+per exact unique time, then \(E_p C E_q^H\). It is not a cache.
 
 The composite Airy fallback is spatial and in-band only. Frequencies
 outside 4.052–7.948 GHz stay unsupported. `match_power` scales Airy so
@@ -250,12 +271,29 @@ far-sidelobe model.
 Width tests check the transcribed Table 5 HWHM, not a live CASA
 `PBMath1DEVLA` sample.
 
-## Still open after Phases 1–3
+`analytic_squint_is_evidence_grade()` remains false for the unused Airy
+`0.06` FWHM half-offset. Phase 5 uses `SquintMagnitudePolicy.EVLA195`
+instead. Feed-frame PA is still physically unverified.
+
+## Still open after Phases 1–6A
 
 - No cache format
-- No streamed per-timestep operator; do not start Phase 4 yet
-- No frozen CASA `PBMath1DEVLA` beam samples
-- No empirical backend in the 3C391 predict path
-- No frozen CASSBEAM configuration or acquired holography checksum
+- Phase 6 routes are selected; no C-band full-Jones table is frozen
+- BagOfWinds search on 2026-08-29 found no `C-BEAM-*`, `CW-BEAM-*`,
+  `CHOLO-*`, or `UVHOL` products
+- Compact holography must be requested from NRAO; do not start with the
+  ~150 GB FITAB/FITTP databases
+- Bacchus has Ubuntu `cassbeam` 1.1-4build2 at `/usr/bin/cassbeam`; no
+  C-band input or output checksum is pinned
+- Packaged `vla-1500MHz.in` is L-band and is not a C-band configuration
+- No acquired Perley holography path or checksum
+- No correlation-aware orientation-oracle *values* (the sample list is
+  specified)
+- Phase 6B interpolating evaluator not implemented
+- Phase 6E/6F not started
+- No frozen CASA `PBMath1DEVLA` beam samples (scalar CASA-parity only)
+- Phase 5 fixed-sky transfer diagnostic not run
+- No empirical or squinted backend in the 3C391 predict path
+- Phase 4/5 operator not integrated into imaging
 - No physically verified antenna-frame polarisation orientation
 - No finer sky regions, RM, self-cal, or spatial \(V\)

@@ -7,6 +7,9 @@ Airy may cover directions outside the Perley 5% radius, never frequencies
 outside the Table 5 interval. The main/outer handover must be chosen
 explicitly.
 
+Phase 5 adds ``DiagonalSquintVoltageBeam``: Memo 195 R/L offsets rotated
+by ``χ``. The unused Airy ``0.06`` FWHM half-offset is refused.
+
 The visibility predict path still uses ``VLAPrimaryBeam``. These backends
 are the reference evaluator, not a cache and not the streamed operator.
 """
@@ -31,14 +34,18 @@ from sl1mjax.beam_conventions import (
     PERLEY2016_SOURCE_URL,
     BeamCalibrationState,
     PerleyFrequencyPolicy,
+    SquintMagnitudePolicy,
     beam_requires_identity_on_axis,
     perley2016_frequency_is_supported,
     perley2016_frequency_support_hz,
     perley2016_stokes_i_power,
     perley2016_stokes_i_validity,
+    receptor_squint_offset_lm_rad,
     require_beam_calibration_state,
     select_perley2016_cband_window,
+    squint_receptor_half_offset_rad,
 )
+from sl1mjax.polarization import Receptor
 
 JONES_AXES = ("antenna", "direction", "channel", "receptor_out", "receptor_in")
 PERLEY_VOLTAGE_PHASE_CONVENTION = "real_nonnegative_sqrt_power"
@@ -160,23 +167,8 @@ class AnalyticAiryVoltageBeam:
         state = require_beam_calibration_state(calibration_state)
         l_off, m_off = _pointing_relative_lm(coordinates)
         frequency = coordinates.frequency_hz
-        l_grid = l_off[:, None]
-        m_grid = m_off[:, None]
-        frequency_grid = frequency[None, :]
-        direction_radius = np.hypot(l_grid, m_grid)
-        visible = (
-            np.isfinite(l_grid)
-            & np.isfinite(m_grid)
-            & np.isfinite(frequency_grid)
-            & (frequency_grid > 0.0)
-            & (direction_radius < 1.0)
-        )
-        l_safe = np.where(visible, l_grid, 0.0)
-        m_safe = np.where(visible, m_grid, 0.0)
-        voltage = np.where(
-            visible,
-            _airy_voltage(l_safe, m_safe, frequency_grid, self.catalog),
-            0.0,
+        voltage, visible = _airy_voltage_field(
+            l_off[:, None], m_off[:, None], frequency[None, :], self.catalog
         )
         jones = _diagonal_voltage_jones(voltage[None, ...])
         valid = visible[None, ...]
@@ -228,32 +220,13 @@ class Perley2016CBandVoltageBeam:
     ) -> BeamEvaluation:
         state = require_beam_calibration_state(calibration_state)
         l_off, m_off = _pointing_relative_lm(coordinates)
-        offset_arcmin = np.rad2deg(np.arcsin(np.minimum(np.hypot(l_off, m_off), 1.0))) * 60.0
         frequency = coordinates.frequency_hz
-        voltage = np.zeros((offset_arcmin.size, frequency.size), dtype=np.float64)
-        valid = np.zeros_like(voltage, dtype=bool)
-        selected_hz: list[float] = []
-        for channel, frequency_hz in enumerate(frequency):
-            try:
-                window = select_perley2016_cband_window(
-                    float(frequency_hz), policy=self.frequency_policy
-                )
-            except ValueError:
-                selected_hz.append(float("nan"))
-                continue
-            selected_hz.append(window.frequency_hz)
-            channel_valid = perley2016_stokes_i_validity(
-                offset_arcmin, frequency_hz, window
-            )
-            hemisphere = np.hypot(l_off, m_off) < 1.0
-            channel_valid = channel_valid & hemisphere & np.isfinite(l_off) & np.isfinite(m_off)
-            power = perley2016_stokes_i_power(
-                offset_arcmin, frequency_hz, window, require_valid=False
-            )
-            voltage[:, channel] = np.where(
-                channel_valid, np.sqrt(np.maximum(power, 0.0)), 0.0
-            )
-            valid[:, channel] = channel_valid
+        voltage, valid, selected_hz = _perley_voltage_field(
+            l_off[:, None],
+            m_off[:, None],
+            frequency[None, :],
+            self.frequency_policy,
+        )
         jones = _diagonal_voltage_jones(voltage[None, ...])
         if beam_requires_identity_on_axis(state):
             _assert_identity_on_axis(jones, valid[None, ...], l_off, m_off)
@@ -348,6 +321,105 @@ class CompositeScalarVoltageBeam:
         return BeamEvaluation(jones=jones, valid=valid, provenance=provenance)
 
 
+@dataclass(frozen=True)
+class DiagonalSquintVoltageBeam:
+    """Diagonal R/L voltage Jones with Memo 195 squint and χ rotation.
+
+    The unused Airy ``0.06`` FWHM half-offset is refused. Feed-frame PA and
+    R/L sign stay physically unverified. Imaging still uses the static
+    unsquinted Airy path.
+    """
+
+    shape: (
+        AnalyticAiryVoltageBeam
+        | Perley2016CBandVoltageBeam
+        | CompositeScalarVoltageBeam
+    )
+    magnitude: SquintMagnitudePolicy = SquintMagnitudePolicy.EVLA195
+    model_id: str = "evla195_diagonal_squint"
+    antenna_planes_from_parallactic: bool = True
+
+    def __post_init__(self) -> None:
+        squint_receptor_half_offset_rad(1.0e9, policy=self.magnitude)
+
+    def evaluate(
+        self,
+        coordinates: BeamCoordinates,
+        *,
+        calibration_state: BeamCalibrationState | str,
+    ) -> BeamEvaluation:
+        state = require_beam_calibration_state(calibration_state)
+        l_off, m_off = _pointing_relative_lm(coordinates)
+        frequency = coordinates.frequency_hz
+        half = squint_receptor_half_offset_rad(frequency, policy=self.magnitude)
+        chi = _squint_parallactic_angles(coordinates)
+        dl_r, dm_r = receptor_squint_offset_lm_rad(
+            half, chi, receptor=Receptor.R
+        )
+        dl_l, dm_l = receptor_squint_offset_lm_rad(
+            half, chi, receptor=Receptor.L
+        )
+        frequency_grid = frequency[None, None, :]
+        l_grid = l_off[None, :, None]
+        m_grid = m_off[None, :, None]
+        voltage_r, valid_r = _shape_voltage_field(
+            self.shape,
+            l_grid - dl_r[:, None, :],
+            m_grid - dm_r[:, None, :],
+            frequency_grid,
+            calibration_state=state,
+        )
+        voltage_l, valid_l = _shape_voltage_field(
+            self.shape,
+            l_grid - dl_l[:, None, :],
+            m_grid - dm_l[:, None, :],
+            frequency_grid,
+            calibration_state=state,
+        )
+        valid = valid_r & valid_l
+        if beam_requires_identity_on_axis(state):
+            voltage_r, voltage_l, valid = _normalize_squint_on_axis(
+                self.shape,
+                voltage_r,
+                voltage_l,
+                valid,
+                dl_r,
+                dm_r,
+                dl_l,
+                dm_l,
+                frequency,
+                state,
+            )
+        jones = _diagonal_receptor_jones(voltage_r, voltage_l)
+        if beam_requires_identity_on_axis(state):
+            _assert_identity_on_axis(jones, valid, l_off, m_off)
+        return BeamEvaluation(
+            jones=jones,
+            valid=valid,
+            provenance=_scalar_provenance(
+                model_id=self.model_id,
+                artifact_id="evla195_diagonal_squint",
+                kind=_shape_kind(self.shape),
+                support_class=_shape_support(self.shape),
+                calibration_state=state,
+                frequency_policy=_shape_frequency_policy(self.shape),
+                voltage_phase_convention=_shape_phase_convention(self.shape),
+                ignored_coordinates=("elevation_rad",),
+                creates_i_to_v=True,
+                catalog={
+                    "shape_model_id": self.shape.model_id,
+                    "magnitude_policy": self.magnitude.value,
+                    "magnitude_quantity": "total_rcp_lcp_separation",
+                    "receptor_offset_quantity": "receptor_half_offset",
+                    "total_separation_arcmin_ghz": 2.4,
+                    "rotation": "internal_chi_zero_places_r_at_plus_l",
+                    "feed_frame_polarization": "physically_unverified",
+                    "legacy_analytic_half_offset_enabled": False,
+                },
+            ),
+        )
+
+
 def beam_coordinates(
     l_rad: ArrayLike,
     m_rad: ArrayLike,
@@ -404,10 +476,233 @@ def _pointing_relative_lm(coordinates: BeamCoordinates) -> tuple[np.ndarray, np.
 def _diagonal_voltage_jones(voltage: np.ndarray) -> NDArray[np.complex128]:
     """Pack a real voltage as ``diag(E, E)`` on the contract axes."""
 
-    jones = np.zeros(voltage.shape + (2, 2), dtype=np.complex128)
-    jones[..., 0, 0] = voltage
-    jones[..., 1, 1] = voltage
+    return _diagonal_receptor_jones(voltage, voltage)
+
+
+def _diagonal_receptor_jones(
+    voltage_r: np.ndarray, voltage_l: np.ndarray
+) -> NDArray[np.complex128]:
+    """Pack receptor voltages as ``diag(E_R, E_L)`` on the contract axes."""
+
+    jones = np.zeros(voltage_r.shape + (2, 2), dtype=np.complex128)
+    jones[..., 0, 0] = voltage_r
+    jones[..., 1, 1] = voltage_l
     return jones
+
+
+def _airy_voltage_field(
+    l: np.ndarray,
+    m: np.ndarray,
+    frequency: np.ndarray,
+    catalog: VLABeamCatalog,
+) -> tuple[np.ndarray, np.ndarray]:
+    l_grid, m_grid, frequency_grid = np.broadcast_arrays(l, m, frequency)
+    visible = (
+        np.isfinite(l_grid)
+        & np.isfinite(m_grid)
+        & np.isfinite(frequency_grid)
+        & (frequency_grid > 0.0)
+        & (np.hypot(l_grid, m_grid) < 1.0)
+    )
+    l_safe = np.where(visible, l_grid, 0.0)
+    m_safe = np.where(visible, m_grid, 0.0)
+    voltage = np.where(
+        visible, _airy_voltage(l_safe, m_safe, frequency_grid, catalog), 0.0
+    )
+    return np.asarray(voltage, dtype=np.float64), np.asarray(visible, dtype=bool)
+
+
+def _perley_voltage_field(
+    l: np.ndarray,
+    m: np.ndarray,
+    frequency: np.ndarray,
+    policy: PerleyFrequencyPolicy,
+) -> tuple[np.ndarray, np.ndarray, list[float]]:
+    l_grid, m_grid, frequency_grid = np.broadcast_arrays(l, m, frequency)
+    voltage = np.zeros(l_grid.shape, dtype=np.float64)
+    valid = np.zeros(l_grid.shape, dtype=bool)
+    selected_hz: list[float] = []
+    channel_count = frequency_grid.shape[-1]
+    for channel in range(channel_count):
+        frequency_hz = float(np.reshape(frequency_grid[..., channel], -1)[0])
+        try:
+            window = select_perley2016_cband_window(frequency_hz, policy=policy)
+        except ValueError:
+            selected_hz.append(float("nan"))
+            continue
+        selected_hz.append(window.frequency_hz)
+        radius = np.hypot(l_grid[..., channel], m_grid[..., channel])
+        offset_arcmin = np.rad2deg(np.arcsin(np.minimum(radius, 1.0))) * 60.0
+        hemisphere = radius < 1.0
+        channel_valid = (
+            perley2016_stokes_i_validity(offset_arcmin, frequency_hz, window)
+            & hemisphere
+            & np.isfinite(l_grid[..., channel])
+            & np.isfinite(m_grid[..., channel])
+        )
+        power = perley2016_stokes_i_power(
+            offset_arcmin, frequency_hz, window, require_valid=False
+        )
+        voltage[..., channel] = np.where(
+            channel_valid, np.sqrt(np.maximum(power, 0.0)), 0.0
+        )
+        valid[..., channel] = channel_valid
+    return voltage, valid, selected_hz
+
+
+def _shape_voltage_field(
+    shape: (
+        AnalyticAiryVoltageBeam
+        | Perley2016CBandVoltageBeam
+        | CompositeScalarVoltageBeam
+    ),
+    l: np.ndarray,
+    m: np.ndarray,
+    frequency: np.ndarray,
+    *,
+    calibration_state: BeamCalibrationState,
+) -> tuple[np.ndarray, np.ndarray]:
+    if isinstance(shape, AnalyticAiryVoltageBeam):
+        return _airy_voltage_field(l, m, frequency, shape.catalog)
+    if isinstance(shape, Perley2016CBandVoltageBeam):
+        voltage, valid, _selected = _perley_voltage_field(
+            l, m, frequency, shape.frequency_policy
+        )
+        return voltage, valid
+    return _composite_voltage_field(shape, l, m, frequency, calibration_state)
+
+
+def _composite_voltage_field(
+    shape: CompositeScalarVoltageBeam,
+    l: np.ndarray,
+    m: np.ndarray,
+    frequency: np.ndarray,
+    state: BeamCalibrationState,
+) -> tuple[np.ndarray, np.ndarray]:
+    main_voltage, main_valid, _selected = _perley_voltage_field(
+        l, m, frequency, shape.main.frequency_policy
+    )
+    outer_voltage, outer_valid = _airy_voltage_field(
+        l, m, frequency, shape.outer.catalog
+    )
+    channel_frequency = np.asarray(frequency, dtype=np.float64)
+    freqs = channel_frequency.reshape(-1, channel_frequency.shape[-1])[0]
+    in_band = perley2016_frequency_is_supported(freqs)
+    in_band_grid = in_band.reshape((1,) * (main_valid.ndim - 1) + (-1,))
+    use_main = main_valid
+    use_outer = in_band_grid & ~use_main & outer_valid
+    if shape.handover is CompositeHandoverPolicy.MATCH_POWER:
+        scales = _airy_power_match_scales(
+            beam_coordinates([0.0], [0.0], freqs), shape.outer, state
+        )
+        scale_grid = scales.reshape((1,) * (outer_voltage.ndim - 1) + (-1,))
+        usable = np.isfinite(scales) & (scales > 0.0)
+        use_outer = use_outer & usable.reshape(scale_grid.shape)
+        outer_voltage = outer_voltage * scale_grid
+    elif shape.handover is not CompositeHandoverPolicy.HARD_SPLICE:
+        raise ValueError(f"unknown composite handover {shape.handover!r}")
+    voltage = np.where(use_main, main_voltage, 0.0)
+    voltage = np.where(use_outer, outer_voltage, voltage)
+    return np.asarray(voltage, dtype=np.float64), np.asarray(
+        use_main | use_outer, dtype=bool
+    )
+
+
+def _shape_kind(
+    shape: AnalyticAiryVoltageBeam | Perley2016CBandVoltageBeam | CompositeScalarVoltageBeam,
+) -> str:
+    return "analytic" if isinstance(shape, AnalyticAiryVoltageBeam) else "empirical"
+
+
+def _shape_support(
+    shape: AnalyticAiryVoltageBeam | Perley2016CBandVoltageBeam | CompositeScalarVoltageBeam,
+) -> str:
+    if isinstance(shape, AnalyticAiryVoltageBeam):
+        return "analytic"
+    if isinstance(shape, CompositeScalarVoltageBeam):
+        return "measured_with_analytic_outer"
+    return "measured"
+
+
+def _shape_frequency_policy(
+    shape: AnalyticAiryVoltageBeam | Perley2016CBandVoltageBeam | CompositeScalarVoltageBeam,
+) -> str | None:
+    if isinstance(shape, AnalyticAiryVoltageBeam):
+        return None
+    if isinstance(shape, CompositeScalarVoltageBeam):
+        return shape.main.frequency_policy.value
+    return shape.frequency_policy.value
+
+
+def _shape_phase_convention(
+    shape: AnalyticAiryVoltageBeam | Perley2016CBandVoltageBeam | CompositeScalarVoltageBeam,
+) -> str | dict[str, str]:
+    if isinstance(shape, AnalyticAiryVoltageBeam):
+        return AIRY_VOLTAGE_PHASE_CONVENTION
+    if isinstance(shape, CompositeScalarVoltageBeam):
+        return {
+            "main": PERLEY_VOLTAGE_PHASE_CONVENTION,
+            "outer": AIRY_VOLTAGE_PHASE_CONVENTION,
+        }
+    return PERLEY_VOLTAGE_PHASE_CONVENTION
+
+
+def _squint_parallactic_angles(coordinates: BeamCoordinates) -> np.ndarray:
+    chi = np.asarray(coordinates.parallactic_angle_rad, dtype=np.float64)
+    if coordinates.antenna_id is None:
+        return chi if chi.size == 1 else np.asarray([float(chi[0])], dtype=np.float64)
+    n_antenna = coordinates.antenna_id.size
+    if chi.size == 1:
+        return np.full(n_antenna, float(chi[0]), dtype=np.float64)
+    if chi.size != n_antenna:
+        raise ValueError("parallactic_angle_rad must be scalar or one value per antenna")
+    return chi
+
+
+def _normalize_squint_on_axis(
+    shape: (
+        AnalyticAiryVoltageBeam
+        | Perley2016CBandVoltageBeam
+        | CompositeScalarVoltageBeam
+    ),
+    voltage_r: np.ndarray,
+    voltage_l: np.ndarray,
+    valid: np.ndarray,
+    dl_r: np.ndarray,
+    dm_r: np.ndarray,
+    dl_l: np.ndarray,
+    dm_l: np.ndarray,
+    frequency: np.ndarray,
+    state: BeamCalibrationState,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    frequency_grid = frequency[None, None, :]
+    e0_r, ok_r = _shape_voltage_field(
+        shape,
+        -dl_r[:, None, :],
+        -dm_r[:, None, :],
+        frequency_grid,
+        calibration_state=state,
+    )
+    e0_l, ok_l = _shape_voltage_field(
+        shape,
+        -dl_l[:, None, :],
+        -dm_l[:, None, :],
+        frequency_grid,
+        calibration_state=state,
+    )
+    usable = (
+        ok_r[:, 0, :]
+        & ok_l[:, 0, :]
+        & np.isfinite(e0_r[:, 0, :])
+        & np.isfinite(e0_l[:, 0, :])
+        & (np.abs(e0_r[:, 0, :]) > 1.0e-12)
+        & (np.abs(e0_l[:, 0, :]) > 1.0e-12)
+    )
+    if not np.all(usable):
+        raise ValueError("cannot normalize squinted beam to E(0)=I")
+    scale_r = e0_r[:, 0, :][:, None, :]
+    scale_l = e0_l[:, 0, :][:, None, :]
+    return voltage_r / scale_r, voltage_l / scale_l, valid
 
 
 def _assert_identity_on_axis(
@@ -464,6 +759,7 @@ def _scalar_provenance(
     voltage_phase_convention: str | dict[str, str],
     ignored_coordinates: tuple[str, ...],
     catalog: dict[str, object],
+    creates_i_to_v: bool = False,
 ) -> dict[str, object]:
     return {
         "model_id": model_id,
@@ -485,5 +781,6 @@ def _scalar_provenance(
         "ignored_coordinates": list(ignored_coordinates),
         "diagonal": True,
         "creates_i_to_qu": False,
+        "creates_i_to_v": creates_i_to_v,
         "catalog": catalog,
     }

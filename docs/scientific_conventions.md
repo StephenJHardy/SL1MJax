@@ -79,8 +79,10 @@ Direction-dependent beam conventions are frozen in
   `E(0)=I`. On-axis G, D, X, and P are not applied again inside the beam.
 - Unknown calibration-state identifiers are rejected.
 - The unused analytic squint stores a receptor half-offset of 0.06 FWHM.
-  Published VLA totals are ~0.05–0.06 FWHM. Squint stays off until that
-  audit is closed.
+  Published VLA totals are ~0.05–0.06 FWHM. That unused path stays off.
+  The Phase 5 diagonal beam uses the Memo 195 total
+  \(2.4/\nu_{\rm GHz}\) arcmin and rotates with \(\chi\). It can create
+  \(I\rightarrow V\) and cannot create \(I\rightarrow Q/U\).
 - Antenna-frame feed position angle and R/L sign are internal conventions
   only. They are not a physically verified C-band oracle.
 - The Perley 2016 C-band polynomial fails closed outside 4.052–7.948 GHz
@@ -93,7 +95,17 @@ Direction-dependent beam conventions are frozen in
   phase is an analytic assumption, not part of the scalar power model.
   A composite uses Perley in its spatial support and Airy only for
   in-band directions outside that radius. The handover policy is
-  explicit. Imaging still uses the static Airy power path.
+  explicit. The streamed operator applies \(E_p C E_q^H\) at each exact
+  unique time. Imaging still uses the static Airy power path.
+  Phase 6 generates a nominal CASSBEAM C-band Jones first. A full-Jones
+  interpolator must not run until the nominal diagonal/co-polar mode
+  meets a declared CASA `awp2` main-lobe tolerance. Holography is sought
+  only if residuals remain significant. A full-Jones artifact replaces analytic
+  squint when it already contains squint, and must not re-apply
+  on-axis D/X/P after `casa_parang_true`. Beyond full-Jones support
+  the default is a tapered return to the scalar composite; off-diagonal
+  response is unsupported there. Do not hard-splice complex Jones
+  onto Airy or Perley.
 
 ## Weights, flags, and objective
 

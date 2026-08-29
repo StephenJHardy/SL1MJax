@@ -1,0 +1,60 @@
+{
+  "catalog_version": "phase-6-bacchus-cassbeam-2026-08-29",
+  "schema_version": 1,
+  "frozen": false,
+  "convention_oracle_route": "cassbeam_go",
+  "scientific_table_route": "perley2016_cband_holography_grids",
+  "scientific_fallback_route": "cassbeam_go",
+  "refused_as_cband": [
+    "iheanetu2019_lband",
+    "jagannathan2021_atoz_plumber"
+  ],
+  "bagofwinds_search": {
+    "date": "2026-08-29",
+    "root": "/Volumes/BagOfWinds",
+    "patterns": [
+      "C-BEAM-*",
+      "CW-BEAM-*",
+      "CHOLO-*",
+      "UVHOL",
+      "cassbeam",
+      "vla-template"
+    ],
+    "compact_products_found": false,
+    "notes": "CASA holography source filenames under radio/casa are not Memo 195 products."
+  },
+  "cassbeam_generator": {
+    "preferred_package": "Debian cassbeam 1.1",
+    "preferred_source": "https://github.com/ratt-ru/cassbeam",
+    "debian_source": "https://sources.debian.org/src/cassbeam/1.1-5/",
+    "legacy_nrao_1_0": "https://www.aoc.nrao.edu/~wbrisken/src/",
+    "generic_template": "examples/vla/vla-1500MHz.in",
+    "generic_template_frequency_ghz": 1.5,
+    "generic_template_is_cband": false,
+    "runtime_in_imager": false,
+    "transmit_sense_native": true,
+    "host": "bacchus",
+    "host_os": "Ubuntu 24.04 noble",
+    "host_package": "1.1-4build2",
+    "host_origin": "http://au.archive.ubuntu.com/ubuntu noble/universe",
+    "host_binary": "/usr/bin/cassbeam",
+    "host_in_imager_venv": false,
+    "host_verified": "2026-08-29"
+  },
+  "holography_request": {
+    "memo": "EVLA Memo 195 §4.4.1",
+    "avoid_bulk_fitab_fittp": true,
+    "frequencies_mhz": [4564, 4692],
+    "central_product": "C-BEAM-ffffpp01",
+    "sparse_product": "CW-BEAM-ffffpp01",
+    "correlations": ["RR", "RL", "LR", "LL"],
+    "required_metadata": [
+      "coordinate convention",
+      "polarization convention",
+      "calibration state",
+      "normalization",
+      "antenna averaging"
+    ]
+  },
+  "notes": "Bacchus has a general Ubuntu cassbeam 1.1-4build2 install at /usr/bin/cassbeam. That is the generator host, not a frozen Jones table. The packaged vla-1500MHz.in example is L-band. Holography is sought only if accepted-mode residuals remain significant. Runtime must not invoke CASA or CASSBEAM."
+}

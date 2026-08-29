@@ -40,8 +40,8 @@ JONES_RECEPTOR_ORDER = (Receptor.R, Receptor.L)
 ANALYTIC_SQUINT_RECEPTOR_HALF_OFFSET_FWHM = VLA_SQUINT_FWHM_FRACTION
 
 CASSBEAM_UNPINNED_REQUIREMENTS = (
-    "cassbeam source or binary version",
-    "C-band feed and optical parameter file",
+    "Debian or Ubuntu cassbeam 1.1 package version, not NRAO 1.0",
+    "EVLA C-band feed and optical parameter file, not examples/vla/vla-1500MHz.in",
     "transmit-to-receive conversion",
     "native Jones basis and element ordering",
     "direction-axis orientation",
@@ -67,6 +67,18 @@ class BeamCalibrationState(StrEnum):
 
     CASA_PARANG_TRUE = "casa_parang_true"
     UNCALIBRATED = "uncalibrated"
+
+
+class SquintMagnitudePolicy(StrEnum):
+    """How large the diagonal R/L pointing offset is.
+
+    ``evla195`` is the Memo 195 total RCP–LCP separation, applied as opposite
+    receptor half-offsets. The unused Airy ``0.06`` FWHM half-offset is not
+    a magnitude policy and is refused.
+    """
+
+    EVLA195 = "evla195_total_rcp_lcp"
+    LEGACY_ANALYTIC_HALF_OFFSET = "legacy_analytic_half_offset"
 
 
 class PerleyFrequencyPolicy(StrEnum):
@@ -268,6 +280,8 @@ def cband_reference_artifacts() -> tuple[BeamReferenceArtifact, ...]:
             unpinned_requirements=CASSBEAM_UNPINNED_REQUIREMENTS,
             notes=(
                 "Identified full-Jones export route, not a frozen reference. "
+                "Bacchus has Ubuntu cassbeam 1.1-4build2 outside the imager. "
+                "examples/vla/vla-1500MHz.in is L-band, not EVLA C-band. "
                 "Jagannathan et al. 2017 note that L/S/C need diffraction beyond GO."
             ),
         ),
@@ -329,6 +343,27 @@ def cband_reference_artifacts() -> tuple[BeamReferenceArtifact, ...]:
             usable_for_cband=False,
             frozen_reference=False,
             notes="Must not be relabelled as a C-band beam.",
+        ),
+        BeamReferenceArtifact(
+            artifact_id="evla195_diagonal_squint",
+            kind="analytic",
+            band="Cassegrain",
+            quantity="diagonal_voltage_rr_ll",
+            frequency_hz=None,
+            direction_support=(
+                "Opposite R/L displacements of a scalar voltage shape. "
+                "Total RCP–LCP separation is 2.4/ν_GHz arcmin. Feed-frame "
+                "position angle and R/L sign remain physically unverified."
+            ),
+            antenna_model="Array-average optics; sky-frame rotation by row χ",
+            epoch="EVLA Memo 195 §6.1 magnitude; internal χ convention",
+            usable_for_cband=True,
+            frozen_reference=False,
+            notes=(
+                "Phase 5 diagonal beam. Magnitude is Memo 195. The unused "
+                "0.06 FWHM Airy half-offset is not this model. Imaging still "
+                "uses the static Airy path with squint off."
+            ),
         ),
         BeamReferenceArtifact(
             artifact_id="sl1mjax_analytic_squint",
@@ -526,6 +561,50 @@ def evla195_receptor_half_offset_rad(frequency_hz: ArrayLike) -> NDArray[np.floa
     """Return half of the Memo 195 total RCP–LCP separation."""
 
     return 0.5 * evla195_total_squint_rad(frequency_hz)
+
+
+def squint_receptor_half_offset_rad(
+    frequency_hz: ArrayLike, *, policy: SquintMagnitudePolicy
+) -> NDArray[np.float64]:
+    """Return the evidence-grade receptor half-offset, or refuse."""
+
+    if policy is SquintMagnitudePolicy.LEGACY_ANALYTIC_HALF_OFFSET:
+        raise ValueError(
+            "legacy analytic half-offset is not evidence-grade; refuse to enable it"
+        )
+    if policy is not SquintMagnitudePolicy.EVLA195:
+        raise ValueError(f"unknown squint magnitude policy {policy!r}")
+    return evla195_receptor_half_offset_rad(frequency_hz)
+
+
+def receptor_squint_offset_lm_rad(
+    half_offset_rad: ArrayLike,
+    parallactic_angle_rad: ArrayLike,
+    *,
+    receptor: Receptor,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Return the sky-frame displacement of one receptor peak.
+
+    Internal convention, not a physical feed-ring oracle: at ``χ=0`` R is
+    toward ``+l`` and L toward ``-l``; at ``χ=π/2`` those peaks are along
+    ``±m``.
+    """
+
+    if receptor is Receptor.R:
+        sign = 1.0
+    elif receptor is Receptor.L:
+        sign = -1.0
+    else:
+        raise ValueError("diagonal squint is defined for receptors R and L")
+    half = np.atleast_1d(np.asarray(half_offset_rad, dtype=np.float64))
+    angle = np.atleast_1d(np.asarray(parallactic_angle_rad, dtype=np.float64))
+    east = np.cos(angle)[:, None]
+    north = np.sin(angle)[:, None]
+    half_grid = half[None, :]
+    return (
+        np.asarray(sign * half_grid * east, dtype=np.float64),
+        np.asarray(sign * half_grid * north, dtype=np.float64),
+    )
 
 
 def current_analytic_receptor_half_offset_rad(

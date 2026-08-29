@@ -299,6 +299,33 @@ def apply_jones_to_coherency(
     return np.matmul(left, np.matmul(sky, right))
 
 
+def circular_stokes_to_coherency(
+    stokes_i: NumpyArrayLike,
+    stokes_q: NumpyArrayLike,
+    stokes_u: NumpyArrayLike,
+    stokes_v: NumpyArrayLike,
+) -> NDArray[np.complex128]:
+    """Pack Stokes I, Q, U, V into a circular feed coherency.
+
+    CASA circular convention: ``RR=I+V``, ``LL=I-V``, ``RL=Q+iU``,
+    ``LR=Q-iU``.
+    """
+
+    intensity = np.asarray(stokes_i, dtype=np.complex128)
+    stokes_q_c = np.asarray(stokes_q, dtype=np.complex128)
+    stokes_u_c = np.asarray(stokes_u, dtype=np.complex128)
+    stokes_v_c = np.asarray(stokes_v, dtype=np.complex128)
+    shape = np.broadcast_shapes(
+        intensity.shape, stokes_q_c.shape, stokes_u_c.shape, stokes_v_c.shape
+    )
+    coherency = np.zeros(shape + (2, 2), dtype=np.complex128)
+    coherency[..., 0, 0] = intensity + stokes_v_c
+    coherency[..., 0, 1] = stokes_q_c + 1j * stokes_u_c
+    coherency[..., 1, 0] = stokes_q_c - 1j * stokes_u_c
+    coherency[..., 1, 1] = intensity - stokes_v_c
+    return coherency
+
+
 def circular_stokes_from_correlations(
     visibility: NumpyArrayLike,
     correlations: tuple[Correlation, ...],

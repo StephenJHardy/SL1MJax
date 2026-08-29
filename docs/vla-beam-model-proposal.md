@@ -672,6 +672,18 @@ Airy operator.
 
 Deliverable: a correct, inspectable reference operator with bounded memory.
 
+**Status (2026-08-29):** complete for the reference operator, not the 3C391
+predict path. `predict_voltage_beam` and `adjoint_voltage_beam` in
+`src/sl1mjax/beam_operator.py` group rows by exact unique time, compute
+row/antenna parallactic angles with the existing geometry, evaluate one
+Jones slice, and apply \(E_p C E_q^H\). `stream` is the default;
+`retain_last` keeps the last slice; `materialize` keeps every slice for
+small fixtures. Unsupported directions contribute zero and do not
+invalidate other pixels. The adjoint is the real inner-product identity
+for I, Q, U, and V on ``(direction, channel)`` planes. Imaging still uses
+the static Airy operator. There is no cache. Do not integrate this
+operator into imaging yet.
+
 ### Phase 5: diagonal C-band receptor beam
 
 1. Add band-specific R/L squint magnitude, direction, and frequency scaling.
@@ -684,24 +696,82 @@ Deliverable: a correct, inspectable reference operator with bounded memory.
 Deliverable: the first physically coherent direction-dependent polarisation
 beam.
 
-### Phase 6: full-Jones C-band reference
+**Status (2026-08-29):** complete for the voltage-beam evaluator and the
+streamed operator, not the 3C391 predict path and not a CASA golden.
+`DiagonalSquintVoltageBeam` uses the Memo 195 total
+\(2.4/\nu_{\rm GHz}\) arcmin as opposite receptor half-offsets, rotates
+them with the existing \(\chi\) convention, and normalizes \(E(0)=I\)
+after `casa_parang_true`. The unused Airy `0.06` FWHM half-offset is
+refused. The shape may be Airy, Perley, or the Phase 3 composite.
+Diagonal squint produces \(I\rightarrow V\) and does not produce
+\(I\rightarrow Q/U\). Feed-frame PA and R/L sign remain physically
+unverified, so Phase 5 is not scientifically accepted. Imaging still uses
+the static unsquinted Airy operator. The paired 3C391 squint-off/squint-on
+MS diagnostic was not rerun. Do not integrate this beam into imaging yet.
 
-1. Import or reproducibly generate the selected complex C-band Jones artifact.
-2. Normalize it consistently with on-axis calibration.
-3. Interpolate direction and frequency inside the validated domain.
-4. Preserve its off-diagonal elements.
-5. Compare correlations and Stokes leakage with the external oracle.
-6. Rerun the 64 arcsec I-ancestor $Q/U$ validation without changing its sky
-   regions, flags, calibration, or folds.
-7. Compare three fixed explanations on the same held-out data:
-   - scalar beam with regional $q,u$;
-   - full-Jones beam with global $q,u$;
-   - full-Jones beam with regional $q,u$.
-8. Report whether the full-Jones beam reduces the extreme off-axis $p_L$, the
-   held-out advantage assigned to regional sky freedom, and the residual
-   dependence on beam radius and parallactic angle.
+Remaining Phase 5 gates, in order:
 
-Deliverable: an array-average, time-rotating full-polarisation C-band beam.
+1. Close the convention gate with a compact correlation-aware external
+   reference that fixes R/L sign, feed-frame position angle, parallactic
+   rotation, and squint separation. A scalar `PBMath1DEVLA` sample cannot
+   establish all of this. Use correlation-aware CASA prediction, CASSBEAM,
+   or holography. That oracle is shared with Phase 6A; do not wait for a
+   frozen full-Jones *table* before starting the transfer run below.
+2. Run the fixed-sky transfer diagnostic before any imaging integration.
+   Keep the existing frozen 3C391 sky. Compare static Airy, the
+   Perley-plus-Airy composite, and diagonal squint over that composite.
+   Do not refit the sky. Measure held-out V residuals by pointing, beam
+   radius, parallactic angle, time, and channel. Require I to remain
+   stable. This isolates whether the beam correction itself transfers
+   under the declared internal \(\chi\) convention. It is not scientific
+   acceptance of the feed-frame orientation.
+3. Integrate the operator behind an explicit beam mode after that
+   diagnostic. Modes are `static_scalar`, `streamed_scalar`,
+   `diagonal_squint`, and later `full_jones`. The first imaging gate is
+   streamed Airy versus the existing static Airy result. Composite versus
+   Airy is a separate ablation. Then enable diagonal squint as an
+   experimental I/V path.
+
+### Phase 6: nominal CASSBEAM beam and CASA-gated modes
+
+Generate a nominal C-band Jones with CASSBEAM, accept only its
+diagonal/co-polar use against CASA, and treat full-Jones as experimental
+until residuals demand holography. Composition and outer-field rules from
+the earlier 6C/6D split remain constraints, not optional later work.
+
+1. Generate a nominal C-band Jones artifact with CASSBEAM on Bacchus.
+   Pin the package, input, numerical settings, circular basis,
+   transmit-to-receive conversion, and output checksums. The packaged
+   `vla-1500MHz.in` example is L-band and is not that input. The feed is
+   a geometric-optics nominal, not a measured EVLA C-band feed.
+2. Add an accepted diagonal/co-polar mode and an experimental full-Jones
+   mode. Keep the static Airy path as the control. A CASSBEAM artifact
+   that already contains squint replaces `DiagonalSquintVoltageBeam`; do
+   not multiply the two. Beyond Jones support, return to the scalar
+   composite and leave off-diagonals unsupported. Do not hard-splice.
+3. Build synthetic CASA `awp2` tests over direction, frequency,
+   parallactic angle, and Stokes state. Runtime SL1MJax must not invoke
+   CASA.
+4. Accept the nominal diagonal/co-polar mode when it reproduces CASA’s
+   effective response inside a declared main-lobe tolerance. That gate
+   does not accept off-diagonal Jones or feed-frame orientation.
+5. Repeat the 3C391 regional \(q,u\) experiment on the frozen folds,
+   regions, flags, calibration, and sky ancestor. Do not refit the sky
+   to hide a beam change.
+6. Inspect residual dependence on pointing radius, parallactic angle,
+   antenna, and correlation.
+7. Seek processed holography only if those residuals remain significant.
+   Do not start with the ~150 GB FITAB/FITTP databases.
+
+**Status (2026-08-29):** Bacchus has Ubuntu `cassbeam` 1.1-4build2 at
+`/usr/bin/cassbeam`. No C-band input or output is pinned.
+`FullJonesVoltageBeam` still refuses to evaluate.
+`full_jones_reference_is_frozen()` is false. See
+[`vla_cband_full_jones_acquisition.md`](vla_cband_full_jones_acquisition.md).
+
+Deliverable: an accepted diagonal/co-polar C-band mode with CASA `awp2`
+parity in the main lobe, plus an experimental full-Jones path that does
+not double-count squint or discard the outer-field treatment.
 
 ### Phase 7: performance measurement
 
@@ -950,11 +1020,15 @@ approximation.
 
 ## Immediate next step
 
-Do not start Phase 4. The composite handover and frequency-support rules
-are now explicit, but the evaluator is still not connected to a streamed
-operator or the 3C391 predict path.
+Write a declared nominal C-band CASSBEAM input and generate the compact
+oracle samples on Bacchus with the pinned 1.1-4build2 binary. Do not
+run `vla-1500MHz.in`. Do not implement an interpolating full-Jones
+imaging mode until the nominal diagonal/co-polar path meets the CASA
+`awp2` gate. Do not enable the unused Airy `0.06` FWHM half-offset. Do
+not build a cache. Do not replace the 3C391 Airy predict path.
 
-Do not build a cache. Do not treat CASSBEAM or holography filenames as a
-frozen full-Jones reference. Do not replace the 3C391 Airy predict path.
-A compact frozen CASA `PBMath1DEVLA` sample is still required before any
-CASA-parity gate is described as complete.
+The Phase 5 fixed-sky transfer diagnostic on the frozen 3C391 sky
+(static Airy, composite, squinted composite) remains the next imaging
+gate. Do not refit the sky. A scalar `PBMath1DEVLA` sample remains
+required for CASA-parity of the Perley power curve; it is not the
+Phase 5 orientation oracle.
