@@ -100,6 +100,18 @@ def test_streamed_airy_matches_explicit_on_delta_sky() -> None:
     )
     gate = module.operator_reproduces_explicit_airy(streamed.visibility, explicit)
     assert gate["accepted"]
+    jax_result = module.predict_transfer_visibilities(
+        block,
+        l_rad,
+        m_rad,
+        flux,
+        AnalyticAiryVoltageBeam(),
+        antenna_position_m=_ANTENNA_POSITION_M,
+        config=BeamOperatorConfig(visibility_chunk_size=2, pixel_chunk_size=1),
+        backend="jax",
+    )
+    jax_gate = module.operator_reproduces_explicit_airy(jax_result.visibility, explicit)
+    assert jax_gate["accepted"]
 
 
 def test_full_jones_diagnostic_beam_does_not_use_factory() -> None:

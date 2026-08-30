@@ -725,12 +725,59 @@ Remaining Phase 5 gates, in order:
    stable. This isolates whether the beam correction itself transfers
    under the declared internal \(\chi\) convention. It is not scientific
    acceptance of the feed-frame orientation.
+   **Ran 2026-08-30; Airy wins. See the result below. Do not treat this
+   as a reason to change the imaging beam.**
 3. Integrate the operator behind an explicit beam mode after that
    diagnostic. Modes are `static_scalar`, `streamed_scalar`,
    `diagonal_squint`, and later `full_jones`. The first imaging gate is
    streamed Airy versus the existing static Airy result. Composite versus
    Airy is a separate ablation. Then enable diagonal squint as an
-   experimental I/V path.
+   experimental I/V path. **Blocked:** no detailed beam beat Airy, so
+   this gate is not opened.
+
+#### Fixed-sky transfer result (2026-08-30)
+
+`scripts/diagnose_3c391_voltage_beam_transfer.py` on Bacchus, JAX
+backend, isolated tree
+`/home/stephen/checkouts/SL1MJax-beam-transfer-20260829/outputs/3c391_voltage_beam_transfer_jax/`.
+The operator gate passed on C1 (streamed static Airy versus
+`predict_stokes_i_explicit`, peak absolute difference
+\(9.6\times10^{-15}\)). The sealed Stokes-I mosaic was held fixed
+(5869 positive atoms, 25.53 Jy; leaf centres, not the stored quadtree
+kernels). Calibration state `casa_parang_true`. Native holdouts are
+RR/LL only. Full Jones used `allow_unfrozen=True` in this script only;
+`voltage_beam_for_mode("full_jones")` still refuses. Imaging was not
+changed.
+
+Mean held-out residual power, best first:
+
+| Beam | Mean total | vs Airy |
+|---|---|---|
+| `static_scalar` | 279977 | — |
+| `full_jones_unfrozen` | 287177 | +7200 |
+| `diagonal_copolar` | 287177 | +7200 |
+| `streamed_scalar` | 290475 | +10498 |
+
+Diagonal beats Airy only on on-axis C1 (−1576, about 0.5%) and there it
+also reduces the RR/LL imbalance. C2–C7 lie on a 2.45 arcmin ring and
+Airy wins all six. The largest CASSBEAM losses are C4 (+18732) and C5
+(+16964). About 91% of atoms and 99% of flux sit inside the CASSBEAM
+raster at mid-time, so this is not “most of the sky is outside the
+table.” Parallactic coverage is only two bins around \(\chi=0\); there
+is no wide-PA lever and no sign-changing full-Jones test.
+
+Neighbour flags in the script must not be misread. Perley+Airy never
+beats static Airy (`scalar_shape_matters` false). Diagonal beats
+composite, not Airy (`squint_or_rl_structure_matters` is that
+comparison only). Full Jones matches diagonal to ~0.13 in the mosaic
+mean (`leakage_matters` is numerical; RL/LR are absent).
+`no_detailed_beam_beats_airy` is the result that matters.
+`do_not_freeze_full_jones` remains true.
+
+This sky was fitted with Airy, so Airy has an advantage. A later I-only
+flux refit under each beam is a different experiment, not a follow-up
+that assumes transfer success. The next beam gate is still the CASA
+`awp2` Stage-1 power oracle, not imaging integration.
 
 ### Phase 6: nominal CASSBEAM beam and CASA-gated modes
 
@@ -787,6 +834,11 @@ Stage 2 compares complex visibilities and is not implemented until
 Stage 1 is frozen. `awp2` does not take a `vpmanager` / `vptable`
 beam. `full_jones_reference_is_frozen()` is false.
 `diagonal_copolar` is not CASA-accepted.
+
+**3C391 transfer (2026-08-30):** the Phase 5 fixed-sky diagnostic
+included these CASSBEAM modes. Airy has the lowest mean held-out RR/LL
+loss. Diagonal wins only on C1. Full Jones equals diagonal. Do not
+accept `diagonal_copolar` or freeze `full_jones` from that run.
 
 Deliverable: an accepted diagonal/co-polar C-band mode with CASA `awp2`
 parity in the main lobe, plus an experimental full-Jones path that does
@@ -1052,7 +1104,7 @@ Airy `0.06` FWHM half-offset. Do not build a cache. Do not replace the
 3C391 Airy predict path.
 
 The Phase 5 fixed-sky transfer diagnostic on the frozen 3C391 sky
-(static Airy, composite, squinted composite) remains the next imaging
-gate. Do not refit the sky. A scalar `PBMath1DEVLA` sample remains
-required for CASA-parity of the Perley power curve; it is not the
-Phase 5 orientation oracle.
+has been run (2026-08-30). Airy wins; no detailed beam is an imaging
+candidate. Do not refit the sky to overturn that ranking. A scalar
+`PBMath1DEVLA` sample remains required for CASA-parity of the Perley
+power curve; it is not the Phase 5 orientation oracle.

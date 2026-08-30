@@ -296,7 +296,14 @@ instead. Feed-frame PA is still physically unverified.
 - Phase 6B interpolating evaluator not implemented
 - Phase 6E/6F not started
 - No frozen CASA `PBMath1DEVLA` beam samples (scalar CASA-parity only)
-- Phase 5 fixed-sky transfer diagnostic not run
+- Phase 5 fixed-sky transfer diagnostic ran 2026-08-30 on Bacchus
+  (`outputs/3c391_voltage_beam_transfer_jax` in
+  `SL1MJax-beam-transfer-20260829`). JAX streamed operator; sealed
+  Stokes-I sky held fixed; native RR/LL holdouts. Mean ranking Airy,
+  then full Jones ≈ diagonal CASSBEAM, then Perley+Airy. Diagonal
+  beats Airy only on C1; C2–C7 Airy wins, worst on C4/C5. No RL/LR
+  in the fixtures. Do not freeze full Jones. Recorded in
+  [`vla-beam-model-proposal.md`](vla-beam-model-proposal.md).
 - No empirical or squinted backend in the 3C391 predict path
 - Phase 4/5 operator not integrated into imaging
 - No physically verified antenna-frame polarisation orientation

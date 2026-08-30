@@ -271,6 +271,22 @@ from sl1mjax.voltage_beam import (  # noqa: E402
     Perley2016CBandVoltageBeam,
     beam_coordinates,
 )
+from sl1mjax.voltage_flux_refit import (  # noqa: E402
+    flatten_sky_atoms,
+    off_axis_atom_report,
+    paired_score_delta,
+    refit_stokes_i_fluxes,
+    score_visibility_prediction,
+    transfer_diagonal_is_consistent,
+)
+from sl1mjax.voltage_operator_jax import (  # noqa: E402
+    predict_voltage_beam_jax,
+    predict_voltage_beam_jax_value_and_grad,
+)
+from sl1mjax.voltage_polarization import (  # noqa: E402
+    fit_global_qu_voltage,
+    require_circular_coherency,
+)
 
 __all__ = [
     "Correlation",
@@ -455,6 +471,16 @@ __all__ = [
     "predict_stokes_i",
     "predict_stokes_i_explicit",
     "predict_voltage_beam",
+    "predict_voltage_beam_jax",
+    "predict_voltage_beam_jax_value_and_grad",
+    "refit_stokes_i_fluxes",
+    "require_circular_coherency",
+    "flatten_sky_atoms",
+    "fit_global_qu_voltage",
+    "off_axis_atom_report",
+    "paired_score_delta",
+    "score_visibility_prediction",
+    "transfer_diagonal_is_consistent",
     "quadtree_sky_from_regular_grid",
     "quadtree_objective_metrics",
     "refine_quadtree_batch",

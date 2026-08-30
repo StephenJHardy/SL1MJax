@@ -39,7 +39,12 @@ class InferenceConfig:
 
     ``solver`` defaults to ``hybrid`` (proximal SGD, then FISTA).  Passing a
     saved ``initial_optimizer_state`` still requires an explicit
-    ``solver="softplus_adam"``; other solvers raise.
+    ``solver="softplus_adam"``; other solvers raise.  ``batch_grouping``
+    defaults to random rows; ``times`` draws one unique time per step so a
+    voltage Jones plane can be reused. Times are sampled in proportion to
+    their eligible-row count so the existing row-uniform batch estimator
+    stays unbiased when integrations are unevenly flagged. FISTA stays
+    full-batch.
     """
 
     steps: int = 500
@@ -53,6 +58,7 @@ class InferenceConfig:
     validation_interval: int = 10
     solver: Literal["softplus_adam", "fista", "proximal_sgd", "hybrid"] = "hybrid"
     batch_size_rows: int = 1024
+    batch_grouping: Literal["rows", "times"] = "rows"
     random_seed: int = 0
     hybrid_sgd_fraction: float = 0.5
     backtracking_factor: float = 2.0
@@ -224,6 +230,8 @@ def _validate_inference_inputs(
         raise ValueError("solver must be softplus_adam, fista, proximal_sgd, or hybrid")
     if config.batch_size_rows < 1:
         raise ValueError("batch_size_rows must be positive")
+    if config.batch_grouping not in {"rows", "times"}:
+        raise ValueError("batch_grouping must be 'rows' or 'times'")
     if not 0 < config.hybrid_sgd_fraction < 1:
         raise ValueError("hybrid_sgd_fraction must be between zero and one")
     if config.backtracking_factor <= 1:
@@ -367,6 +375,28 @@ def _fit_positive_flux(
     )
 
 
+def _time_groups_for_row_uniform_sgd(
+    row_indices: np.ndarray,
+    row_time_s: np.ndarray,
+) -> tuple[list[np.ndarray], np.ndarray]:
+    """Group eligible rows by unique time and weight each time by row count.
+
+    Equal time sampling would over-weight sparse or heavily flagged
+    integrations relative to the row-uniform batch objective. Drawing a
+    time with probability ``n_t / N`` keeps that estimator unbiased.
+    """
+
+    times = np.asarray(row_time_s, dtype=np.float64)
+    if times.shape[0] < int(np.max(row_indices, initial=0)) + 1:
+        raise ValueError("row_time_s must cover every eligible row")
+    unique_times = np.unique(times[row_indices])
+    groups = [row_indices[times[row_indices] == time_s] for time_s in unique_times]
+    weights = np.asarray([group.size for group in groups], dtype=np.float64)
+    if not np.any(weights > 0):
+        raise ValueError("batch_grouping='times' requires at least one eligible row")
+    return groups, weights / weights.sum()
+
+
 def _physical_batch_objective_or_none(
     solver: str,
     smooth_objective: Callable[[jax.Array], jax.Array],
@@ -388,6 +418,7 @@ def _fit_physical_flux(
     eligible_rows: np.ndarray,
     initial_flux: np.ndarray,
     sparsity_weights: np.ndarray | None = None,
+    row_time_s: np.ndarray | None = None,
 ) -> _PositiveFluxFit:
     """Fit non-negative flux directly with proximal stochastic or full steps."""
 
@@ -480,19 +511,34 @@ def _fit_physical_flux(
         if evaluated_batch_gradient is None:
             raise ValueError("proximal SGD requires a batch objective")
         rng = np.random.default_rng(config.random_seed)
+        batch_size = config.batch_size_rows
         order = rng.permutation(row_indices)
         cursor = 0
-        batch_size = config.batch_size_rows
+        time_groups: list[np.ndarray] | None = None
+        time_probabilities = np.empty(0, dtype=np.float64)
+        if config.batch_grouping == "times":
+            if row_time_s is None:
+                raise ValueError("batch_grouping='times' requires row_time_s")
+            time_groups, time_probabilities = _time_groups_for_row_uniform_sgd(
+                row_indices, row_time_s
+            )
         for local_step in range(step_count):
-            if cursor >= order.size:
-                order = rng.permutation(row_indices)
-                cursor = 0
-            count = min(batch_size, order.size - cursor)
             selected = np.zeros(batch_size, dtype=np.int32)
-            selected[:count] = order[cursor : cursor + count]
             valid = np.zeros(batch_size, dtype=bool)
-            valid[:count] = True
-            cursor += count
+            if time_groups is not None:
+                group = time_groups[int(rng.choice(len(time_groups), p=time_probabilities))]
+                if group.size > batch_size:
+                    group = rng.choice(group, batch_size, replace=False)
+                selected[: group.size] = group
+                valid[: group.size] = True
+            else:
+                if cursor >= order.size:
+                    order = rng.permutation(row_indices)
+                    cursor = 0
+                count = min(batch_size, order.size - cursor)
+                selected[:count] = order[cursor : cursor + count]
+                valid[:count] = True
+                cursor += count
             progress = local_step / max(step_count - 1, 1)
             decay = 0.1 + 0.9 * 0.5 * (1.0 + np.cos(np.pi * progress))
             step_size = config.learning_rate * decay
@@ -921,6 +967,7 @@ def infer_regular_grid(
             has_holdout=holdout_mask is not None,
             eligible_rows=eligible_rows,
             initial_flux=physical_initial_flux,
+            row_time_s=np.asarray(block.time_s, dtype=np.float64),
         )
     return InferenceResult(
         image=fit.flux.reshape(grid.size, grid.size),
@@ -1203,6 +1250,7 @@ def infer_quadtree(
             has_holdout=holdout_mask is not None,
             eligible_rows=eligible_rows,
             initial_flux=physical_initial_flux,
+            row_time_s=np.asarray(block.time_s, dtype=np.float64),
         )
     prediction = np.asarray(predict_flux(jnp.asarray(fit.flux, dtype=real_dtype)))
     return QuadtreeInferenceResult(

@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,10 @@ from sl1mjax.data.canonical import VisibilityBlock, read_dataset
 from sl1mjax.direct_operator import DirectDFTConfig, predict_stokes_i_explicit
 from sl1mjax.polarization import Correlation
 from sl1mjax.voltage_beam import AnalyticAiryVoltageBeam
+from sl1mjax.voltage_operator_jax import (
+    off_diagonal_support_mask_jax,
+    predict_voltage_beam_jax,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_NATIVE = Path("outputs/3c391_native_averaging_ablation")
@@ -258,9 +263,22 @@ def leakage_support_mask(
     m_rad: np.ndarray,
     frequency_hz: np.ndarray,
     parallactic_angle_rad_values: np.ndarray,
+    *,
+    backend: str = "jax",
+    config: BeamOperatorConfig | None = None,
 ) -> np.ndarray:
     """True where every antenna/channel has valid off-diagonal Jones."""
 
+    if backend == "jax":
+        return off_diagonal_support_mask_jax(
+            beam,
+            l_rad,
+            m_rad,
+            frequency_hz,
+            parallactic_angle_rad_values,
+            calibration_state="casa_parang_true",
+            config=config,
+        )
     from sl1mjax.voltage_beam import beam_coordinates
 
     antennas = np.arange(parallactic_angle_rad_values.size, dtype=np.int32)
@@ -275,6 +293,34 @@ def leakage_support_mask(
         calibration_state="casa_parang_true",
     )
     return np.asarray(np.all(evaluation.off_diagonal_valid, axis=(0, 2)), dtype=bool)
+
+
+def predict_transfer_visibilities(
+    block: VisibilityBlock,
+    l_rad: np.ndarray,
+    m_rad: np.ndarray,
+    flux: np.ndarray,
+    beam,
+    *,
+    antenna_position_m: np.ndarray,
+    config: BeamOperatorConfig,
+    backend: str,
+):
+    """Predict circular visibilities with the JAX or NumPy voltage operator."""
+
+    kwargs = dict(
+        block=block,
+        l_rad=l_rad,
+        m_rad=m_rad,
+        sky=SkyStokesPlanes(stokes_i=flux),
+        beam=beam,
+        antenna_position_m=antenna_position_m,
+        calibration_state="casa_parang_true",
+        config=config,
+    )
+    if backend == "jax":
+        return predict_voltage_beam_jax(**kwargs)
+    return predict_voltage_beam(**kwargs)
 
 
 def _bin_edges_mask(values: np.ndarray, edges: np.ndarray) -> list[tuple[str, np.ndarray]]:
@@ -429,6 +475,12 @@ def main() -> int:
         default=",".join(BEAM_NAMES),
         help="Comma-separated diagnostic beam names",
     )
+    parser.add_argument(
+        "--backend",
+        choices=("jax", "numpy"),
+        default="jax",
+        help="Voltage operator backend. JAX is the default.",
+    )
     arguments = parser.parse_args()
     selected_pointings = tuple(item.strip() for item in arguments.pointings.split(","))
     selected_beams = tuple(item.strip() for item in arguments.beams.split(","))
@@ -450,11 +502,18 @@ def main() -> int:
         antenna_count=first.blocks[0].antenna_count,
     )
     beams = construct_beams(airy_radius)
-    config = BeamOperatorConfig(visibility_chunk_size=256, pixel_chunk_size=2048)
+    # 26 antennas × 512 directions × 64 channels is about 55 MiB, under the
+    # default 64 MiB Jones-tile budget. NumPy may use a larger pixel tile.
+    config = (
+        BeamOperatorConfig(visibility_chunk_size=256, pixel_chunk_size=512)
+        if arguments.backend == "jax"
+        else BeamOperatorConfig(visibility_chunk_size=256, pixel_chunk_size=2048)
+    )
     arguments.output.mkdir(parents=True, exist_ok=True)
 
     summary: dict[str, Any] = {
         "diagnostic": "3c391_voltage_beam_transfer",
+        "backend": arguments.backend,
         "frozen": False,
         "full_jones_factory_unchanged": True,
         "calibration_state": "casa_parang_true",
@@ -482,15 +541,15 @@ def main() -> int:
         flux,
         airy_max_radius_rad_at_1ghz=airy_radius,
     )
-    streamed = predict_voltage_beam(
+    streamed = predict_transfer_visibilities(
         operator_block,
         local_l,
         local_m,
-        SkyStokesPlanes(stokes_i=flux),
+        flux,
         beams["static_scalar"],
         antenna_position_m=antenna_position_m,
-        calibration_state="casa_parang_true",
         config=config,
+        backend=arguments.backend,
     )
     gate = operator_reproduces_explicit_airy(streamed.visibility, explicit)
     summary["operator_gate"] = {
@@ -500,7 +559,7 @@ def main() -> int:
     (arguments.output / "operator_gate.json").write_text(
         json.dumps(_to_json(summary["operator_gate"]), indent=2, sort_keys=True) + "\n"
     )
-    print("operator gate", json.dumps(_to_json(gate)))
+    print("operator gate", json.dumps(_to_json(gate)), flush=True)
     if not gate["accepted"]:
         print("streamed static Airy does not reproduce explicit Airy; stop")
         (arguments.output / "summary.json").write_text(
@@ -524,6 +583,8 @@ def main() -> int:
             local_m,
             block.frequency_hz,
             mid_pa,
+            backend=arguments.backend,
+            config=config,
         )
         pointing_payload: dict[str, Any] = {
             "radius_arcmin": radius,
@@ -532,16 +593,18 @@ def main() -> int:
             "beams": {},
         }
         for beam_name in selected_beams:
-            result = predict_voltage_beam(
+            started = time.perf_counter()
+            result = predict_transfer_visibilities(
                 block,
                 local_l,
                 local_m,
-                SkyStokesPlanes(stokes_i=flux),
+                flux,
                 beams[beam_name],
                 antenna_position_m=antenna_position_m,
-                calibration_state="casa_parang_true",
                 config=config,
+                backend=arguments.backend,
             )
+            elapsed_s = time.perf_counter() - started
             scores = score_prediction(
                 block,
                 result.visibility,
@@ -549,6 +612,7 @@ def main() -> int:
                 pointing_radius_arcmin=radius,
                 leakage_atom_fraction=float(np.mean(leakage)),
             )
+            scores["elapsed_s"] = elapsed_s
             pointing_payload["beams"][beam_name] = scores
             print(
                 pointing,
@@ -559,6 +623,8 @@ def main() -> int:
                 scores["correlations"]["RR"]["held_out_loss"],
                 "LL",
                 scores["correlations"]["LL"]["held_out_loss"],
+                f"elapsed_s={elapsed_s:.1f}",
+                flush=True,
             )
         summary["pointings"][pointing] = pointing_payload
         (arguments.output / "summary.json").write_text(

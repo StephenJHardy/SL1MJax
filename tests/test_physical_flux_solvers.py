@@ -10,6 +10,7 @@ from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.data.synthetic import simulate_dataset
 from sl1mjax.inference import (
     InferenceConfig,
+    _time_groups_for_row_uniform_sgd,
     infer_quadtree,
     infer_regular_grid,
     load_checkpoint,
@@ -86,6 +87,89 @@ def test_deterministic_physical_solvers_recover_sparse_sky(
     assert result.objective_steps == tuple(sorted(result.objective_steps))
     if solver == "fista":
         assert np.all(np.diff(result.objective_history) <= 1e-10)
+
+
+def test_default_batch_grouping_is_rows() -> None:
+    assert InferenceConfig().batch_grouping == "rows"
+
+
+def test_time_grouped_sgd_samples_times_by_eligible_row_count() -> None:
+    row_indices = np.array([0, 1, 2, 3, 4, 5], dtype=np.int32)
+    row_time_s = np.array([10.0, 10.0, 10.0, 10.0, 20.0, 20.0])
+    groups, probabilities = _time_groups_for_row_uniform_sgd(row_indices, row_time_s)
+    assert [group.size for group in groups] == [4, 2]
+    np.testing.assert_allclose(probabilities, [4 / 6, 2 / 6])
+    rng = np.random.default_rng(0)
+    draws = rng.choice(len(groups), size=12_000, p=probabilities)
+    counts = np.bincount(draws, minlength=2)
+    np.testing.assert_allclose(counts / counts.sum(), probabilities, atol=0.02)
+
+
+def test_time_grouped_proximal_sgd_is_deterministic(
+    sparse_problem: tuple[RegularGrid, VisibilityBlock],
+) -> None:
+    grid, block = sparse_problem
+    config = InferenceConfig(
+        solver="proximal_sgd",
+        steps=80,
+        learning_rate=0.03,
+        sparsity_weight=1e-5,
+        initial_intensity=0.02,
+        batch_size_rows=8,
+        batch_grouping="times",
+        random_seed=4,
+        validation_interval=20,
+        kkt_tolerance=1e-5,
+    )
+
+    first = infer_regular_grid(block, grid, block.active, config)
+    second = infer_regular_grid(block, grid, block.active, config)
+
+    np.testing.assert_array_equal(first.image, second.image)
+    np.testing.assert_array_equal(first.objective_history, second.objective_history)
+    assert np.all(first.image >= 0)
+
+
+def test_fista_ignores_batch_grouping(
+    sparse_problem: tuple[RegularGrid, VisibilityBlock],
+) -> None:
+    grid, block = sparse_problem
+    rows = InferenceConfig(
+        solver="fista",
+        steps=40,
+        learning_rate=0.03,
+        sparsity_weight=1e-5,
+        initial_intensity=0.02,
+        validation_interval=10,
+    )
+    times = InferenceConfig(
+        solver="fista",
+        steps=40,
+        learning_rate=0.03,
+        sparsity_weight=1e-5,
+        initial_intensity=0.02,
+        validation_interval=10,
+        batch_grouping="times",
+        batch_size_rows=8,
+    )
+
+    first = infer_regular_grid(block, grid, block.active, rows)
+    second = infer_regular_grid(block, grid, block.active, times)
+
+    np.testing.assert_array_equal(first.image, second.image)
+
+
+def test_invalid_batch_grouping_is_rejected(
+    sparse_problem: tuple[RegularGrid, VisibilityBlock],
+) -> None:
+    grid, block = sparse_problem
+    with pytest.raises(ValueError, match="batch_grouping"):
+        infer_regular_grid(
+            block,
+            grid,
+            block.active,
+            InferenceConfig(batch_grouping="baselines"),  # type: ignore[arg-type]
+        )
 
 
 def test_proximal_sgd_is_deterministic_and_handles_partial_last_batch(

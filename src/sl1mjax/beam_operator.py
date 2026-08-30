@@ -90,6 +90,7 @@ class BeamOperatorResult:
     provenance: dict[str, object]
     last_evaluation: BeamEvaluation | None = None
     materialized: tuple[BeamEvaluation, ...] | None = None
+    off_diagonal_valid: np.ndarray | None = None
 
 
 def unique_visibility_times(time_s: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
