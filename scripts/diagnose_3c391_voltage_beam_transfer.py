@@ -22,6 +22,11 @@ from typing import Any
 import numpy as np
 
 from sl1mjax.beam import VLABeamCatalog, VLAPrimaryBeam
+from sl1mjax.beam_aware_imaging import (
+    interpret_fixed_sky_transfer,
+    prepare_voltage_sky,
+    sky_table_from_mosaic_components,
+)
 from sl1mjax.beam_operator import (
     BeamOperatorConfig,
     SkyStokesPlanes,
@@ -79,35 +84,15 @@ def _to_json(value: Any) -> Any:
 def flatten_positive_sky(
     components: tuple[MosaicSkyComponent, ...],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return mosaic-frame ``(l, m, I)`` for atoms with positive flux."""
+    """Return mosaic-frame ``(l, m, I)`` for the named point-centre mode.
 
-    from sl1mjax.composite import MosaicPointComponent, MosaicQuadtreeComponent
+    Widths stay on the sky table. This helper only unpacks the diagnostic
+    delta packing used by the current transfer operator.
+    """
 
-    l_parts: list[np.ndarray] = []
-    m_parts: list[np.ndarray] = []
-    flux_parts: list[np.ndarray] = []
-    for component in components:
-        if isinstance(component, MosaicQuadtreeComponent):
-            l_rad, m_rad = component.topology.centers()
-        elif isinstance(component, MosaicPointComponent):
-            l_rad = np.asarray(component.l_rad, dtype=np.float64).reshape(-1)
-            m_rad = np.asarray(component.m_rad, dtype=np.float64).reshape(-1)
-        else:
-            raise TypeError(f"unsupported sky component {type(component)!r}")
-        flux = np.asarray(component.flux, dtype=np.float64).reshape(-1)
-        keep = flux > 0.0
-        if not np.any(keep):
-            continue
-        l_parts.append(l_rad[keep])
-        m_parts.append(m_rad[keep])
-        flux_parts.append(flux[keep])
-    if not flux_parts:
-        raise ValueError("frozen sky has no positive-flux atoms")
-    return (
-        np.concatenate(l_parts),
-        np.concatenate(m_parts),
-        np.concatenate(flux_parts),
-    )
+    table = sky_table_from_mosaic_components(components)
+    atoms = prepare_voltage_sky(table)
+    return atoms.l_rad, atoms.m_rad, atoms.stokes_i_jy
 
 
 def local_direction_cosines(
@@ -495,7 +480,13 @@ def main() -> int:
     components = _load_components(
         arguments.sky_protocol, arguments.sky_checkpoint, mosaic_phase_centre_rad
     )
-    l_mosaic, m_mosaic, flux = flatten_positive_sky(components)
+    sky_table = sky_table_from_mosaic_components(
+        components,
+        mosaic_phase_centre_rad=mosaic_phase_centre_rad,
+        expected_component_names=("central", "coarse", "catalogue"),
+    )
+    atoms = prepare_voltage_sky(sky_table)
+    l_mosaic, m_mosaic, flux = atoms.l_rad, atoms.m_rad, atoms.stokes_i_jy
     antenna_position_m = load_antenna_positions(
         polarization_golden=arguments.polarization_golden,
         measurement_set=arguments.measurement_set,
@@ -519,14 +510,26 @@ def main() -> int:
         "calibration_state": "casa_parang_true",
         "sky_atoms_positive": int(flux.size),
         "sky_flux_jy": float(flux.sum()),
+        "sky_table": {
+            "source": sky_table.source,
+            "component_count": len(sky_table.components),
+            "positive_count": int(flux.size),
+            "dropped_zero_flux_count": int(atoms.dropped_zero_flux_count),
+            "missing_component_names": list(sky_table.report.missing_component_names),
+            "widths_preserved": not sky_table.report.discarded_finite_widths,
+            "integration_mode": atoms.mode.value,
+            "count_by_family": dict(sky_table.report.count_by_family),
+            "count_by_width_arcsec": dict(sky_table.report.count_by_width_arcsec),
+            "flux_by_family": dict(sky_table.report.flux_by_family),
+        },
         "native_correlations": [c.value for c in first.blocks[0].correlations],
         "operator_gate": None,
         "pointings": {},
         "notes": (
             "Native holdout fixtures are RR/LL only. RL/LR held-out loss is "
             "absent, not zero. Full Jones is allow_unfrozen in this script "
-            "only. Sky atoms are leaf centres; the stored mosaic model used "
-            "quadtree pixel kernels."
+            "only. The sky table preserves finite widths. This diagnostic "
+            "still uses the named point-centre voltage mode."
         ),
     }
 
@@ -631,59 +634,13 @@ def main() -> int:
             json.dumps(_to_json(summary), indent=2, sort_keys=True) + "\n"
         )
 
-    interpretation = _interpret(summary)
+    interpretation = interpret_fixed_sky_transfer(summary)
     summary["interpretation"] = interpretation
     (arguments.output / "summary.json").write_text(
         json.dumps(_to_json(summary), indent=2, sort_keys=True) + "\n"
     )
     print(json.dumps(_to_json(interpretation), indent=2))
     return 0
-
-
-def _interpret(summary: dict[str, Any]) -> dict[str, Any]:
-    totals: dict[str, list[float]] = {name: [] for name in BEAM_NAMES}
-    rr: dict[str, list[float]] = {name: [] for name in BEAM_NAMES}
-    ll: dict[str, list[float]] = {name: [] for name in BEAM_NAMES}
-    for pointing in summary["pointings"].values():
-        for name, scores in pointing["beams"].items():
-            totals[name].append(float(scores["total"]))
-            rr[name].append(float(scores["correlations"]["RR"]["held_out_loss"]))
-            ll[name].append(float(scores["correlations"]["LL"]["held_out_loss"]))
-
-    def _mean(values: list[float]) -> float:
-        return float(np.mean(values)) if values else float("nan")
-
-    means = {name: _mean(totals[name]) for name in totals if totals[name]}
-    ranking = sorted(means, key=means.get)
-    airy = means.get("static_scalar")
-    composite = means.get("streamed_scalar")
-    diagonal = means.get("diagonal_copolar")
-    full = means.get("full_jones_unfrozen")
-    return {
-        "mean_held_out_loss": means,
-        "mean_rr": {name: _mean(rr[name]) for name in rr if rr[name]},
-        "mean_ll": {name: _mean(ll[name]) for name in ll if ll[name]},
-        "ranking_best_first": ranking,
-        "scalar_shape_matters": bool(
-            airy is not None and composite is not None and composite < airy
-        ),
-        "squint_or_rl_structure_matters": bool(
-            composite is not None and diagonal is not None and diagonal < composite
-        ),
-        "leakage_matters": bool(
-            diagonal is not None and full is not None and full < diagonal
-        ),
-        "no_detailed_beam_beats_airy": bool(
-            airy is not None
-            and all(
-                means.get(name, airy) >= airy
-                for name in ("streamed_scalar", "diagonal_copolar", "full_jones_unfrozen")
-                if name in means
-            )
-        ),
-        "cross_hand_in_data": False,
-        "do_not_freeze_full_jones": True,
-    }
 
 
 if __name__ == "__main__":

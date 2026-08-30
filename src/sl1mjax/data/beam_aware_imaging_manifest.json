@@ -1,0 +1,185 @@
+{
+  "manifest_id": "beam-aware-imaging-phase-0-2026-08-30",
+  "schema_version": 1,
+  "plan": "docs/beam-aware-imaging-development-plan.md",
+  "pixel_proposal": "docs/beam-aware-pixel-proposal.md",
+  "recorded": "2026-08-30",
+  "notes": [
+    "Phase 0 checkpoint of the completed beam evaluator and the current point-centre imaging baselines.",
+    "This is a regression baseline, not scientific acceptance of a detailed beam or a finite-pixel operator.",
+    "The 2026-08-30 fixed-sky transfer discarded finite leaf widths and used an Airy-fitted sky."
+  ],
+  "scientific_status": {
+    "default_imaging_beam": "static_airy",
+    "full_jones_frozen": false,
+    "full_jones_factory_refuses_unfrozen": true,
+    "diagonal_copolar_casa_accepted": false,
+    "casa_awp2_stage1_frozen": false,
+    "casa_awp2_stage2_implemented": false,
+    "analytic_squint_evidence_grade": false,
+    "antenna_frame_polarization_verified": false,
+    "transfer_operator_discarded_finite_widths": true,
+    "transfer_ranking_is_scientific_beam_selection": false,
+    "experimental_full_jones_allowed_in_diagnostics_only": true
+  },
+  "conventions": {
+    "calibration_state": "casa_parang_true",
+    "on_axis_normalization": "E(0)=I",
+    "on_axis_di_jones_order": "GKB Kcross D X P",
+    "circular_p_jones": "diag(exp(-i chi), exp(+i chi))",
+    "jones_receptor_order": ["R", "L"],
+    "casa_parang_parallactic_basis": "P^H E_feed(R_{-chi} s) P with CASA circular P",
+    "uncalibrated_parallactic_basis": "E_feed(R_{-chi} s) P with CASA circular P",
+    "feed_frame_polarization_lock": "physically_unverified",
+    "parallactic_angle_sign_lock": "internal",
+    "sky_l_east_m_north": true
+  },
+  "beam_modes": {
+    "static_scalar": {
+      "factory": "voltage_beam_for_mode('static_scalar')",
+      "artifact_id": "sl1mjax_airy",
+      "kind": "analytic",
+      "quantity": "blocked_airy_voltage",
+      "frozen_reference": true,
+      "scientific_imaging_candidate": true,
+      "notes": "Current production imaging path. Extended 4 deg at 1 GHz support is an ablation."
+    },
+    "streamed_scalar": {
+      "factory": "voltage_beam_for_mode('streamed_scalar')",
+      "artifact_id": "perley2016_cband_stokes_i",
+      "kind": "empirical_plus_analytic",
+      "quantity": "perley_plus_airy_voltage",
+      "frozen_reference": true,
+      "scientific_imaging_candidate": true,
+      "handover": "match_power at Perley 5% radius; Airy only outside that radius and in-band",
+      "frequency_policy": "casa_nearest",
+      "frequency_support_hz": [4052000000.0, 7948000000.0],
+      "notes": "casa_nearest is a CASA-parity policy, not a spectral interpolation model."
+    },
+    "diagonal_copolar": {
+      "factory": "voltage_beam_for_mode('diagonal_copolar')",
+      "artifact_id": "cassbeam_nominal_cband",
+      "kind": "electromagnetic",
+      "quantity": "diagonal_voltage_rr_ll",
+      "frozen_reference": false,
+      "casa_accepted": false,
+      "scientific_imaging_candidate": false,
+      "off_diagonal": false,
+      "notes": "Uses CASSBEAM co-polar response and squint. Not CASA-accepted. Replaces analytic squint."
+    },
+    "full_jones": {
+      "factory": "voltage_beam_for_mode('full_jones')",
+      "artifact_id": "cassbeam_nominal_cband",
+      "kind": "electromagnetic",
+      "quantity": "voltage_jones_2x2",
+      "frozen_reference": false,
+      "scientific_imaging_candidate": false,
+      "off_diagonal": true,
+      "production_factory_refuses": true,
+      "diagnostic_construction": "CassbeamCBandVoltageBeam(..., off_diagonal=True, allow_unfrozen=True)",
+      "notes": "Experimental. Diagnostics may set allow_unfrozen. The production factory must keep refusing."
+    }
+  },
+  "cassbeam": {
+    "artifact_id": "cassbeam_nominal_cband",
+    "packaged_manifest": "src/sl1mjax/data/cassbeam_cband/manifest.json",
+    "pin": "src/sl1mjax/data/vla_cband_full_jones_pin.json",
+    "frozen": false,
+    "package": "cassbeam 1.1-4build2",
+    "host": "bacchus",
+    "frequencies_mhz": [4564, 4692],
+    "frequency_interpolation": "nearest_generated_node",
+    "max_nearest_node_separation_hz": 64000000.0,
+    "raster_scale": "lambda/(F N dx)",
+    "origin": "dephased FFT DC after even-N reflectMatrix2",
+    "l_origin_index": 15,
+    "m_origin_index": 16,
+    "gridsize": 64,
+    "pixelsperbeam": 6,
+    "squint": "receptor main-lobe centroid separation approximately Memo 195 2.4/nu arcmin",
+    "outer_field": "tapered return to scalar Perley-plus-Airy; off_diagonal_valid cleared",
+    "unpinned_fields": [
+      "transmit_to_receive conversion",
+      "direction-axis orientation",
+      "CASA awp2 acceptance"
+    ]
+  },
+  "unfrozen_or_unimplemented_gates": {
+    "full_jones_reference_is_frozen": false,
+    "diagonal_copolar_is_casa_accepted": false,
+    "power_oracle_is_frozen": false,
+    "polarization_oracle_is_frozen": false,
+    "casa_awp2_stage2": "not implemented until Stage 1 is frozen",
+    "perley_interpolated_frequency_policy": "declared and refused",
+    "analytic_airy_0.06_fwhm_half_offset": "unused and not evidence-grade"
+  },
+  "jax_point_operator_tests": [
+    "tests/test_voltage_operator_jax.py::test_jax_airy_matches_numpy_and_explicit_stokes_i",
+    "tests/test_voltage_operator_jax.py::test_jax_composite_matches_numpy",
+    "tests/test_voltage_operator_jax.py::test_jax_cassbeam_diagonal_matches_numpy",
+    "tests/test_voltage_operator_jax.py::test_jax_cassbeam_full_jones_matches_numpy_uncalibrated",
+    "tests/test_voltage_operator_jax.py::test_full_jones_factory_still_refuses_unfrozen",
+    "tests/test_3c391_voltage_beam_transfer_script.py::test_streamed_airy_matches_explicit_on_delta_sky",
+    "tests/test_vla_beam_conventions.py",
+    "tests/test_cassbeam_beam.py",
+    "tests/test_voltage_beam.py"
+  ],
+  "sky_checkpoint": {
+    "protocol": "outputs/3c391_composite_catalogue_stage3/protocol.json",
+    "checkpoint": "outputs/3c391_recovery_policy_fit_zero/sealed_active_only.npz",
+    "native_holdouts": "outputs/3c391_native_averaging_ablation",
+    "available_in_repository": false,
+    "central": {
+      "root_size": 104,
+      "root_width_arcsec": 16.0,
+      "footprint_arcmin": 27.73,
+      "topology_leaves": {"16": 10591, "8": 885, "4": 60},
+      "positive_transfer_atoms": 4748
+    },
+    "coarse": {
+      "size": 64,
+      "width_arcsec": 60.0,
+      "footprint_arcmin": 64.0,
+      "overlaps_central": true,
+      "prefix_free": false,
+      "positive_transfer_atoms": 1119
+    },
+    "catalogue": {
+      "basis": "delta",
+      "selected_atoms_in_composite_run": 3,
+      "positive_transfer_atoms": 2
+    },
+    "transfer_positive_atoms": 5869,
+    "transfer_positive_flux_jy": 25.533968640130965,
+    "transfer_operator_used": "point_centre_delta",
+    "transfer_operator_discarded_finite_widths": true
+  },
+  "data_contract": {
+    "observation": "3C391 C-band mosaic",
+    "pointings": ["C1", "C2", "C3", "C4", "C5", "C6", "C7"],
+    "ring_radius_arcmin": 2.45,
+    "native_correlations": ["RR", "LL"],
+    "cross_hands_in_native_holdouts": false,
+    "calibration_state": "casa_parang_true",
+    "channel_averaging": "native holdout fixtures from outputs/3c391_native_averaging_ablation",
+    "weights_and_flags": "frozen native holdout selection; existing flags preserved",
+    "frequency_hz": [4536000000.0, 4662000000.0],
+    "parallactic_coverage": "two bins around chi=0; no wide-PA lever"
+  },
+  "fixed_sky_transfer": {
+    "report": "src/sl1mjax/data/3c391_voltage_beam_transfer_20260830.json",
+    "report_sha256": "0698423f309ded5ee0a19f6c57d7b990723ea4cfb7ad3ff99db854e8049329c4",
+    "summary_sha256": "fdf136b1d8a6db8153d89168d87e0bd468ea2ebc0e5a9dfd031a8b59cec46f71",
+    "date": "2026-08-30",
+    "host": "bacchus",
+    "script": "scripts/diagnose_3c391_voltage_beam_transfer.py",
+    "backend": "jax",
+    "output": "/home/stephen/checkouts/SL1MJax-beam-transfer-20260829/outputs/3c391_voltage_beam_transfer_jax/summary.json",
+    "notes": [
+      "The compact report is an extract of the original 653983-byte summary.json.",
+      "leakage_matters is true in the original interpretation because full Jones is 0.13152 lower than diagonal.",
+      "That difference is numerical. The fixtures have no RL/LR residual. Do not freeze full Jones.",
+      "Do not treat this ranking as a scientific beam selection."
+    ]
+  }
+}

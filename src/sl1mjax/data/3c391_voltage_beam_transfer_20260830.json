@@ -1,0 +1,257 @@
+{
+  "report_id": "3c391_voltage_beam_transfer_20260830",
+  "schema_version": 1,
+  "provenance": {
+    "date": "2026-08-30",
+    "host": "bacchus",
+    "finished": "2026-08-30 09:35",
+    "isolated_tree": "/home/stephen/checkouts/SL1MJax-beam-transfer-20260829",
+    "output": "/home/stephen/checkouts/SL1MJax-beam-transfer-20260829/outputs/3c391_voltage_beam_transfer_jax/summary.json",
+    "summary_bytes": 653983,
+    "summary_sha256": "fdf136b1d8a6db8153d89168d87e0bd468ea2ebc0e5a9dfd031a8b59cec46f71",
+    "script": "scripts/diagnose_3c391_voltage_beam_transfer.py",
+    "script_sha256": "d0ab6e1df6959bd1071c9707c4e4428fc9276cfff0a7272c10c8a7a59d9797a9",
+    "command": "uv run python scripts/diagnose_3c391_voltage_beam_transfer.py --backend jax --output outputs/3c391_voltage_beam_transfer_jax",
+    "command_note": "Exact argv was not persisted. Backend and output are taken from the written tree; remaining paths used the script defaults.",
+    "revision_note": "The isolated tree was not a git worktree. The running script hash is pinned instead of a commit.",
+    "backend": "jax",
+    "diagnostic": "3c391_voltage_beam_transfer",
+    "frozen": false,
+    "full_jones_factory_unchanged": true,
+    "calibration_state": "casa_parang_true",
+    "sky_atoms_positive": 5869,
+    "sky_flux_jy": 25.533968640130965,
+    "native_correlations": ["RR", "LL"],
+    "inputs": {
+      "sky_checkpoint": {
+        "path": "outputs/3c391_recovery_policy_fit_zero/sealed_active_only.npz",
+        "sha256": "32ce5f05a6ff5c4851def905d7244e5e78103ba1e8107f426e6a299ab3a5d669",
+        "bytes": 9628798
+      },
+      "sky_protocol": {
+        "path": "outputs/3c391_composite_catalogue_stage3/protocol.json",
+        "sha256": "03e1e8768c186dec94fb0680c600702e4387166349b6beacd612e3f9cffac071",
+        "bytes": 2715
+      },
+      "native_holdouts": {
+        "directory": "outputs/3c391_native_averaging_ablation",
+        "zarr_tree_sha256": {
+          "native_C1.zarr": "d19d774dd6b5b1b8eb2a14bbc495e34378ecf0d2730b4657f79297c5cb03f014",
+          "native_C2.zarr": "dc0197d735cb4eebc00a45a9c8110852746d5868ec9536ebc5573a5305bdd49f",
+          "native_C3.zarr": "7c3720bfd7b965fbcce733f18f1d5f20b6c259f5eac9bfdb1d522285cd3e6b1e",
+          "native_C4.zarr": "7ff8d2580737da822b1eea0cbf29c0eb62e58b9a007def1b6a8552adf93321b3",
+          "native_C5.zarr": "5bc422e95172d6cdcc74133aecea17a3f163c81135add6d8ec30ff641e0afa07",
+          "native_C6.zarr": "5ffb18d583cf645b39076f340abdbf509d833d9b35511fbe5f3728c3fc8bf6ed",
+          "native_C7.zarr": "06bba01a475cd9d4ac42fb7d0f6f0c47cc54a848ebeb786058d27ebeabca5ad7"
+        }
+      }
+    }
+  },
+  "operator_gate": {
+    "accepted": true,
+    "explicit_peak": 4.535822572716459,
+    "peak_abs_difference": 9.570644082560846e-15,
+    "pointing": "C1",
+    "rms_difference": 5.165761461009877e-16
+  },
+  "interpretation": {
+    "cross_hand_in_data": false,
+    "do_not_freeze_full_jones": true,
+    "leakage_matters": true,
+    "mean_held_out_loss": {
+      "diagonal_copolar": 287177.1592272951,
+      "full_jones_unfrozen": 287177.0277064758,
+      "static_scalar": 279977.1190987142,
+      "streamed_scalar": 290475.0001851497
+    },
+    "mean_ll": {
+      "diagonal_copolar": 145704.86917067066,
+      "full_jones_unfrozen": 145704.81338674665,
+      "static_scalar": 142819.62297088595,
+      "streamed_scalar": 148651.93715589508
+    },
+    "mean_rr": {
+      "diagonal_copolar": 141472.29005662448,
+      "full_jones_unfrozen": 141472.21585720102,
+      "static_scalar": 137157.49612782826,
+      "streamed_scalar": 141823.06302925464
+    },
+    "no_detailed_beam_beats_airy": true,
+    "ranking_best_first": [
+      "static_scalar",
+      "full_jones_unfrozen",
+      "diagonal_copolar",
+      "streamed_scalar"
+    ],
+    "scalar_shape_matters": false,
+    "squint_or_rl_structure_matters": true
+  },
+  "pointings": {
+    "C1": {
+      "radius_arcmin": 0.0,
+      "leakage_atom_fraction": 0.9093542341114329,
+      "leakage_flux_fraction": 0.9910371157428365,
+      "totals": {
+        "static_scalar": 298031.117787634,
+        "streamed_scalar": 306386.48077558755,
+        "diagonal_copolar": 296455.5583997215,
+        "full_jones_unfrozen": 296455.45582150074
+      },
+      "rr": {
+        "static_scalar": 145833.98648411172,
+        "streamed_scalar": 149485.78506900297,
+        "diagonal_copolar": 147723.1048555799,
+        "full_jones_unfrozen": 147723.05060377353
+      },
+      "ll": {
+        "static_scalar": 152197.13130352233,
+        "streamed_scalar": 156900.69570658455,
+        "diagonal_copolar": 148732.4535441416,
+        "full_jones_unfrozen": 148732.40521772724
+      }
+    },
+    "C2": {
+      "radius_arcmin": 2.4521906409917045,
+      "leakage_atom_fraction": 0.9103765547793491,
+      "leakage_flux_fraction": 0.9908617236054811,
+      "totals": {
+        "static_scalar": 261550.92545114123,
+        "streamed_scalar": 281856.961597709,
+        "diagonal_copolar": 264969.0165978414,
+        "full_jones_unfrozen": 264968.88388542226
+      },
+      "rr": {
+        "static_scalar": 120993.86390612129,
+        "streamed_scalar": 126445.00535512232,
+        "diagonal_copolar": 130237.41507876496,
+        "full_jones_unfrozen": 130237.30911935035
+      },
+      "ll": {
+        "static_scalar": 140557.06154501997,
+        "streamed_scalar": 155411.9562425867,
+        "diagonal_copolar": 134731.6015190765,
+        "full_jones_unfrozen": 134731.5747660719
+      }
+    },
+    "C3": {
+      "radius_arcmin": 2.4521906409932313,
+      "leakage_atom_fraction": 0.9086726869994889,
+      "leakage_flux_fraction": 0.9911126890930725,
+      "totals": {
+        "static_scalar": 250154.01342572516,
+        "streamed_scalar": 257764.51228192743,
+        "diagonal_copolar": 257473.65841177327,
+        "full_jones_unfrozen": 257473.49834711297
+      },
+      "rr": {
+        "static_scalar": 123826.02447166407,
+        "streamed_scalar": 122976.46971433071,
+        "diagonal_copolar": 132489.01756423176,
+        "full_jones_unfrozen": 132488.92071403272
+      },
+      "ll": {
+        "static_scalar": 126327.98895406109,
+        "streamed_scalar": 134788.0425675967,
+        "diagonal_copolar": 124984.64084754152,
+        "full_jones_unfrozen": 124984.57763308025
+      }
+    },
+    "C4": {
+      "radius_arcmin": 2.45217804810802,
+      "leakage_atom_fraction": 0.909695007667405,
+      "leakage_flux_fraction": 0.9911486742246498,
+      "totals": {
+        "static_scalar": 317483.3223522545,
+        "streamed_scalar": 320813.85268304683,
+        "diagonal_copolar": 336215.67920699867,
+        "full_jones_unfrozen": 336215.53745928034
+      },
+      "rr": {
+        "static_scalar": 162407.7412927068,
+        "streamed_scalar": 163169.3671439444,
+        "diagonal_copolar": 167979.63589725998,
+        "full_jones_unfrozen": 167979.56456026106
+      },
+      "ll": {
+        "static_scalar": 155075.5810595477,
+        "streamed_scalar": 157644.48553910246,
+        "diagonal_copolar": 168236.0433097387,
+        "full_jones_unfrozen": 168235.9728990192
+      }
+    },
+    "C5": {
+      "radius_arcmin": 2.4521967748902402,
+      "leakage_atom_fraction": 0.9088430737774749,
+      "leakage_flux_fraction": 0.9907744398906498,
+      "totals": {
+        "static_scalar": 309535.41427221,
+        "streamed_scalar": 314101.0192706945,
+        "diagonal_copolar": 326499.4580445637,
+        "full_jones_unfrozen": 326499.3607225175
+      },
+      "rr": {
+        "static_scalar": 149513.99751956528,
+        "streamed_scalar": 153646.62496248842,
+        "diagonal_copolar": 157258.80079968032,
+        "full_jones_unfrozen": 157258.752305319
+      },
+      "ll": {
+        "static_scalar": 160021.41675264464,
+        "streamed_scalar": 160454.39430820604,
+        "diagonal_copolar": 169240.65724488342,
+        "full_jones_unfrozen": 169240.60841719853
+      }
+    },
+    "C6": {
+      "radius_arcmin": 2.4521967748887135,
+      "leakage_atom_fraction": 0.909695007667405,
+      "leakage_flux_fraction": 0.9906853482374778,
+      "totals": {
+        "static_scalar": 274189.50980251044,
+        "streamed_scalar": 286297.2798638432,
+        "diagonal_copolar": 276318.0193055455,
+        "full_jones_unfrozen": 276317.876199765
+      },
+      "rr": {
+        "static_scalar": 136959.6408972178,
+        "streamed_scalar": 146743.08940672327,
+        "diagonal_copolar": 134673.54425629735,
+        "full_jones_unfrozen": 134673.47857478447
+      },
+      "ll": {
+        "static_scalar": 137229.86890529265,
+        "streamed_scalar": 139554.19045711998,
+        "diagonal_copolar": 141644.47504924817,
+        "full_jones_unfrozen": 141644.40838728365
+      }
+    },
+    "C7": {
+      "radius_arcmin": 2.4521780481049675,
+      "leakage_atom_fraction": 0.9079911398875448,
+      "leakage_flux_fraction": 0.9900484130046927,
+      "totals": {
+        "static_scalar": 248895.53059952398,
+        "streamed_scalar": 266104.8948232394,
+        "diagonal_copolar": 252308.7246246215,
+        "full_jones_unfrozen": 252308.58150973177
+      },
+      "rr": {
+        "static_scalar": 120567.21832341084,
+        "streamed_scalar": 130295.0995531704,
+        "diagonal_copolar": 119944.51194455705,
+        "full_jones_unfrozen": 119944.435122886
+      },
+      "ll": {
+        "static_scalar": 128328.31227611317,
+        "streamed_scalar": 135809.79527006898,
+        "diagonal_copolar": 132364.21268006446,
+        "full_jones_unfrozen": 132364.14638684574
+      }
+    }
+  },
+  "notes": [
+    "Compact extract of the original 653983-byte Bacchus summary.json.",
+    "leakage_matters is true because full Jones is about 0.13 lower than diagonal. That difference is numerical; the fixtures have no RL/LR residual.",
+    "Do not treat this ranking as a scientific beam selection. The transfer discarded finite leaf widths."
+  ]
+}
