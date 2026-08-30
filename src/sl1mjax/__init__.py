@@ -327,6 +327,15 @@ from sl1mjax.voltage_polarization import (  # noqa: E402
     fit_global_qu_voltage,
     require_circular_coherency,
 )
+from sl1mjax.voltage_reconstruction import (  # noqa: E402
+    PRODUCTION_STOKES_I_BEAMS,
+    VoltageReconstructionConfig,
+    VoltageReconstructionResult,
+    reconstruct_stokes_i_candidates,
+    reconstruct_voltage_stokes_i,
+    starting_central_table,
+    stokes_i_beam,
+)
 
 __all__ = [
     "Correlation",
@@ -428,6 +437,8 @@ __all__ = [
     "ManufacturedVoltageBeam",
     "SkyComponentTable",
     "VoltageIntegrationMode",
+    "VoltageReconstructionConfig",
+    "VoltageReconstructionResult",
     "SquarePixelBasis",
     "SingleMergeEvaluation",
     "SingleSplitEvaluation",
@@ -540,6 +551,11 @@ __all__ = [
     "prepare_voltage_sky",
     "predict_voltage_from_plan",
     "predict_voltage_from_plan_value_and_grad",
+    "PRODUCTION_STOKES_I_BEAMS",
+    "reconstruct_stokes_i_candidates",
+    "reconstruct_voltage_stokes_i",
+    "starting_central_table",
+    "stokes_i_beam",
     "subcell_nodes",
     "predict_voltage_beam_jax_value_and_grad",
     "refit_stokes_i_fluxes",
