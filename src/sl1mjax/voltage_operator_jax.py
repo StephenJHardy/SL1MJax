@@ -7,8 +7,9 @@ defaults to static Airy until a beam mode is enabled.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Any
+from typing import Any, cast
 
 import jax
 import jax.numpy as jnp
@@ -40,9 +41,11 @@ from sl1mjax.cassbeam_beam import (
     load_cassbeam_cband_artifact,
 )
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.finite_pixel import IntegrationPlan, ManufacturedVoltageBeam
 from sl1mjax.objective import weighted_complex_mse
 from sl1mjax.polarization import Correlation
-from sl1mjax.rime import SPEED_OF_LIGHT_M_S
+from sl1mjax.rime import SPEED_OF_LIGHT_M_S, _square_kernel
+from sl1mjax.sky import GaussianApproximation
 from sl1mjax.voltage_beam import (
     AnalyticAiryVoltageBeam,
     CompositeHandoverPolicy,
@@ -262,7 +265,9 @@ def _cassbeam_tables() -> dict[str, Any]:
     }
 
 
-def _bilinear_plane(jones: Array, l_axis: Array, m_axis: Array, l_rad: Array, m_rad: Array):
+def _bilinear_plane(
+    jones: Array, l_axis: Array, m_axis: Array, l_rad: Array, m_rad: Array
+) -> tuple[Array, Array]:
     i = jnp.interp(l_rad, l_axis, jnp.arange(l_axis.size, dtype=l_axis.dtype))
     j = jnp.interp(m_rad, m_axis, jnp.arange(m_axis.size, dtype=m_axis.dtype))
     ok = (
@@ -385,6 +390,18 @@ def _circular_coherency(
     )
 
 
+def _mask_apparent_coherency(apparent: Array, ok: Array, off_ok: Array) -> Array:
+    masked = jnp.where(ok[..., None, None], apparent, 0.0)
+    rr = masked[..., 0, 0]
+    rl = jnp.where(off_ok, masked[..., 0, 1], 0.0)
+    lr = jnp.where(off_ok, masked[..., 1, 0], 0.0)
+    ll = masked[..., 1, 1]
+    return jnp.stack(
+        (jnp.stack((rr, rl), axis=-1), jnp.stack((lr, ll), axis=-1)),
+        axis=-2,
+    )
+
+
 def _unpack_correlations(coherency: Array, correlations: tuple[Correlation, ...]) -> Array:
     slots = {
         Correlation.RR: (0, 0),
@@ -419,19 +436,33 @@ def _accumulate_rows(
     correlations: tuple[Correlation, ...],
     visibility_chunk_size: int,
     pixel_chunk_size: int,
-    jones_for_tile,
+    jones_for_tile: Callable[[Array, Array], tuple[Array, Array, Array]],
+    width_rad: Array | None = None,
+    node_valid: Array | None = None,
+    approximation: GaussianApproximation = GaussianApproximation.WIDE_FIELD,
 ) -> tuple[Array, Array, Array]:
     n_row = uvw_m.shape[0]
     n_channel = frequency_hz.size
     n_corr = len(correlations)
     n_dir = l_rad.size
+    widths = (
+        jnp.zeros((n_dir,), dtype=jnp.float64)
+        if width_rad is None
+        else jnp.asarray(width_rad, dtype=jnp.float64).reshape(-1)
+    )
+    valid_nodes = (
+        jnp.ones((n_dir,), dtype=bool)
+        if node_valid is None
+        else jnp.asarray(node_valid, dtype=bool).reshape(-1)
+    )
+    use_square = width_rad is not None
     empty_vis = jnp.zeros((n_row, n_channel, n_corr), dtype=jnp.complex128)
     empty_ok = jnp.zeros((n_row, n_channel), dtype=jnp.int32)
 
     def visibility_body(
-        row_start: int, carry: tuple[Array, Array, Array]
-    ) -> tuple[Array, Array, Array]:
-        pred, copolar_ok, leakage_ok = carry
+        row_start: int, carry: tuple[Array, Array, Array, Array]
+    ) -> tuple[Array, Array, Array, Array]:
+        pred, copolar_ok, off_ok_count, mixed_count = carry
         rows = jnp.arange(visibility_chunk_size) + row_start
         in_row = rows < n_row
         safe_rows = jnp.where(in_row, rows, 0)
@@ -440,14 +471,16 @@ def _accumulate_rows(
         a2 = antenna2[safe_rows]
 
         def pixel_body(
-            pixel_start: int, acc: tuple[Array, Array, Array]
-        ) -> tuple[Array, Array, Array]:
-            vis, copolar, leakage = acc
+            pixel_start: int, acc: tuple[Array, Array, Array, Array]
+        ) -> tuple[Array, Array, Array, Array]:
+            vis, copolar, off_acc, mixed_acc = acc
             pixels = jnp.arange(pixel_chunk_size) + pixel_start
             in_pix = pixels < n_dir
             safe_pix = jnp.where(in_pix, pixels, 0)
             l_tile = l_rad[safe_pix]
             m_tile = m_rad[safe_pix]
+            w_tile = widths[safe_pix]
+            node_ok = valid_nodes[safe_pix]
             sky = coherency[safe_pix]
             jones, valid, off_valid = jones_for_tile(l_tile, m_tile)
             single_plane = jones.shape[0] == 1
@@ -458,8 +491,8 @@ def _accumulate_rows(
                 j_ok_q = valid[0]
                 j_off_p = off_valid[0]
                 j_off_q = off_valid[0]
-                ok = j_ok_p & j_ok_q & in_pix[:, None]
-                off_ok = j_off_p & j_off_q & in_pix[:, None]
+                ok = j_ok_p & j_ok_q & in_pix[:, None] & node_ok[:, None]
+                off_ok = j_off_p & j_off_q & in_pix[:, None] & node_ok[:, None]
             else:
                 jp_tile = jones[a1]
                 jq_tile = jones[a2]
@@ -467,13 +500,29 @@ def _accumulate_rows(
                 j_ok_q = valid[a2]
                 j_off_p = off_valid[a1]
                 j_off_q = off_valid[a2]
-                ok = j_ok_p & j_ok_q & in_pix[None, :, None]
-                off_ok = j_off_p & j_off_q & in_pix[None, :, None]
+                ok = j_ok_p & j_ok_q & in_pix[None, :, None] & node_ok[None, :, None]
+                off_ok = (
+                    j_off_p & j_off_q & in_pix[None, :, None] & node_ok[None, :, None]
+                )
 
             def channel_body(channel: int, vis_acc: Array) -> Array:
                 uvw_l = uvw * (frequency_hz[channel] / SPEED_OF_LIGHT_M_S)
-                kernel = _delta_kernel(uvw_l, l_tile, m_tile)
-                kernel = jnp.where(in_row[:, None] & in_pix[None, :], kernel, 0.0)
+                if use_square:
+                    kernel = _square_kernel(
+                        uvw_l,
+                        l_tile,
+                        m_tile,
+                        w_tile,
+                        approximation,
+                        include_projection=False,
+                    )
+                else:
+                    kernel = _delta_kernel(uvw_l, l_tile, m_tile)
+                kernel = jnp.where(
+                    in_row[:, None] & in_pix[None, :] & node_ok[None, :],
+                    kernel,
+                    0.0,
+                )
                 if single_plane:
                     apparent = jnp.einsum(
                         "dij,djk,dlk->dil",
@@ -481,7 +530,9 @@ def _accumulate_rows(
                         sky[:, channel],
                         jnp.conjugate(jq_tile[:, channel]),
                     )
-                    apparent = jnp.where(ok[:, channel, None, None], apparent, 0.0)
+                    apparent = _mask_apparent_coherency(
+                        apparent, ok[:, channel], off_ok[:, channel]
+                    )
                     packed = _unpack_correlations(apparent, correlations)
                     return vis_acc.at[:, channel].add(
                         jnp.einsum("rd,dc->rc", kernel, packed)
@@ -492,7 +543,9 @@ def _accumulate_rows(
                     sky[:, channel],
                     jnp.conjugate(jq_tile[:, :, channel]),
                 )
-                apparent = jnp.where(ok[:, :, channel, None, None], apparent, 0.0)
+                apparent = _mask_apparent_coherency(
+                    apparent, ok[:, :, channel], off_ok[:, :, channel]
+                )
                 packed = _unpack_correlations(apparent, correlations)
                 return vis_acc.at[:, channel].add(
                     jnp.einsum("rd,rdc->rc", kernel, packed)
@@ -501,13 +554,20 @@ def _accumulate_rows(
             vis = jax.lax.fori_loop(0, n_channel, channel_body, vis)
             if single_plane:
                 tile_copolar = jnp.any(ok, axis=0)[None, :] & in_row[:, None]
-                tile_leakage = jnp.any(off_ok, axis=0)[None, :] & in_row[:, None]
+                tile_off = jnp.any(off_ok, axis=0)[None, :] & in_row[:, None]
+                tile_mixed = jnp.any(ok & ~off_ok, axis=0)[None, :] & in_row[:, None]
             else:
                 tile_copolar = jnp.any(ok, axis=1) & in_row[:, None]
-                tile_leakage = jnp.any(off_ok, axis=1) & in_row[:, None]
-            return vis, copolar | tile_copolar, leakage | tile_leakage
+                tile_off = jnp.any(off_ok, axis=1) & in_row[:, None]
+                tile_mixed = jnp.any(ok & ~off_ok, axis=1) & in_row[:, None]
+            return (
+                vis,
+                copolar | tile_copolar,
+                off_acc | tile_off,
+                mixed_acc | tile_mixed,
+            )
 
-        tile_vis, tile_copolar, tile_leakage = jax.lax.fori_loop(
+        tile_vis, tile_copolar, tile_off, tile_mixed = jax.lax.fori_loop(
             0,
             (n_dir + pixel_chunk_size - 1) // pixel_chunk_size,
             lambda index, acc: pixel_body(index * pixel_chunk_size, acc),
@@ -515,25 +575,28 @@ def _accumulate_rows(
                 jnp.zeros((visibility_chunk_size, n_channel, n_corr), dtype=jnp.complex128),
                 jnp.zeros((visibility_chunk_size, n_channel), dtype=bool),
                 jnp.zeros((visibility_chunk_size, n_channel), dtype=bool),
+                jnp.zeros((visibility_chunk_size, n_channel), dtype=bool),
             ),
         )
         tile_vis = jnp.where(in_row[:, None, None], tile_vis, 0.0)
         tile_copolar = tile_copolar & in_row[:, None]
-        tile_leakage = tile_leakage & in_row[:, None]
+        tile_off = tile_off & in_row[:, None]
+        tile_mixed = tile_mixed & in_row[:, None]
         return (
             pred.at[safe_rows].add(tile_vis),
             copolar_ok.at[safe_rows].add(tile_copolar.astype(jnp.int32)),
-            leakage_ok.at[safe_rows].add(tile_leakage.astype(jnp.int32)),
+            off_ok_count.at[safe_rows].add(tile_off.astype(jnp.int32)),
+            mixed_count.at[safe_rows].add(tile_mixed.astype(jnp.int32)),
         )
 
     n_row_tiles = (n_row + visibility_chunk_size - 1) // visibility_chunk_size
-    prediction, copolar_count, leakage_count = jax.lax.fori_loop(
+    prediction, copolar_count, off_count, mixed_count = jax.lax.fori_loop(
         0,
         n_row_tiles,
         lambda index, carry: visibility_body(index * visibility_chunk_size, carry),
-        (empty_vis, empty_ok, empty_ok),
+        (empty_vis, empty_ok, empty_ok, empty_ok),
     )
-    return prediction, copolar_count > 0, leakage_count > 0
+    return prediction, copolar_count > 0, (off_count > 0) & (mixed_count == 0)
 
 
 def _sky_plane(
@@ -632,6 +695,10 @@ def _evaluate_beam_jones(
         if beam.off_diagonal:
             return jones, valid, off_valid
         return jones, valid, valid
+    if isinstance(beam, ManufacturedVoltageBeam):
+        return manufactured_jones_jax(
+            beam, l_rad, m_rad, frequency_hz, chi, calibration_state
+        )
     if isinstance(beam, Perley2016CBandVoltageBeam):
         if polynomials is None:
             raise ValueError("Perley Jones needs prepared polynomials")
@@ -666,9 +733,13 @@ def _predict_voltage_beam_jax_arrays(
     antenna_position_m: ArrayLike,
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
+    width_rad: ArrayLike | None = None,
+    node_valid: ArrayLike | None = None,
+    kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
 ) -> tuple[Array, Array, Array]:
     selected = config or BeamOperatorConfig()
     state = require_beam_calibration_state(calibration_state)
+    approximation = GaussianApproximation(kernel_approximation)
     if selected.policy is not BeamOperatorPolicy.STREAM:
         raise ValueError("JAX voltage operator only implements STREAM policy")
     if not block.correlations:
@@ -777,6 +848,17 @@ def _predict_voltage_beam_jax_arrays(
             selected.visibility_chunk_size,
             selected.pixel_chunk_size,
             jones_for_tile,
+            width_rad=(
+                None
+                if width_rad is None
+                else jnp.asarray(width_rad, dtype=jnp.float64).reshape(-1)
+            ),
+            node_valid=(
+                None
+                if node_valid is None
+                else jnp.asarray(node_valid, dtype=bool).reshape(-1)
+            ),
+            approximation=approximation,
         )
         contrib = jnp.where(ok[:, None, None], contrib, 0.0)
         tile_copolar = tile_copolar & ok[:, None]
@@ -827,6 +909,9 @@ def predict_voltage_beam_jax(
     antenna_position_m: ArrayLike,
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
+    width_rad: ArrayLike | None = None,
+    node_valid: ArrayLike | None = None,
+    kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
 ) -> BeamOperatorResult:
     """Predict ``E_p C E_q^H`` visibilities with a JAX streamed operator."""
 
@@ -839,6 +924,9 @@ def predict_voltage_beam_jax(
         antenna_position_m=antenna_position_m,
         calibration_state=calibration_state,
         config=config,
+        width_rad=width_rad,
+        node_valid=node_valid,
+        kernel_approximation=kernel_approximation,
     )
     return BeamOperatorResult(
         visibility=np.asarray(prediction),
@@ -863,6 +951,9 @@ def predict_voltage_beam_jax_value_and_grad(
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
     train_mask: ArrayLike | None = None,
+    width_rad: ArrayLike | None = None,
+    node_valid: ArrayLike | None = None,
+    kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
 ) -> tuple[Array, Array]:
     """Return normalised weighted MSE and its Stokes-I gradient.
 
@@ -876,11 +967,14 @@ def predict_voltage_beam_jax_value_and_grad(
             block,
             l_rad,
             m_rad,
-            SkyStokesPlanes(stokes_i=values),
+            SkyStokesPlanes(stokes_i=cast(np.ndarray, values)),
             beam,
             antenna_position_m=antenna_position_m,
             calibration_state=calibration_state,
             config=config,
+            width_rad=width_rad,
+            node_valid=node_valid,
+            kernel_approximation=kernel_approximation,
         )
         sample = jnp.asarray(block.active if train_mask is None else train_mask)
         if sample.shape != block.visibility.shape:
@@ -965,3 +1059,127 @@ def off_diagonal_support_mask_jax(
         )
         support[start:stop] = np.all(np.asarray(off_valid), axis=(0, 2))
     return support
+
+
+def manufactured_jones_jax(
+    beam: ManufacturedVoltageBeam,
+    l_rad: Array,
+    m_rad: Array,
+    frequency_hz: Array,
+    chi: Array,
+    calibration_state: BeamCalibrationState,
+) -> tuple[Array, Array, Array]:
+    l_values = jnp.asarray(l_rad, dtype=jnp.float64).reshape(-1)
+    m_values = jnp.asarray(m_rad, dtype=jnp.float64).reshape(-1)
+    plane = _manufactured_polynomial(beam, l_values, m_values)
+    n_channel = int(frequency_hz.size)
+    if beam.rotate_parallactic:
+        angles = jnp.asarray(chi, dtype=jnp.float64).reshape(-1)
+        parallactic = jnp.zeros((angles.size, 2, 2), dtype=jnp.complex128)
+        parallactic = parallactic.at[:, 0, 0].set(jnp.exp(-1j * angles))
+        parallactic = parallactic.at[:, 1, 1].set(jnp.exp(1j * angles))
+        if calibration_state is BeamCalibrationState.CASA_PARANG_TRUE:
+            conjugate = jnp.conjugate(jnp.swapaxes(parallactic, -1, -2))
+            jones = jnp.einsum("aij,djk,akl->adil", conjugate, plane, parallactic)
+        else:
+            jones = jnp.einsum("dij,ajk->adik", plane, parallactic)
+        n_plane = angles.size
+    else:
+        jones = plane[None, ...]
+        n_plane = 1
+    jones = jnp.broadcast_to(
+        jones[:, :, None, :, :],
+        (n_plane, l_values.size, n_channel, 2, 2),
+    )
+    valid = jnp.ones(jones.shape[:3], dtype=bool)
+    if beam.valid_radius_rad is not None:
+        inside = (l_values * l_values + m_values * m_values) <= (
+            beam.valid_radius_rad**2
+        )
+        valid = valid & inside[None, :, None]
+    leakage = valid if beam.off_diagonal_valid else jnp.zeros_like(valid)
+    if beam.off_diagonal_radius_rad is not None:
+        leak_inside = (l_values * l_values + m_values * m_values) <= (
+            beam.off_diagonal_radius_rad**2
+        )
+        leakage = leakage & leak_inside[None, :, None]
+    return jones, valid, leakage
+
+
+def predict_voltage_from_plan_value_and_grad_jax(
+    parent_flux: ArrayLike,
+    block: VisibilityBlock,
+    plan: IntegrationPlan,
+    beam: VoltageBeamModel,
+    *,
+    antenna_position_m: ArrayLike,
+    calibration_state: BeamCalibrationState | str,
+    config: BeamOperatorConfig | None = None,
+    train_mask: ArrayLike | None = None,
+) -> tuple[Array, Array]:
+    """Weighted MSE and Stokes-I gradient over fitted parents, not nodes."""
+
+    parent = jnp.asarray(parent_flux, dtype=jnp.float64).reshape(-1)
+    if int(parent.size) != plan.parent_count:
+        raise ValueError("parent_flux must match the number of fitted parents")
+    parent_index = jnp.asarray(plan.parent_index, dtype=jnp.int32)
+    weight = jnp.asarray(plan.weight, dtype=jnp.float64)
+    node_ok = jnp.asarray(plan.node_valid, dtype=bool)
+    local_l, local_m = plan.local_directions(block.phase_centre_rad)
+
+    def _loss(values: Array) -> Array:
+        node_flux = values[parent_index] * weight
+        node_flux = jnp.where(node_ok, node_flux, 0.0)
+        predicted, copolar_valid, leakage_valid = _predict_voltage_beam_jax_arrays(
+            block,
+            local_l,
+            local_m,
+            SkyStokesPlanes(stokes_i=cast(np.ndarray, node_flux)),
+            beam,
+            antenna_position_m=antenna_position_m,
+            calibration_state=calibration_state,
+            config=config,
+            width_rad=plan.width_rad,
+            node_valid=plan.node_valid,
+            kernel_approximation=plan.approximation,
+        )
+        sample = jnp.asarray(block.active if train_mask is None else train_mask)
+        if sample.shape != block.visibility.shape:
+            raise ValueError("train_mask must match block.visibility")
+        beam_ok = _correlation_validity(
+            copolar_valid, leakage_valid, block.correlations
+        )
+        return weighted_complex_mse(
+            predicted,
+            jnp.asarray(block.visibility),
+            jnp.asarray(block.weight),
+            ~sample | ~beam_ok,
+        )
+
+    return jax.value_and_grad(_loss)(parent)
+
+
+def _manufactured_polynomial(
+    beam: ManufacturedVoltageBeam,
+    l_rad: Array,
+    m_rad: Array,
+) -> Array:
+    intercept = _manufactured_coefficient(beam.intercept)
+    plane = intercept + _manufactured_coefficient(beam.grad_l) * l_rad[:, None, None]
+    plane = plane + _manufactured_coefficient(beam.grad_m) * m_rad[:, None, None]
+    plane = plane + _manufactured_coefficient(beam.hess_ll) * (
+        l_rad * l_rad
+    )[:, None, None]
+    plane = plane + _manufactured_coefficient(beam.hess_lm) * (
+        l_rad * m_rad
+    )[:, None, None]
+    plane = plane + _manufactured_coefficient(beam.hess_mm) * (
+        m_rad * m_rad
+    )[:, None, None]
+    return plane
+
+
+def _manufactured_coefficient(value: Any) -> Array:
+    if value is None:
+        return jnp.zeros((2, 2), dtype=jnp.complex128)
+    return jnp.asarray(value, dtype=jnp.complex128)

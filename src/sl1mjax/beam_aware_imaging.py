@@ -112,6 +112,9 @@ class VoltageIntegrationMode(StrEnum):
     """How the voltage operator uses a finite sky component."""
 
     POINT_CENTRE = "point_centre"
+    ANALYTIC_SQUARE = "analytic_square"
+    SUBCELL_2X2 = "subcell_2x2"
+    SUBCELL_4X4 = "subcell_4x4"
 
 
 class QuadtreeOverlapPolicy(StrEnum):

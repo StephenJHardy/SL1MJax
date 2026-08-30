@@ -102,6 +102,11 @@ def _compare_to_numpy(beam, *, calibration_state: str = "casa_parang_true") -> N
         predicted.visibility, reference.visibility, rtol=1e-9, atol=1e-11
     )
     np.testing.assert_array_equal(predicted.valid, reference.valid)
+    assert predicted.off_diagonal_valid is not None
+    assert reference.off_diagonal_valid is not None
+    np.testing.assert_array_equal(
+        predicted.off_diagonal_valid, reference.off_diagonal_valid
+    )
 
 
 def test_jax_airy_matches_numpy_and_explicit_stokes_i() -> None:

@@ -31,6 +31,7 @@ from sl1mjax.polarization import (
     unpack_coherency,
 )
 from sl1mjax.rime import SPEED_OF_LIGHT_M_S
+from sl1mjax.sky import GaussianApproximation
 from sl1mjax.voltage_beam import (
     BeamEvaluation,
     VoltageBeamModel,
@@ -119,12 +120,18 @@ def predict_voltage_beam(
     antenna_position_m: ArrayLike,
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
+    width_rad: ArrayLike | None = None,
+    node_valid: ArrayLike | None = None,
+    kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
 ) -> BeamOperatorResult:
     """Predict ``E_p C E_q^H`` visibilities, one exact unique time at a time."""
 
     selected = config or BeamOperatorConfig()
     state = require_beam_calibration_state(calibration_state)
     l, m, coherency = _prepare_sky(l_rad, m_rad, sky, block.frequency_hz.size)
+    width = _prepare_widths(width_rad, l.size)
+    valid_nodes = _prepare_node_valid(node_valid, l.size)
+    approximation = GaussianApproximation(kernel_approximation)
     positions = _require_antenna_positions(antenna_position_m, block)
     _require_circular_block(block)
     unique_times, row_time_index = unique_visibility_times(block.time_s)
@@ -138,6 +145,7 @@ def predict_voltage_beam(
     )
     prediction = np.zeros(block.visibility.shape, dtype=np.complex128)
     valid = np.zeros(block.visibility.shape[:2], dtype=bool)
+    leakage_valid = np.zeros(block.visibility.shape[:2], dtype=bool)
     last: BeamEvaluation | None = None
     materialized: list[BeamEvaluation] = []
     antennas = np.arange(block.antenna_count, dtype=np.int32)
@@ -161,6 +169,7 @@ def predict_voltage_beam(
             _accumulate_timestep(
                 prediction,
                 valid,
+                leakage_valid,
                 block,
                 selected_rows,
                 l,
@@ -168,11 +177,15 @@ def predict_voltage_beam(
                 coherency,
                 evaluation,
                 selected,
+                width=width,
+                node_valid=valid_nodes,
+                approximation=approximation,
             )
         else:
             last = _accumulate_timestep_streamed_antennas(
                 prediction,
                 valid,
+                leakage_valid,
                 block,
                 selected_rows,
                 l,
@@ -183,12 +196,16 @@ def predict_voltage_beam(
                 antenna_position_m=positions,
                 calibration_state=state,
                 config=selected,
+                width=width,
+                node_valid=valid_nodes,
+                approximation=approximation,
             )
         if selected.policy is BeamOperatorPolicy.STREAM:
             last = None
     return BeamOperatorResult(
         visibility=prediction,
         valid=valid,
+        off_diagonal_valid=leakage_valid,
         provenance=_operator_provenance(
             block,
             beam,
@@ -196,6 +213,7 @@ def predict_voltage_beam(
             selected,
             unique_times,
             positions,
+            width=width,
         ),
         last_evaluation=last,
         materialized=tuple(materialized) if materialized else None,
@@ -212,6 +230,9 @@ def adjoint_voltage_beam(
     antenna_position_m: ArrayLike,
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
+    width_rad: ArrayLike | None = None,
+    node_valid: ArrayLike | None = None,
+    kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return the real Stokes adjoint ``Re(Aᴴ residual)`` for a fixed beam.
 
@@ -225,6 +246,9 @@ def adjoint_voltage_beam(
     m = np.asarray(m_rad, dtype=np.float64).reshape(-1)
     if l.size != m.size or l.size == 0:
         raise ValueError("l_rad and m_rad must be nonempty and the same size")
+    width = _prepare_widths(width_rad, l.size)
+    valid_nodes = _prepare_node_valid(node_valid, l.size)
+    approximation = GaussianApproximation(kernel_approximation)
     residual_array = np.asarray(residual, dtype=np.complex128)
     if residual_array.shape != block.visibility.shape:
         raise ValueError("residual must match block.visibility")
@@ -264,6 +288,9 @@ def adjoint_voltage_beam(
                 m,
                 evaluation,
                 selected,
+                width=width,
+                node_valid=valid_nodes,
+                approximation=approximation,
             )
         else:
             _accumulate_timestep_adjoint_streamed_antennas(
@@ -278,6 +305,9 @@ def adjoint_voltage_beam(
                 antenna_position_m=positions,
                 calibration_state=state,
                 config=selected,
+                width=width,
+                node_valid=valid_nodes,
+                approximation=approximation,
             )
     return _stokes_from_coherency_gradient(gradient)
 
@@ -314,6 +344,7 @@ def _evaluate_timestep(
 def _accumulate_timestep(
     prediction: np.ndarray,
     valid: np.ndarray,
+    leakage_valid: np.ndarray,
     block: VisibilityBlock,
     selected_rows: np.ndarray,
     l: np.ndarray,
@@ -321,11 +352,18 @@ def _accumulate_timestep(
     sky_coherency: np.ndarray,
     evaluation: BeamEvaluation,
     config: BeamOperatorConfig,
+    *,
+    width: np.ndarray | None,
+    node_valid: np.ndarray,
+    approximation: GaussianApproximation,
 ) -> None:
-    jones, valid_jones = _aligned_antenna_jones(evaluation, block.antenna_count)
+    jones, valid_jones, off_jones = _aligned_antenna_jones(
+        evaluation, block.antenna_count
+    )
     _accumulate_from_planes(
         prediction,
         valid,
+        leakage_valid,
         block,
         selected_rows,
         l,
@@ -333,15 +371,20 @@ def _accumulate_timestep(
         sky_coherency,
         jones,
         valid_jones,
+        off_jones,
         block.antenna1,
         block.antenna2,
         config,
+        width=width,
+        node_valid=node_valid,
+        approximation=approximation,
     )
 
 
 def _accumulate_timestep_streamed_antennas(
     prediction: np.ndarray,
     valid: np.ndarray,
+    leakage_valid: np.ndarray,
     block: VisibilityBlock,
     selected_rows: np.ndarray,
     l: np.ndarray,
@@ -353,6 +396,9 @@ def _accumulate_timestep_streamed_antennas(
     antenna_position_m: np.ndarray,
     calibration_state: BeamCalibrationState,
     config: BeamOperatorConfig,
+    width: np.ndarray | None,
+    node_valid: np.ndarray,
+    approximation: GaussianApproximation,
 ) -> BeamEvaluation:
     last: BeamEvaluation | None = None
     pairs = np.unique(
@@ -395,6 +441,13 @@ def _accumulate_timestep_streamed_antennas(
         ]
         jones = np.concatenate((evaluation_p.jones, evaluation_q.jones), axis=0)
         valid_jones = np.concatenate((evaluation_p.valid, evaluation_q.valid), axis=0)
+        off_jones = np.concatenate(
+            (
+                _require_off_diagonal(evaluation_p),
+                _require_off_diagonal(evaluation_q),
+            ),
+            axis=0,
+        )
         antenna1 = np.zeros(block.antenna1.shape, dtype=np.int32)
         antenna2 = np.ones(block.antenna2.shape, dtype=np.int32)
         if antenna_q == antenna_p:
@@ -402,6 +455,7 @@ def _accumulate_timestep_streamed_antennas(
         _accumulate_from_planes(
             prediction,
             valid,
+            leakage_valid,
             block,
             pair_rows,
             l,
@@ -409,9 +463,13 @@ def _accumulate_timestep_streamed_antennas(
             sky_coherency,
             jones,
             valid_jones,
+            off_jones,
             antenna1,
             antenna2,
             config,
+            width=width,
+            node_valid=node_valid,
+            approximation=approximation,
         )
     if last is None:
         raise ValueError("timestep has no rows")
@@ -421,6 +479,7 @@ def _accumulate_timestep_streamed_antennas(
 def _accumulate_from_planes(
     prediction: np.ndarray,
     valid: np.ndarray,
+    leakage_valid: np.ndarray,
     block: VisibilityBlock,
     selected_rows: np.ndarray,
     l: np.ndarray,
@@ -428,10 +487,35 @@ def _accumulate_from_planes(
     sky_coherency: np.ndarray,
     jones: np.ndarray,
     valid_jones: np.ndarray,
+    off_jones: np.ndarray,
     antenna1: np.ndarray,
     antenna2: np.ndarray,
     config: BeamOperatorConfig,
+    *,
+    width: np.ndarray | None,
+    node_valid: np.ndarray,
+    approximation: GaussianApproximation,
 ) -> None:
+    for channel in range(block.frequency_hz.size):
+        if jones.shape[0] == 1:
+            pix_ok, pix_off = _pixel_support(
+                valid_jones[0, :, channel],
+                off_jones[0, :, channel],
+                node_valid,
+            )
+            valid[selected_rows, channel] |= np.any(pix_ok)
+            leakage_valid[selected_rows, channel] |= _row_leakage_valid(pix_ok, pix_off)
+        else:
+            for row in selected_rows:
+                pix_ok, pix_off = _pixel_support(
+                    valid_jones[antenna1[row], :, channel]
+                    & valid_jones[antenna2[row], :, channel],
+                    off_jones[antenna1[row], :, channel]
+                    & off_jones[antenna2[row], :, channel],
+                    node_valid,
+                )
+                valid[row, channel] |= bool(np.any(pix_ok))
+                leakage_valid[row, channel] |= _row_leakage_valid(pix_ok, pix_off)
     for row_start in range(0, selected_rows.size, config.visibility_chunk_size):
         row_stop = min(row_start + config.visibility_chunk_size, selected_rows.size)
         rows = selected_rows[row_start:row_stop]
@@ -439,41 +523,51 @@ def _accumulate_from_planes(
             pixel_stop = min(pixel_start + config.pixel_chunk_size, l.size)
             pixels = slice(pixel_start, pixel_stop)
             for channel in range(block.frequency_hz.size):
-                kernel = _delta_kernel(
+                kernel = _visibility_kernel(
                     block.uvw_m[rows] * (block.frequency_hz[channel] / SPEED_OF_LIGHT_M_S),
                     l[pixels],
                     m[pixels],
+                    None if width is None else width[pixels],
+                    approximation,
                 )
+                kernel = np.where(node_valid[pixels][None, :], kernel, 0.0)
                 if jones.shape[0] == 1:
-                    pix_ok = valid_jones[0, pixels, channel]
+                    pix_ok, pix_off = _pixel_support(
+                        valid_jones[0, pixels, channel],
+                        off_jones[0, pixels, channel],
+                        node_valid[pixels],
+                    )
                     apparent = apply_jones_to_coherency(
                         sky_coherency[pixels, channel],
                         jones[0, pixels, channel],
                         jones[0, pixels, channel],
                     )
-                    apparent = np.where(pix_ok[:, None, None], apparent, 0.0)
                     packed = unpack_coherency(
-                        apparent, block.correlations, JONES_RECEPTORS
+                        _mask_coherency_support(apparent, pix_ok, pix_off),
+                        block.correlations,
+                        JONES_RECEPTORS,
                     )
                     prediction[rows, channel] += kernel @ packed
-                    valid[rows, channel] |= np.any(pix_ok)
                     continue
                 for local_row, row in enumerate(rows):
-                    pix_ok = (
+                    pix_ok, pix_off = _pixel_support(
                         valid_jones[antenna1[row], pixels, channel]
-                        & valid_jones[antenna2[row], pixels, channel]
+                        & valid_jones[antenna2[row], pixels, channel],
+                        off_jones[antenna1[row], pixels, channel]
+                        & off_jones[antenna2[row], pixels, channel],
+                        node_valid[pixels],
                     )
                     apparent = apply_jones_to_coherency(
                         sky_coherency[pixels, channel],
                         jones[antenna1[row], pixels, channel],
                         jones[antenna2[row], pixels, channel],
                     )
-                    apparent = np.where(pix_ok[:, None, None], apparent, 0.0)
                     packed = unpack_coherency(
-                        apparent, block.correlations, JONES_RECEPTORS
+                        _mask_coherency_support(apparent, pix_ok, pix_off),
+                        block.correlations,
+                        JONES_RECEPTORS,
                     )
                     prediction[row, channel] += kernel[local_row] @ packed
-                    valid[row, channel] |= bool(np.any(pix_ok))
 
 
 def _accumulate_timestep_adjoint(
@@ -485,8 +579,14 @@ def _accumulate_timestep_adjoint(
     m: np.ndarray,
     evaluation: BeamEvaluation,
     config: BeamOperatorConfig,
+    *,
+    width: np.ndarray | None,
+    node_valid: np.ndarray,
+    approximation: GaussianApproximation,
 ) -> None:
-    jones, valid_jones = _aligned_antenna_jones(evaluation, block.antenna_count)
+    jones, valid_jones, off_jones = _aligned_antenna_jones(
+        evaluation, block.antenna_count
+    )
     _accumulate_adjoint_from_planes(
         gradient,
         residual,
@@ -496,9 +596,13 @@ def _accumulate_timestep_adjoint(
         m,
         jones,
         valid_jones,
+        off_jones,
         block.antenna1,
         block.antenna2,
         config,
+        width=width,
+        node_valid=node_valid,
+        approximation=approximation,
     )
 
 
@@ -515,6 +619,9 @@ def _accumulate_timestep_adjoint_streamed_antennas(
     antenna_position_m: np.ndarray,
     calibration_state: BeamCalibrationState,
     config: BeamOperatorConfig,
+    width: np.ndarray | None,
+    node_valid: np.ndarray,
+    approximation: GaussianApproximation,
 ) -> None:
     pairs = np.unique(
         np.stack(
@@ -553,6 +660,13 @@ def _accumulate_timestep_adjoint_streamed_antennas(
         ]
         jones = np.concatenate((evaluation_p.jones, evaluation_q.jones), axis=0)
         valid_jones = np.concatenate((evaluation_p.valid, evaluation_q.valid), axis=0)
+        off_jones = np.concatenate(
+            (
+                _require_off_diagonal(evaluation_p),
+                _require_off_diagonal(evaluation_q),
+            ),
+            axis=0,
+        )
         antenna1 = np.zeros(block.antenna1.shape, dtype=np.int32)
         antenna2 = np.ones(block.antenna2.shape, dtype=np.int32)
         if antenna_q == antenna_p:
@@ -566,9 +680,13 @@ def _accumulate_timestep_adjoint_streamed_antennas(
             m,
             jones,
             valid_jones,
+            off_jones,
             antenna1,
             antenna2,
             config,
+            width=width,
+            node_valid=node_valid,
+            approximation=approximation,
         )
 
 
@@ -581,9 +699,14 @@ def _accumulate_adjoint_from_planes(
     m: np.ndarray,
     jones: np.ndarray,
     valid_jones: np.ndarray,
+    off_jones: np.ndarray,
     antenna1: np.ndarray,
     antenna2: np.ndarray,
     config: BeamOperatorConfig,
+    *,
+    width: np.ndarray | None,
+    node_valid: np.ndarray,
+    approximation: GaussianApproximation,
 ) -> None:
     packed_residual = pack_coherency(
         residual[selected_rows], block.correlations, JONES_RECEPTORS
@@ -596,27 +719,37 @@ def _accumulate_adjoint_from_planes(
             pixel_stop = min(pixel_start + config.pixel_chunk_size, l.size)
             pixels = slice(pixel_start, pixel_stop)
             for channel in range(block.frequency_hz.size):
-                kernel = _delta_kernel(
+                kernel = _visibility_kernel(
                     block.uvw_m[rows] * (block.frequency_hz[channel] / SPEED_OF_LIGHT_M_S),
                     l[pixels],
                     m[pixels],
+                    None if width is None else width[pixels],
+                    approximation,
                 )
+                kernel = np.where(node_valid[pixels][None, :], kernel, 0.0)
                 if jones.shape[0] == 1:
-                    pix_ok = valid_jones[0, pixels, channel]
+                    pix_ok, pix_off = _pixel_support(
+                        valid_jones[0, pixels, channel],
+                        off_jones[0, pixels, channel],
+                        node_valid[pixels],
+                    )
                     pulled = np.einsum(
                         "rp,rij->pij",
                         np.conjugate(kernel),
                         packed_residual[local, channel],
                     )
-                    pulled = np.where(pix_ok[:, None, None], pulled, 0.0)
+                    pulled = _mask_coherency_support(pulled, pix_ok, pix_off)
                     left = np.conjugate(np.swapaxes(jones[0, pixels, channel], -1, -2))
                     right = jones[0, pixels, channel]
                     gradient[pixels, channel] += np.matmul(left, np.matmul(pulled, right))
                     continue
                 for local_row, row in enumerate(rows):
-                    pix_ok = (
+                    pix_ok, pix_off = _pixel_support(
                         valid_jones[antenna1[row], pixels, channel]
-                        & valid_jones[antenna2[row], pixels, channel]
+                        & valid_jones[antenna2[row], pixels, channel],
+                        off_jones[antenna1[row], pixels, channel]
+                        & off_jones[antenna2[row], pixels, channel],
+                        node_valid[pixels],
                     )
                     left = np.conjugate(
                         np.swapaxes(jones[antenna1[row], pixels, channel], -1, -2)
@@ -626,22 +759,55 @@ def _accumulate_adjoint_from_planes(
                         np.conjugate(kernel[local_row])[:, None, None]
                         * packed_residual[row_start + local_row, channel]
                     )
-                    row_pull = np.where(pix_ok[:, None, None], row_pull, 0.0)
+                    row_pull = _mask_coherency_support(row_pull, pix_ok, pix_off)
                     gradient[pixels, channel] += np.matmul(left, np.matmul(row_pull, right))
+
+
+def _pixel_support(
+    beam_valid: np.ndarray,
+    beam_off: np.ndarray,
+    node_valid: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    pix_ok = np.asarray(beam_valid, dtype=bool) & np.asarray(node_valid, dtype=bool)
+    pix_off = np.asarray(beam_off, dtype=bool) & pix_ok
+    return pix_ok, pix_off
+
+
+def _mask_coherency_support(
+    coherency: np.ndarray,
+    pix_ok: np.ndarray,
+    pix_off: np.ndarray,
+) -> np.ndarray:
+    masked = np.where(pix_ok[..., None, None], coherency, 0.0)
+    masked = np.asarray(masked, dtype=np.complex128)
+    masked[..., 0, 1] = np.where(pix_off, masked[..., 0, 1], 0.0)
+    masked[..., 1, 0] = np.where(pix_off, masked[..., 1, 0], 0.0)
+    return masked
+
+
+def _row_leakage_valid(pix_ok: np.ndarray, pix_off: np.ndarray) -> bool:
+    return bool(np.any(pix_off) and not np.any(pix_ok & ~pix_off))
+
+
+def _require_off_diagonal(evaluation: BeamEvaluation) -> np.ndarray:
+    if evaluation.off_diagonal_valid is None:
+        raise ValueError("beam evaluation is missing off_diagonal_valid")
+    return np.asarray(evaluation.off_diagonal_valid, dtype=bool)
 
 
 def _aligned_antenna_jones(
     evaluation: BeamEvaluation, antenna_count: int
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     jones = np.asarray(evaluation.jones)
     valid = np.asarray(evaluation.valid, dtype=bool)
+    off_valid = _require_off_diagonal(evaluation)
     if jones.shape[0] == 1:
-        return jones, valid
+        return jones, valid, off_valid
     if jones.shape[0] != antenna_count:
         raise ValueError(
             "beam antenna axis must be 1 or match the block antenna count"
         )
-    return jones, valid
+    return jones, valid, off_valid
 
 
 def _antenna_plane_count(beam: VoltageBeamModel, antenna_count: int) -> int:
@@ -738,6 +904,71 @@ def _delta_kernel(uvw_wavelengths: np.ndarray, l: np.ndarray, m: np.ndarray) -> 
     return np.asarray(np.exp(phase), dtype=np.complex128)
 
 
+def _square_kernel(
+    uvw_wavelengths: np.ndarray,
+    l: np.ndarray,
+    m: np.ndarray,
+    width_rad: np.ndarray,
+    approximation: GaussianApproximation,
+) -> np.ndarray:
+    n = np.sqrt(np.maximum(1.0 - l * l - m * m, 0.0))
+    u = uvw_wavelengths[:, 0, None]
+    v = uvw_wavelengths[:, 1, None]
+    w = uvw_wavelengths[:, 2, None]
+    source_l = l[None, :]
+    source_m = m[None, :]
+    source_n = n[None, :]
+    width = np.asarray(width_rad, dtype=np.float64)
+    if approximation is GaussianApproximation.WIDE_FIELD:
+        u_eff = u - w * source_l / source_n
+        v_eff = v - w * source_m / source_n
+    else:
+        u_eff = u
+        v_eff = v
+    response = (
+        np.exp(2j * np.pi * (u * source_l + v * source_m))
+        * np.sinc(u_eff * width)
+        * np.sinc(v_eff * width)
+    )
+    if approximation is GaussianApproximation.WIDE_FIELD:
+        response = response * np.exp(2j * np.pi * w * (source_n - 1.0))
+    return np.asarray(response, dtype=np.complex128)
+
+
+def _visibility_kernel(
+    uvw_wavelengths: np.ndarray,
+    l: np.ndarray,
+    m: np.ndarray,
+    width_rad: np.ndarray | None,
+    approximation: GaussianApproximation,
+) -> np.ndarray:
+    if width_rad is None:
+        return _delta_kernel(uvw_wavelengths, l, m)
+    return _square_kernel(uvw_wavelengths, l, m, width_rad, approximation)
+
+
+def _prepare_widths(width_rad: ArrayLike | None, direction_count: int) -> np.ndarray | None:
+    if width_rad is None:
+        return None
+    width = np.asarray(width_rad, dtype=np.float64).reshape(-1)
+    if width.size == 1:
+        width = np.broadcast_to(width, (direction_count,))
+    if width.size != direction_count:
+        raise ValueError("width_rad must match l_rad")
+    if np.any(width < 0.0) or not np.all(np.isfinite(width)):
+        raise ValueError("width_rad must be finite and non-negative")
+    return np.asarray(width, dtype=np.float64)
+
+
+def _prepare_node_valid(node_valid: ArrayLike | None, direction_count: int) -> np.ndarray:
+    if node_valid is None:
+        return np.ones(direction_count, dtype=bool)
+    mask = np.asarray(node_valid, dtype=bool).reshape(-1)
+    if mask.size != direction_count:
+        raise ValueError("node_valid must match l_rad")
+    return mask
+
+
 def _stokes_from_coherency_gradient(
     gradient: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -781,14 +1012,17 @@ def _operator_provenance(
     config: BeamOperatorConfig,
     unique_times: np.ndarray,
     antenna_position_m: np.ndarray,
+    *,
+    width: np.ndarray | None,
 ) -> dict[str, object]:
+    used_square = width is not None and bool(np.any(width > 0.0))
     return {
         "operator": "voltage_beam_stream",
         "model_id": beam.model_id,
         "policy": config.policy.value,
         "calibration_state": calibration_state.value,
         "jones_equation": "E_p C E_q^H",
-        "pixel_basis": "delta",
+        "pixel_basis": "square" if used_square else "delta",
         "unique_time_count": int(unique_times.size),
         "antenna_count": int(block.antenna_count),
         "receptors": [receptor.value for receptor in JONES_RECEPTORS],
