@@ -159,6 +159,16 @@ from sl1mjax.inference import (  # noqa: E402
     positive_l1_kkt_residual,
     predict_mosaic_quadtree,
 )
+from sl1mjax.integration_planner import (  # noqa: E402
+    IntegrationAuditReport,
+    IntegrationPlannerReport,
+    IntegrationTolerance,
+    RefinementReason,
+    audit_integration_plan,
+    integration_plan_from_planner,
+    plan_integration,
+    stratified_integration_probe,
+)
 from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis  # noqa: E402
 from sl1mjax.polarization_activation import (  # noqa: E402
     CoarseStokesIRegion,
@@ -402,6 +412,7 @@ __all__ = [
     "ResidualHandlingMode",
     "ResidualHandlingResult",
     "RecoveryScore",
+    "RefinementReason",
     "ResidualHaarScore",
     "OpacityTerm",
     "Perley2016CBandVoltageBeam",
@@ -409,8 +420,11 @@ __all__ = [
     "PolarizationFloor",
     "SkyBasisType",
     "SkyComponent",
+    "IntegrationAuditReport",
     "IntegrationParentPolicy",
     "IntegrationPlan",
+    "IntegrationPlannerReport",
+    "IntegrationTolerance",
     "ManufacturedVoltageBeam",
     "SkyComponentTable",
     "VoltageIntegrationMode",
@@ -431,7 +445,11 @@ __all__ = [
     "VisibilityDataset",
     "adjoint_voltage_beam",
     "adjoint_voltage_from_plan",
+    "audit_integration_plan",
+    "integration_plan_from_planner",
     "integration_plan_from_table",
+    "plan_integration",
+    "stratified_integration_probe",
     "pad_integration_plan",
     "advance_merge_hysteresis",
     "apply_calibration",

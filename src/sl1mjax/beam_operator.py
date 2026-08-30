@@ -92,6 +92,7 @@ class BeamOperatorResult:
     last_evaluation: BeamEvaluation | None = None
     materialized: tuple[BeamEvaluation, ...] | None = None
     off_diagonal_valid: np.ndarray | None = None
+    parent_visibility: np.ndarray | None = None
 
 
 def unique_visibility_times(time_s: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
@@ -123,6 +124,7 @@ def predict_voltage_beam(
     width_rad: ArrayLike | None = None,
     node_valid: ArrayLike | None = None,
     kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
+    parent_index: ArrayLike | None = None,
 ) -> BeamOperatorResult:
     """Predict ``E_p C E_q^H`` visibilities, one exact unique time at a time."""
 
@@ -131,6 +133,7 @@ def predict_voltage_beam(
     l, m, coherency = _prepare_sky(l_rad, m_rad, sky, block.frequency_hz.size)
     width = _prepare_widths(width_rad, l.size)
     valid_nodes = _prepare_node_valid(node_valid, l.size)
+    parent_ids, parent_prediction = _prepare_parent_split(parent_index, l.size, block)
     approximation = GaussianApproximation(kernel_approximation)
     positions = _require_antenna_positions(antenna_position_m, block)
     _require_circular_block(block)
@@ -180,6 +183,8 @@ def predict_voltage_beam(
                 width=width,
                 node_valid=valid_nodes,
                 approximation=approximation,
+                parent_index=parent_ids,
+                parent_prediction=parent_prediction,
             )
         else:
             last = _accumulate_timestep_streamed_antennas(
@@ -199,6 +204,8 @@ def predict_voltage_beam(
                 width=width,
                 node_valid=valid_nodes,
                 approximation=approximation,
+                parent_index=parent_ids,
+                parent_prediction=parent_prediction,
             )
         if selected.policy is BeamOperatorPolicy.STREAM:
             last = None
@@ -217,6 +224,7 @@ def predict_voltage_beam(
         ),
         last_evaluation=last,
         materialized=tuple(materialized) if materialized else None,
+        parent_visibility=parent_prediction,
     )
 
 
@@ -356,6 +364,8 @@ def _accumulate_timestep(
     width: np.ndarray | None,
     node_valid: np.ndarray,
     approximation: GaussianApproximation,
+    parent_index: np.ndarray | None = None,
+    parent_prediction: np.ndarray | None = None,
 ) -> None:
     jones, valid_jones, off_jones = _aligned_antenna_jones(
         evaluation, block.antenna_count
@@ -378,6 +388,8 @@ def _accumulate_timestep(
         width=width,
         node_valid=node_valid,
         approximation=approximation,
+        parent_index=parent_index,
+        parent_prediction=parent_prediction,
     )
 
 
@@ -399,6 +411,8 @@ def _accumulate_timestep_streamed_antennas(
     width: np.ndarray | None,
     node_valid: np.ndarray,
     approximation: GaussianApproximation,
+    parent_index: np.ndarray | None = None,
+    parent_prediction: np.ndarray | None = None,
 ) -> BeamEvaluation:
     last: BeamEvaluation | None = None
     pairs = np.unique(
@@ -470,6 +484,8 @@ def _accumulate_timestep_streamed_antennas(
             width=width,
             node_valid=node_valid,
             approximation=approximation,
+            parent_index=parent_index,
+            parent_prediction=parent_prediction,
         )
     if last is None:
         raise ValueError("timestep has no rows")
@@ -495,6 +511,8 @@ def _accumulate_from_planes(
     width: np.ndarray | None,
     node_valid: np.ndarray,
     approximation: GaussianApproximation,
+    parent_index: np.ndarray | None = None,
+    parent_prediction: np.ndarray | None = None,
 ) -> None:
     for channel in range(block.frequency_hz.size):
         if jones.shape[0] == 1:
@@ -547,7 +565,16 @@ def _accumulate_from_planes(
                         block.correlations,
                         JONES_RECEPTORS,
                     )
-                    prediction[rows, channel] += kernel @ packed
+                    _accumulate_visibility(
+                        prediction,
+                        rows,
+                        channel,
+                        kernel,
+                        packed,
+                        parent_index=parent_index,
+                        parent_prediction=parent_prediction,
+                        pixels=pixels,
+                    )
                     continue
                 for local_row, row in enumerate(rows):
                     pix_ok, pix_off = _pixel_support(
@@ -567,7 +594,16 @@ def _accumulate_from_planes(
                         block.correlations,
                         JONES_RECEPTORS,
                     )
-                    prediction[row, channel] += kernel[local_row] @ packed
+                    _accumulate_visibility(
+                        prediction,
+                        row,
+                        channel,
+                        kernel[local_row],
+                        packed,
+                        parent_index=parent_index,
+                        parent_prediction=parent_prediction,
+                        pixels=pixels,
+                    )
 
 
 def _accumulate_timestep_adjoint(
@@ -967,6 +1003,54 @@ def _prepare_node_valid(node_valid: ArrayLike | None, direction_count: int) -> n
     if mask.size != direction_count:
         raise ValueError("node_valid must match l_rad")
     return mask
+
+
+def _prepare_parent_split(
+    parent_index: ArrayLike | None,
+    direction_count: int,
+    block: VisibilityBlock,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    if parent_index is None:
+        return None, None
+    parent_ids = np.asarray(parent_index, dtype=np.int32).reshape(-1)
+    if parent_ids.size != direction_count:
+        raise ValueError("parent_index must match l_rad")
+    if np.any(parent_ids < 0):
+        raise ValueError("parent_index must be non-negative")
+    n_parent = int(np.max(parent_ids) + 1)
+    parent_prediction = np.zeros(
+        (n_parent, *block.visibility.shape), dtype=np.complex128
+    )
+    return parent_ids, parent_prediction
+
+
+def _accumulate_visibility(
+    prediction: np.ndarray,
+    rows: np.ndarray | int,
+    channel: int,
+    kernel: np.ndarray,
+    packed: np.ndarray,
+    *,
+    parent_index: np.ndarray | None,
+    parent_prediction: np.ndarray | None,
+    pixels: slice,
+) -> None:
+    prediction[rows, channel] += kernel @ packed
+    if parent_prediction is None or parent_index is None:
+        return
+    parents = parent_index[pixels]
+    if kernel.ndim == 1:
+        for parent in np.unique(parents):
+            selected = parents == parent
+            parent_prediction[int(parent), rows, channel] += (
+                kernel[selected] @ packed[selected]
+            )
+        return
+    for parent in np.unique(parents):
+        selected = parents == parent
+        parent_prediction[int(parent), rows, channel] += (
+            kernel[:, selected] @ packed[selected]
+        )
 
 
 def _stokes_from_coherency_gradient(

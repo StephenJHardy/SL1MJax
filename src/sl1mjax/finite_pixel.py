@@ -442,6 +442,7 @@ def predict_voltage_from_plan(
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
     backend: str = "numpy",
+    split_parents: bool = False,
 ) -> BeamOperatorResult:
     """Predict visibilities from fitted parent fluxes and a frozen plan."""
 
@@ -460,6 +461,10 @@ def predict_voltage_from_plan(
         node_valid=plan.node_valid,
         kernel_approximation=plan.approximation,
     )
+    if split_parents:
+        if backend != "numpy":
+            raise ValueError("split_parents is only implemented for the NumPy backend")
+        kwargs["parent_index"] = plan.parent_index
     if backend == "numpy":
         return predict_voltage_beam(**kwargs)
     if backend == "jax":
