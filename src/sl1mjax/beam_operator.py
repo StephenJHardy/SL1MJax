@@ -860,13 +860,16 @@ def _can_batch_antenna_planes(
     direction_count: int,
     channel_count: int,
 ) -> bool:
-    one_plane = timestep_jones_bytes(1, direction_count, channel_count)
-    if one_plane > config.max_timestep_jones_bytes:
+    tile_dirs = min(max(int(direction_count), 1), int(config.pixel_chunk_size))
+    one_tile = timestep_jones_bytes(1, tile_dirs, channel_count)
+    if one_tile > config.max_timestep_jones_bytes:
         raise ValueError(
-            "one timestep Jones slice requires "
-            f"{one_plane} bytes, exceeding max_timestep_jones_bytes="
-            f"{config.max_timestep_jones_bytes}"
+            "Jones tile "
+            f"(1 antenna × {tile_dirs} directions × {channel_count} channels) "
+            f"requires {one_tile} bytes, exceeding max_timestep_jones_bytes="
+            f"{config.max_timestep_jones_bytes}. Reduce pixel_chunk_size."
         )
+    one_plane = timestep_jones_bytes(1, direction_count, channel_count)
     full = one_plane * plane_count
     if config.policy is BeamOperatorPolicy.MATERIALIZE:
         total = full * time_count

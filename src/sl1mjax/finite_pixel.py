@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from jax import Array
@@ -483,10 +483,40 @@ def adjoint_voltage_from_plan(
     antenna_position_m: ArrayLike,
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
+    backend: str = "numpy",
 ) -> NDArray[np.float64]:
     """Return the Stokes-I adjoint reduced onto fitted parents."""
 
     local_l, local_m = plan.local_directions(block.phase_centre_rad)
+    if backend == "jax":
+        import jax.numpy as jnp
+
+        from sl1mjax.voltage_operator_jax import _adjoint_voltage_beam_jax_arrays
+
+        return cast(
+            NDArray[np.float64],
+            np.asarray(
+                _adjoint_voltage_beam_jax_arrays(
+                    jnp.asarray(residual),
+                    block,
+                    local_l,
+                    local_m,
+                    beam,
+                    antenna_position_m=np.asarray(antenna_position_m),
+                    calibration_state=calibration_state,
+                    config=config,
+                    width_rad=plan.width_rad,
+                    node_valid=plan.node_valid,
+                    kernel_approximation=plan.approximation,
+                    parent_index=plan.parent_index,
+                    node_weight=plan.weight,
+                    parent_count=plan.parent_count,
+                ),
+                dtype=np.float64,
+            ),
+        )
+    if backend != "numpy":
+        raise ValueError(f"unknown finite-pixel adjoint backend {backend!r}")
     stokes_i, _q, _u, _v = adjoint_voltage_beam(
         residual,
         block,
@@ -513,11 +543,32 @@ def predict_voltage_from_plan_value_and_grad(
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
     train_mask: Any = None,
+    operator_mode: str = "vjp",
 ) -> tuple[Array, Array]:
-    """Stokes-I value and parent gradient for a frozen JAX integration plan."""
+    """Stokes-I value and parent gradient for a frozen JAX integration plan.
 
-    from sl1mjax.voltage_operator_jax import predict_voltage_from_plan_value_and_grad_jax
+    ``operator_mode="vjp"`` is the tiled reverse-mode oracle.
+    ``operator_mode="explicit_jax"`` streams one forward and one adjoint.
+    """
 
+    from sl1mjax.voltage_operator_jax import (
+        predict_voltage_from_plan_value_and_grad_explicit_jax,
+        predict_voltage_from_plan_value_and_grad_jax,
+    )
+
+    if operator_mode == "explicit_jax":
+        return predict_voltage_from_plan_value_and_grad_explicit_jax(
+            parent_flux,
+            block,
+            plan,
+            beam,
+            antenna_position_m=antenna_position_m,
+            calibration_state=calibration_state,
+            config=config,
+            train_mask=train_mask,
+        )
+    if operator_mode != "vjp":
+        raise ValueError("operator_mode must be 'vjp' or 'explicit_jax'")
     return predict_voltage_from_plan_value_and_grad_jax(
         parent_flux,
         block,

@@ -703,6 +703,52 @@ def test_phase3_parent_gradient_matches_finite_difference() -> None:
     del loss
 
 
+def test_plan_value_and_grad_direction_tiles_match_monolithic() -> None:
+    table = _square_table(0.01, 0.0, np.deg2rad(16.0 / 3600.0), 1.2)
+    plan = integration_plan_from_table(table, mode=VoltageIntegrationMode.SUBCELL_2X2)
+    flux = np.array([1.4])
+    beam = ManufacturedVoltageBeam(intercept=_IDENTITY, grad_l=_NONTRIVIAL * 2.0)
+    kwargs = {
+        "block": _block(),
+        "plan": plan,
+        "beam": beam,
+        "antenna_position_m": _ANTENNA_POSITION_M,
+        "calibration_state": "casa_parang_true",
+    }
+    assert plan.node_count > 1
+    loss_tiles, grad_tiles = predict_voltage_from_plan_value_and_grad(
+        flux,
+        config=BeamOperatorConfig(visibility_chunk_size=2, pixel_chunk_size=1),
+        **kwargs,
+    )
+    loss_one, grad_one = predict_voltage_from_plan_value_and_grad(
+        flux,
+        config=BeamOperatorConfig(visibility_chunk_size=2, pixel_chunk_size=plan.node_count),
+        **kwargs,
+    )
+    np.testing.assert_allclose(float(loss_tiles), float(loss_one), rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(
+        np.asarray(grad_tiles), np.asarray(grad_one), rtol=1e-12, atol=1e-14
+    )
+
+
+def test_cassbeam_plan_value_and_grad_survives_jit_tiles() -> None:
+    table = _square_table(0.01, 0.0, np.deg2rad(16.0 / 3600.0), 1.2)
+    plan = integration_plan_from_table(table, mode=VoltageIntegrationMode.SUBCELL_2X2)
+    loss, gradient = predict_voltage_from_plan_value_and_grad(
+        np.array([1.4]),
+        _block(),
+        plan,
+        voltage_beam_for_mode("diagonal_copolar"),
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        config=BeamOperatorConfig(visibility_chunk_size=2, pixel_chunk_size=1),
+    )
+    assert plan.node_count > 1
+    assert np.isfinite(float(loss))
+    assert np.all(np.isfinite(np.asarray(gradient)))
+
+
 def test_phase3_adjoint_identity_and_rr_only_block() -> None:
     table = _square_table(0.01, 0.0, np.deg2rad(16.0 / 3600.0), 1.2)
     plan = integration_plan_from_table(table, mode=VoltageIntegrationMode.SUBCELL_2X2)
@@ -730,6 +776,17 @@ def test_phase3_adjoint_identity_and_rr_only_block() -> None:
     vis_dot = np.vdot(predicted.visibility, residual).real
     sky_dot = float(np.dot(sky_grad, np.array([1.2])))
     assert sky_dot == pytest.approx(vis_dot, rel=1e-12)
+    jax_grad = adjoint_voltage_from_plan(
+        residual,
+        block,
+        plan,
+        beam,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        config=_config(),
+        backend="jax",
+    )
+    np.testing.assert_allclose(jax_grad, sky_grad, rtol=1e-8, atol=1e-10)
     rr_block = _block(correlations=(Correlation.RR,))
     rr = predict_voltage_from_plan(
         rr_block,
