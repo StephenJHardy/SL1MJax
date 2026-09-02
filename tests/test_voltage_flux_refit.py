@@ -8,6 +8,7 @@ from sl1mjax.composite import MosaicPointComponent
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.inference import InferenceConfig
 from sl1mjax.polarization import Correlation, ReceptorBasis
+from sl1mjax.finite_pixel import ManufacturedVoltageBeam
 from sl1mjax.voltage_beam import AnalyticAiryVoltageBeam
 from sl1mjax.voltage_flux_refit import (
     flatten_sky_atoms,
@@ -21,7 +22,11 @@ from sl1mjax.voltage_flux_refit import (
     score_visibility_prediction,
     transfer_diagonal_is_consistent,
 )
-from sl1mjax.voltage_polarization import fit_global_qu_voltage, require_circular_coherency
+from sl1mjax.voltage_polarization import (
+    compare_unpolarised_and_global_qu,
+    fit_global_qu_voltage,
+    require_circular_coherency,
+)
 
 _ANTENNA_POSITION_M = np.array(
     [
@@ -270,6 +275,88 @@ def test_global_qu_keeps_v_zero_and_needs_four_hands() -> None:
     assert fitted.v == 0.0
     assert fitted.regional_polarization == "not_started"
     assert fitted.q != 0.0 or fitted.u != 0.0
+
+
+def test_unpolarised_i_plus_leakage_does_not_invent_qu() -> None:
+    leakage = np.array(
+        [[1.0 + 0.0j, 0.12 - 0.04j], [0.09 + 0.03j, 0.96 + 0.0j]],
+        dtype=np.complex128,
+    )
+    full_jones = ManufacturedVoltageBeam(intercept=leakage, rotate_parallactic=True)
+    diagonal = ManufacturedVoltageBeam(
+        intercept=np.diag(np.diag(leakage)),
+        rotate_parallactic=True,
+    )
+    l_rad = np.array([0.008, -0.006])
+    m_rad = np.array([-0.004, 0.01])
+    intensity = np.array([1.1, 0.7])
+    frequency = np.array([4.564e9])
+    time_s = np.array([5.0e9, 5.0e9 + 1800.0, 5.0e9 + 12_000.0])
+    template = _block(frequency_hz=frequency, time_s=time_s)
+    operator = BeamOperatorConfig(visibility_chunk_size=2, pixel_chunk_size=2)
+    predicted = predict_voltage_mosaic(
+        intensity,
+        (template,),
+        ((l_rad, m_rad),),
+        full_jones,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        config=operator,
+    )[0]
+    assert np.linalg.norm(predicted[..., 1]) > 1e-4
+    assert np.linalg.norm(predicted[..., 2]) > 1e-4
+    block = VisibilityBlock(
+        uvw_m=template.uvw_m,
+        frequency_hz=template.frequency_hz,
+        visibility=predicted,
+        weight=template.weight,
+        flag=template.flag,
+        time_s=template.time_s,
+        antenna1=template.antenna1,
+        antenna2=template.antenna2,
+        correlations=template.correlations,
+        receptor_basis=template.receptor_basis,
+        phase_centre_rad=template.phase_centre_rad,
+    )
+    directions = ((l_rad, m_rad),)
+    correct = fit_global_qu_voltage(
+        (block,),
+        intensity,
+        directions,
+        full_jones,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        train_masks=(block.active,),
+        config=operator,
+        steps=8,
+        learning_rate=0.05,
+    )
+    scored = compare_unpolarised_and_global_qu(
+        (block,),
+        intensity,
+        directions,
+        full_jones,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        sample_masks=(block.active,),
+        config=operator,
+        q=0.03,
+        u=-0.02,
+    )
+    wrong = fit_global_qu_voltage(
+        (block,),
+        intensity,
+        directions,
+        diagonal,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        train_masks=(block.active,),
+        config=operator,
+        steps=8,
+        learning_rate=0.05,
+    )
+    assert correct.v == 0.0
+    assert abs(correct.q) < 5.0e-3
+    assert abs(correct.u) < 5.0e-3
+    assert scored["unpolarised_mse"] < scored["global_qu_mse"]
+    assert abs(wrong.q) > 0.02 or abs(wrong.u) > 0.02
 
 
 def test_mosaic_local_directions_round_trip() -> None:

@@ -147,3 +147,12 @@ quadrature, zero-width limits, compound normalization, masking and weighting,
 finite-difference gradients, matched recovery for every pixel mode,
 canonical-data round trips, and MeasurementSet extraction through a fake table
 adapter.
+
+Software convention locks, not a beam freeze: finite-pixel integration
+preserves the circular \(e^{\pm2i\chi}\) off-diagonal phase
+(`test_finite_pixel_preserves_off_diagonal_two_chi_phase`), and an
+unpolarised synthetic sky with leakage does not produce fitted Q/U when the
+matching full-Jones beam is used
+(`test_unpolarised_i_plus_leakage_does_not_invent_qu`). These passed
+2026-09-02. They do not accept CASSBEAM off-diagonal sign or freeze full
+Jones.

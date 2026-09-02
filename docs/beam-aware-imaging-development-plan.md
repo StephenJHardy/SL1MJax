@@ -848,6 +848,21 @@ labelled.
   times, and hands.
 - The calibrator polarisation floor is reported before target activation.
 
+**Status (2026-09-02):** two software convention locks pass in CI. They do
+not accept CASSBEAM physics, freeze full Jones, or satisfy Gate 10.
+
+- \(e^{\pm2i\chi}\) through finite-pixel integration:
+  `tests/test_finite_pixel_voltage.py::test_finite_pixel_preserves_off_diagonal_two_chi_phase`
+  (NumPy and JAX; packing `RR, RL, LR, LL`).
+- Unpolarised I plus leakage does not invent Q/U when the matching
+  full-Jones beam is used:
+  `tests/test_voltage_flux_refit.py::test_unpolarised_i_plus_leakage_does_not_invent_qu`.
+  The same data fitted with the diagonal of that Jones do invent Q/U.
+
+Still open in this phase: injected Q/U/V/RM recovery, activation transfer,
+the calibrator polarisation floor, CASSBEAM `awp2` scientific acceptance,
+and a later residual or holography argument for off-diagonal sign.
+
 **CASA `awp2` Stage 1 (2026-09-02):** Bacchus generated 18 default EVLA
 ray-traced `.pb` planes (CASA 6.7.6.14; I/RR/LL at 4564 and 4692 MHz;
 HA transit, +2 h, −2 h). Those products are frozen as a checksummed

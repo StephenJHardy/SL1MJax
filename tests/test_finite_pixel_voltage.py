@@ -23,6 +23,7 @@ from sl1mjax.cassbeam_beam import (
     load_cassbeam_cband_artifact,
     voltage_beam_for_mode,
 )
+from sl1mjax.calibration_terms import parallactic_angle_rad
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.finite_pixel import (
     IntegrationParentPolicy,
@@ -456,6 +457,72 @@ def test_phase2_manufactured_beams_converge_with_depth() -> None:
         errors = [np.linalg.norm(vis - oracle.visibility) for vis in depths]
         assert errors[0] > errors[1] >= 0.0
         assert errors[2] <= errors[1] * 1.0000001
+
+
+def _mean_parallactic_angle(
+    time_s: np.ndarray,
+    phase_centre_rad: tuple[float, float],
+    antenna_position_m: np.ndarray,
+) -> float:
+    chi = parallactic_angle_rad(time_s, phase_centre_rad, antenna_position_m)
+    return float(np.mean(chi))
+
+
+def test_finite_pixel_preserves_off_diagonal_two_chi_phase() -> None:
+    table = _square_table(0.01, -0.008, np.deg2rad(16.0 / 3600.0), 1.2)
+    beam = ManufacturedVoltageBeam(intercept=_NONTRIVIAL, rotate_parallactic=True)
+    positions = np.repeat(_ANTENNA_POSITION_M[:1], 4, axis=0)
+    t0 = np.full(3, 5.0e9)
+    t1 = None
+    chi0 = _mean_parallactic_angle(t0, _PHASE, positions)
+    chi1 = chi0
+    for delta_s in np.linspace(1800.0, 36_000.0, 20):
+        candidate = t0 + delta_s
+        chi_candidate = _mean_parallactic_angle(candidate, _PHASE, positions)
+        if abs(chi_candidate - chi0) >= 0.4:
+            t1 = candidate
+            chi1 = chi_candidate
+            break
+    assert t1 is not None, "need a time offset that changes χ by at least 0.4 rad"
+
+    plan = integration_plan_from_table(table, mode=VoltageIntegrationMode.SUBCELL_2X2)
+    flux = np.array([1.2])
+    delta_chi = chi1 - chi0
+    phase = np.exp(2j * delta_chi)
+    assert plan.node_count > 1
+    assert _CORRELATIONS == (
+        Correlation.RR,
+        Correlation.RL,
+        Correlation.LR,
+        Correlation.LL,
+    )
+    for backend in ("numpy", "jax"):
+        vis0 = predict_voltage_from_plan(
+            _block(time_s=t0),
+            plan,
+            flux,
+            beam,
+            antenna_position_m=positions,
+            calibration_state="casa_parang_true",
+            config=_config(),
+            backend=backend,
+        ).visibility
+        vis1 = predict_voltage_from_plan(
+            _block(time_s=t1),
+            plan,
+            flux,
+            beam,
+            antenna_position_m=positions,
+            calibration_state="casa_parang_true",
+            config=_config(),
+            backend=backend,
+        ).visibility
+        np.testing.assert_allclose(vis1[..., 0], vis0[..., 0], atol=1e-10)
+        np.testing.assert_allclose(vis1[..., 3], vis0[..., 3], atol=1e-10)
+        np.testing.assert_allclose(vis1[..., 1], vis0[..., 1] * phase, atol=1e-10)
+        np.testing.assert_allclose(vis1[..., 2], vis0[..., 2] * np.conjugate(phase), atol=1e-10)
+        assert np.linalg.norm(vis0[..., 1]) > 1e-4
+        assert np.linalg.norm(vis0[..., 2]) > 1e-4
 
 
 def test_phase2_pointing_offset_and_parallactic_rotation() -> None:
