@@ -54,9 +54,7 @@ class VisibilityBlock:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "uvw_m", np.asarray(self.uvw_m, dtype=np.float64))
-        object.__setattr__(
-            self, "frequency_hz", np.asarray(self.frequency_hz, dtype=np.float64)
-        )
+        object.__setattr__(self, "frequency_hz", np.asarray(self.frequency_hz, dtype=np.float64))
         object.__setattr__(self, "visibility", np.asarray(self.visibility, dtype=np.complex128))
         object.__setattr__(self, "weight", np.asarray(self.weight, dtype=np.float64))
         object.__setattr__(self, "flag", np.asarray(self.flag, dtype=bool))
@@ -160,22 +158,106 @@ class VisibilityBlock:
             if value is None or value.shape != (expected[0],):
                 raise ValueError(f"{name} must have shape ({expected[0]},)")
 
+    def select_rows(
+        self,
+        rows: np.ndarray,
+        *,
+        pad_to: int | None = None,
+    ) -> VisibilityBlock:
+        """Return a physically sliced block, optionally padded to a fixed row count.
+
+        Padding appends flagged, zero-weight rows that share the first selected
+        timestamp so a time-grouped batch keeps one unique time.
+        """
+
+        index = np.asarray(rows, dtype=np.int32).reshape(-1)
+        n_source = int(self.uvw_m.shape[0])
+        if index.size == 0:
+            raise ValueError("select_rows requires at least one row")
+        if np.any(index < 0) or np.any(index >= n_source):
+            raise ValueError("row index is outside the visibility block")
+        count = int(index.size)
+        target = count if pad_to is None else int(pad_to)
+        if target < count:
+            raise ValueError("pad_to must be at least the number of selected rows")
+        extra = target - count
+
+        def take_row(array: np.ndarray, fill: np.ndarray) -> np.ndarray:
+            selected = array[index]
+            if extra == 0:
+                return selected
+            return np.concatenate((selected, np.broadcast_to(fill, (extra, *array.shape[1:]))))
+
+        def row_array(array: np.ndarray | None) -> np.ndarray:
+            if array is None:
+                raise RuntimeError("row metadata must be populated before slicing")
+            return array
+
+        dummy_time = np.asarray(self.time_s[index[0]], dtype=self.time_s.dtype)
+        visibility = take_row(
+            self.visibility, np.zeros(self.visibility.shape[1:], dtype=self.visibility.dtype)
+        )
+        weight = take_row(self.weight, np.zeros(self.weight.shape[1:], dtype=self.weight.dtype))
+        flag = take_row(self.flag, np.ones(self.flag.shape[1:], dtype=bool))
+        model = None
+        if self.model_visibility is not None:
+            model = take_row(
+                self.model_visibility,
+                np.zeros(self.model_visibility.shape[1:], dtype=self.model_visibility.dtype),
+            )
+        return VisibilityBlock(
+            uvw_m=take_row(self.uvw_m, np.zeros((3,), dtype=self.uvw_m.dtype)),
+            frequency_hz=self.frequency_hz,
+            visibility=visibility,
+            weight=weight,
+            flag=flag,
+            time_s=take_row(self.time_s, dummy_time),
+            antenna1=take_row(self.antenna1, np.asarray(self.antenna1[index[0]])),
+            antenna2=take_row(self.antenna2, np.asarray(self.antenna2[index[0]])),
+            correlations=self.correlations,
+            receptor_basis=self.receptor_basis,
+            model_visibility=model,
+            field_id=take_row(
+                row_array(self.field_id), np.asarray(row_array(self.field_id)[index[0]])
+            ),
+            scan_id=take_row(
+                row_array(self.scan_id), np.asarray(row_array(self.scan_id)[index[0]])
+            ),
+            state_id=take_row(
+                row_array(self.state_id), np.asarray(row_array(self.state_id)[index[0]])
+            ),
+            observation_id=take_row(
+                row_array(self.observation_id),
+                np.asarray(row_array(self.observation_id)[index[0]]),
+            ),
+            feed1=take_row(row_array(self.feed1), np.asarray(row_array(self.feed1)[index[0]])),
+            feed2=take_row(row_array(self.feed2), np.asarray(row_array(self.feed2)[index[0]])),
+            interval_s=take_row(
+                row_array(self.interval_s), np.asarray(row_array(self.interval_s)[index[0]])
+            ),
+            phase_centre_rad=self.phase_centre_rad,
+            data_description_id=self.data_description_id,
+            spectral_window_id=self.spectral_window_id,
+            polarization_id=self.polarization_id,
+            provenance=dict(self.provenance),
+        )
+
     def to_xarray(self) -> xr.Dataset:
         data_vars: dict[str, Any] = {
-                "uvw_m": (("row", "uvw"), self.uvw_m),
-                "visibility": (("row", "channel", "correlation"), self.visibility),
-                "weight": (("row", "channel", "correlation"), self.weight),
-                "flag": (("row", "channel", "correlation"), self.flag),
-                "time_s": (("row",), self.time_s),
-                "antenna1": (("row",), self.antenna1),
-                "antenna2": (("row",), self.antenna2),
-                "field_id": (("row",), self.field_id),
-                "scan_id": (("row",), self.scan_id),
-                "state_id": (("row",), self.state_id),
-                "observation_id": (("row",), self.observation_id),
-                "feed1": (("row",), self.feed1),
-                "feed2": (("row",), self.feed2),
-                "interval_s": (("row",), self.interval_s),
+            "uvw_m": (("row", "uvw"), self.uvw_m),
+            "visibility": (("row", "channel", "correlation"), self.visibility),
+            "weight": (("row", "channel", "correlation"), self.weight),
+            "flag": (("row", "channel", "correlation"), self.flag),
+            "time_s": (("row",), self.time_s),
+            "antenna1": (("row",), self.antenna1),
+            "antenna2": (("row",), self.antenna2),
+            "field_id": (("row",), self.field_id),
+            "scan_id": (("row",), self.scan_id),
+            "state_id": (("row",), self.state_id),
+            "observation_id": (("row",), self.observation_id),
+            "feed1": (("row",), self.feed1),
+            "feed2": (("row",), self.feed2),
+            "interval_s": (("row",), self.interval_s),
         }
         if self.model_visibility is not None:
             data_vars["model_visibility"] = (
@@ -235,9 +317,7 @@ class VisibilityBlock:
                 else np.ones(rows, dtype=np.float64)
             ),
             model_visibility=(
-                dataset["model_visibility"].values
-                if "model_visibility" in dataset
-                else None
+                dataset["model_visibility"].values if "model_visibility" in dataset else None
             ),
             correlations=tuple(Correlation(str(value)) for value in dataset.correlation.values),
             receptor_basis=ReceptorBasis(dataset.attrs["receptor_basis"]),
@@ -275,9 +355,7 @@ def write_dataset(dataset: VisibilityDataset, path: str | Path) -> None:
         "schema_version": SCHEMA_VERSION,
         "blocks": block_names,
         "provenance": dict(dataset.provenance),
-        "metadata": (
-            None if dataset.metadata is None else dataset.metadata.to_dict()
-        ),
+        "metadata": (None if dataset.metadata is None else dataset.metadata.to_dict()),
     }
     (root / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True, default=_json_default) + "\n",
