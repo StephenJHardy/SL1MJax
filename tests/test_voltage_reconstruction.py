@@ -49,6 +49,7 @@ def _config(**overrides) -> VoltageReconstructionConfig:
             patience=8,
             validation_interval=2,
             min_delta=1e-12,
+            batch_size_rows=8,
         ),
         tolerance=IntegrationTolerance(max_depth=1, forced_feature_depth=0),
         max_rounds=1,
@@ -119,11 +120,7 @@ def _fit(
     from sl1mjax.voltage_reconstruction import _fit_table
 
     train = np.asarray(block.active) if train_mask is None else train_mask
-    holdout = (
-        np.zeros(block.visibility.shape, dtype=bool)
-        if holdout_mask is None
-        else holdout_mask
-    )
+    holdout = np.zeros(block.visibility.shape, dtype=bool) if holdout_mask is None else holdout_mask
     return _fit_table(
         table,
         (block,),
@@ -135,6 +132,30 @@ def _fit(
         config=config,
         pointing_ids=None,
     )
+
+
+def test_flux_optimize_records_train_and_holdout_curve() -> None:
+    table = starting_central_table(
+        root_size=2,
+        root_pixel_size_rad=_ROOT,
+        mosaic_phase_centre_rad=_PHASE,
+        flux=np.full(4, 0.4),
+    )
+    block = _block()
+    train, holdout = _disjoint_masks(block)
+    fitted = _fit(
+        table,
+        block,
+        ManufacturedVoltageBeam(intercept=_IDENTITY),
+        _config(max_rounds=0),
+        train_mask=train,
+        holdout_mask=holdout,
+    )
+    assert fitted.curve_steps == (2, 4, 6, 8)
+    assert len(fitted.objective_history) == len(fitted.curve_steps)
+    assert len(fitted.holdout_history) == len(fitted.curve_steps)
+    assert np.all(np.isfinite(fitted.objective_history))
+    assert np.all(np.isfinite(fitted.holdout_history))
 
 
 def test_phase6_production_factory_refuses_full_jones() -> None:
@@ -231,6 +252,30 @@ def test_phase6_batched_screen_matches_single_parent_adjoint() -> None:
         )
         assert len(single) == 1
         np.testing.assert_allclose(score.gradient, single[0].gradient, rtol=0.0, atol=1e-8)
+
+
+def test_phase6_screen_limits_virtual_children_to_parent_gradient_shortlist() -> None:
+    table = _structured_table()
+    config = _config(screen_parent_limit=1)
+    beam = ManufacturedVoltageBeam(intercept=_IDENTITY, hess_ll=_IDENTITY * 30.0)
+    block = _block()
+    fit = _fit(table, block, beam, config)
+    limited = screen_virtual_splits(
+        fit,
+        (block,),
+        beam,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state=require_beam_calibration_state("casa_parang_true"),
+        train_masks=(np.asarray(block.active),),
+        config=config,
+    )
+    assert len(limited) == 1
+    assert fit.gradient is not None
+    from sl1mjax.voltage_reconstruction import _central_leaf_parent_index
+
+    parent_index = _central_leaf_parent_index(fit.table, fit.plan)
+    expected = max(parent_index, key=lambda leaf: abs(float(fit.gradient[parent_index[leaf]])))
+    assert limited[0].leaf == expected
 
 
 def test_phase6_exact_shortlist_matches_virtual_child_predictions() -> None:
@@ -338,9 +383,7 @@ def test_phase6_reconstruct_constant_beam_and_candidates_share_geometry() -> Non
     assert result.fit.plan.node_count >= 4
     assert result.audit is not None
     assert "optimizer_converged" in result.diagnostics
-    assert result.fit.converged == (
-        result.fit.kkt_residual <= config.inference.kkt_tolerance
-    )
+    assert result.fit.converged == (result.fit.kkt_residual <= config.inference.kkt_tolerance)
 
 
 def test_phase6_default_geometry_is_the_declared_central_grid() -> None:
@@ -380,8 +423,7 @@ def test_phase6_screen_ignores_holdout_and_zero_weight_samples() -> None:
     train, holdout = _disjoint_masks(block)
     fit = _fit(table, block, beam, config, train_mask=train, holdout_mask=holdout)
     poisoned_residuals = tuple(
-        residual + 1.0e6 * holdout.astype(residual.dtype)
-        for residual in fit.residuals
+        residual + 1.0e6 * holdout.astype(residual.dtype) for residual in fit.residuals
     )
     from sl1mjax.voltage_reconstruction import VoltageFitResult
 
@@ -481,6 +523,7 @@ def test_phase6_convergence_gate_uses_kkt_not_step_exhaustion() -> None:
                 validation_interval=1,
                 min_delta=1e-12,
                 kkt_tolerance=1e-30,
+                batch_size_rows=8,
             ),
         ),
         beam_mode="manufactured",
@@ -507,6 +550,7 @@ def test_phase6_convergence_gate_uses_kkt_not_step_exhaustion() -> None:
                 validation_interval=1,
                 min_delta=1e-12,
                 kkt_tolerance=1e6,
+                batch_size_rows=8,
             ),
         ),
         beam_mode="manufactured",
@@ -533,3 +577,218 @@ def test_phase6_reconstruction_rescored_shortlist_uses_exact_children() -> None:
         assert {item.curvature_mode for item in result.rounds[0].shortlist} == {
             "voltage_exact_virtual_child"
         }
+
+
+def test_phase6_training_batch_is_a_sliced_single_time_block() -> None:
+    from sl1mjax.voltage_reconstruction import _sample_training_batch
+
+    block = _block()
+    config = _config()
+    rng = np.random.default_rng(0)
+    batch = _sample_training_batch((block,), (np.asarray(block.active),), config, rng)
+    assert batch.block.uvw_m.shape[0] == config.inference.batch_size_rows
+    assert np.unique(batch.block.time_s).size == 1
+    assert batch.mask.shape == batch.block.visibility.shape
+    assert int(np.sum(batch.mask)) <= int(np.sum(block.active))
+
+
+def test_phase6_kkt_and_sgd_never_autodiff_a_full_pointing(monkeypatch) -> None:
+    from sl1mjax import voltage_reconstruction as module
+
+    seen_rows: list[int] = []
+    seen_times: list[int] = []
+    original = module.predict_voltage_from_plan_value_and_grad
+
+    def wrapped(flux, block, *args, **kwargs):
+        seen_rows.append(int(block.uvw_m.shape[0]))
+        seen_times.append(int(np.unique(block.time_s).size))
+        return original(flux, block, *args, **kwargs)
+
+    monkeypatch.setattr(module, "predict_voltage_from_plan_value_and_grad", wrapped)
+    reconstruct_voltage_stokes_i(
+        starting_central_table(
+            root_size=2,
+            root_pixel_size_rad=_ROOT,
+            mosaic_phase_centre_rad=_PHASE,
+            flux=np.full(4, 0.4),
+        ),
+        _block(),
+        ManufacturedVoltageBeam(intercept=_IDENTITY),
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        config=_config(max_rounds=0),
+        beam_mode="manufactured",
+    )
+    assert seen_rows
+    assert max(seen_rows) <= 8
+    assert max(seen_times) == 1
+
+
+def test_kkt_max_batches_subsamples_official_gradient(monkeypatch) -> None:
+    from sl1mjax import voltage_reconstruction as module
+    from sl1mjax.finite_pixel import integration_plan_from_table
+
+    seen: list[int] = []
+    original = module.predict_voltage_from_plan_value_and_grad
+
+    def wrapped(flux, block, *args, **kwargs):
+        seen.append(int(block.uvw_m.shape[0]))
+        return original(flux, block, *args, **kwargs)
+
+    monkeypatch.setattr(module, "predict_voltage_from_plan_value_and_grad", wrapped)
+    n_times = 8
+    dummy = np.zeros((n_times, 1, 2), dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.repeat(np.array([[40.0, -20.0, 3.0]]), n_times, axis=0),
+        frequency_hz=np.array([4.536e9]),
+        visibility=dummy,
+        weight=np.ones_like(dummy, dtype=np.float64),
+        flag=np.zeros(dummy.shape, dtype=bool),
+        time_s=5.0e9 + 60.0 * np.arange(n_times),
+        antenna1=np.zeros(n_times, dtype=np.int32),
+        antenna2=np.ones(n_times, dtype=np.int32),
+        correlations=(Correlation.RR, Correlation.LL),
+        receptor_basis=ReceptorBasis.CIRCULAR,
+        phase_centre_rad=_PHASE,
+    )
+    table = starting_central_table(
+        root_size=2,
+        root_pixel_size_rad=_ROOT,
+        mosaic_phase_centre_rad=_PHASE,
+        flux=np.full(4, 0.4),
+    )
+    plan = integration_plan_from_table(table)
+    config = _config(max_rounds=0, kkt_max_batches=2)
+    module._loss_and_gradient(
+        plan,
+        np.full(plan.parent_count, 0.4),
+        (block,),
+        ManufacturedVoltageBeam(intercept=_IDENTITY),
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        train_masks=(np.asarray(block.active),),
+        config=config,
+    )
+    assert len(seen) == 2
+
+
+def test_real_shape_one_step_batch_stays_time_bounded() -> None:
+    from sl1mjax.finite_pixel import (
+        integration_plan_from_table,
+        predict_voltage_from_plan_value_and_grad,
+    )
+    from sl1mjax.voltage_reconstruction import _sample_training_batch
+
+    n_times = 32
+    n_rows = 8
+    times = np.repeat(5.0e9 + 60.0 * np.arange(n_times), n_rows)
+    dummy = np.zeros((times.size, 1, 2), dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.repeat(np.array([[40.0, -20.0, 3.0]]), times.size, axis=0),
+        frequency_hz=np.array([4.536e9]),
+        visibility=dummy,
+        weight=np.ones_like(dummy, dtype=np.float64),
+        flag=np.zeros(dummy.shape, dtype=bool),
+        time_s=times,
+        antenna1=np.zeros(times.size, dtype=np.int32),
+        antenna2=np.ones(times.size, dtype=np.int32),
+        correlations=(Correlation.RR, Correlation.LL),
+        receptor_basis=ReceptorBasis.CIRCULAR,
+        phase_centre_rad=_PHASE,
+    )
+    table = starting_central_table(
+        root_size=104,
+        root_pixel_size_rad=_ROOT,
+        mosaic_phase_centre_rad=_PHASE,
+    )
+    plan = integration_plan_from_table(table)
+    assert plan.parent_count == 104 * 104
+    config = VoltageReconstructionConfig(
+        root_size=104,
+        inference=InferenceConfig(
+            solver="proximal_sgd",
+            batch_grouping="times",
+            steps=1,
+            batch_size_rows=n_rows,
+        ),
+    )
+    batch = _sample_training_batch(
+        (block,),
+        (np.asarray(block.active),),
+        config,
+        np.random.default_rng(0),
+    )
+    assert np.unique(block.time_s).size == n_times
+    assert np.unique(batch.block.time_s).size == 1
+    assert batch.block.uvw_m.shape[0] == n_rows
+    value, gradient = predict_voltage_from_plan_value_and_grad(
+        np.zeros(plan.parent_count),
+        batch.block,
+        plan,
+        ManufacturedVoltageBeam(intercept=_IDENTITY),
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        train_mask=batch.mask,
+    )
+    assert np.isfinite(float(value))
+    assert np.asarray(gradient).shape == (plan.parent_count,)
+
+
+def test_predict_batch_size_can_exceed_sgd_rows() -> None:
+    from dataclasses import replace
+
+    from sl1mjax.voltage_reconstruction import (
+        _iter_bounded_batches,
+        _predict_row_capacity,
+    )
+
+    n_times = 2
+    n_rows = 16
+    times = np.repeat(5.0e9 + 60.0 * np.arange(n_times), n_rows)
+    dummy = np.zeros((times.size, 1, 2), dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.repeat(np.array([[40.0, -20.0, 3.0]]), times.size, axis=0),
+        frequency_hz=np.array([4.536e9]),
+        visibility=dummy,
+        weight=np.ones_like(dummy, dtype=np.float64),
+        flag=np.zeros(dummy.shape, dtype=bool),
+        time_s=times,
+        antenna1=np.zeros(times.size, dtype=np.int32),
+        antenna2=np.ones(times.size, dtype=np.int32),
+        correlations=(Correlation.RR, Correlation.LL),
+        receptor_basis=ReceptorBasis.CIRCULAR,
+        phase_centre_rad=_PHASE,
+    )
+    config = _config(predict_batch_size_rows=16)
+    sgd = _iter_bounded_batches((block,), (np.asarray(block.active),), config)
+    predict_config = replace(
+        config,
+        inference=replace(
+            config.inference, batch_size_rows=_predict_row_capacity(config)
+        ),
+    )
+    predict = _iter_bounded_batches((block,), (np.asarray(block.active),), predict_config)
+    assert config.inference.batch_size_rows == 8
+    assert len(sgd) == n_times * (n_rows // 8)
+    assert len(predict) == n_times
+    assert all(int(batch.block.uvw_m.shape[0]) == 16 for batch in predict)
+
+
+def test_skip_flux_optimize_evaluates_incoming_table_without_sgd() -> None:
+    table = _structured_table()
+    initial = np.array(
+        [max(0.0, float(item.stokes_i_jy)) for item in table.components if item.active]
+    )
+    result = reconstruct_voltage_stokes_i(
+        table,
+        _block(),
+        ManufacturedVoltageBeam(intercept=_IDENTITY),
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        config=_config(max_rounds=0),
+        beam_mode="manufactured",
+        skip_flux_optimize=True,
+    )
+    assert result.fit.steps == 0
+    np.testing.assert_allclose(result.fit.flux, initial)
+    assert np.isfinite(result.fit.train_loss)
