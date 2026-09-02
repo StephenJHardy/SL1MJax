@@ -171,6 +171,10 @@ from sl1mjax.integration_planner import (  # noqa: E402
     plan_integration,
     stratified_integration_probe,
 )
+from sl1mjax.phase6_protocol import (  # noqa: E402
+    phase6_folds,
+    validate_phase6_masks,
+)
 from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis  # noqa: E402
 from sl1mjax.polarization_activation import (  # noqa: E402
     CoarseStokesIRegion,
@@ -564,6 +568,8 @@ __all__ = [
     "starting_central_table",
     "stokes_i_beam",
     "phase5_starting_table",
+    "phase6_folds",
+    "validate_phase6_masks",
     "subcell_nodes",
     "predict_voltage_beam_jax_value_and_grad",
     "refit_stokes_i_fluxes",
