@@ -338,6 +338,9 @@ from sl1mjax.voltage_reconstruction import (  # noqa: E402
     starting_central_table,
     stokes_i_beam,
 )
+from sl1mjax.wide_field_sky import (  # noqa: E402
+    phase5_starting_table,
+)
 
 __all__ = [
     "Correlation",
@@ -560,6 +563,7 @@ __all__ = [
     "reconstruct_voltage_stokes_i",
     "starting_central_table",
     "stokes_i_beam",
+    "phase5_starting_table",
     "subcell_nodes",
     "predict_voltage_beam_jax_value_and_grad",
     "refit_stokes_i_fluxes",
