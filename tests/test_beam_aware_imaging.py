@@ -166,10 +166,10 @@ def test_phase0_validates_explicit_unfrozen_gate_pins() -> None:
         **payload,
         "unfrozen_or_unimplemented_gates": {
             **payload["unfrozen_or_unimplemented_gates"],
-            "power_oracle_is_frozen": True,
+            "polarization_oracle_is_frozen": True,
         },
     }
-    with pytest.raises(ValueError, match="power_oracle_is_frozen"):
+    with pytest.raises(ValueError, match="polarization_oracle_is_frozen"):
         validate_phase0_baseline(upgraded)
 
 

@@ -848,6 +848,29 @@ labelled.
   times, and hands.
 - The calibrator polarisation floor is reported before target activation.
 
+**CASA `awp2` Stage 1 (2026-09-02):** Bacchus generated 18 default EVLA
+ray-traced `.pb` planes (CASA 6.7.6.14; I/RR/LL at 4564 and 4692 MHz;
+HA transit, +2 h, −2 h). Those products are frozen as a checksummed
+scalar `.pb` reference in `src/sl1mjax/data/casa_awp2_oracle/`. That
+freeze is not CASSBEAM acceptance. Split gates:
+
+- `casa_awp2_scalar_core_compatible`: **pass** (I-only; centre, FWHM,
+  RMS, and pointwise residual inside the 10% contour).
+- `casa_awp2_scalar_5percent_equivalent`: **fail**. The I residual
+  maximum is at 9.20–9.34 arcmin, near the CASSBEAM first null, where
+  CASA has 5.9–6.3% power and CASSBEAM has 0.4–0.6%. Inside the 10%
+  contour the maximum residual is 3.83–3.89%. Do not loosen the 5%
+  tolerance.
+- `casa_awp2_rrll_oracle_valid`: **false**. CASA I, RR, and LL planes
+  are pixel-identical for every frequency and hour angle. The `.pb` is
+  an image-domain PB/normalization product, not a per-receptor Jones.
+- `casa_full_jones_convention_accepted`: **not_run**. Needs
+  visibility-domain A-term tests or Perley holography.
+
+`casa_awp2_accepted` and `diagonal_copolar_is_casa_accepted()` remain
+false. Do not remove CASSBEAM squint to match these scalar `.pb`
+files. Report: `outputs/casa_awp2_power_oracle/comparison.json`.
+
 ### Gate 10
 
 Do not accept spatial polarisation unless it beats the beam-aware global model

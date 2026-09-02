@@ -56,6 +56,8 @@ _ARTIFACT_DIR = Path(__file__).with_name("data") / "cassbeam_cband"
 _MANIFEST_NAME = "manifest.json"
 CASSBEAM_CBAND_MODEL_ID = "cassbeam_nominal_cband"
 DIAGONAL_COPOLAR_ACCEPTED = False
+# Frozen CASA .pb products are a reference measurement, not this flag.
+# Do not loosen the 5% contour to absorb the measured skirt/null offset.
 CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE = 0.05
 # Half the 128 MHz generated-node spacing. Covers 3C391 SPW0 (4.536–4.662 GHz).
 MAX_NEAREST_NODE_SEPARATION_HZ = 64.0e6

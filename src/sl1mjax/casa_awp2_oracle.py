@@ -4,18 +4,27 @@ Stage 1 compares Stokes-I (and optional RR/LL) power images. Stage 2
 compares complex baseline visibilities. Runtime evaluation never invokes
 CASA. Frozen products must be generated on Bacchus and checksummed.
 
+Freezing the Stage-1 ``.pb`` files records an immutable CASA measurement.
+It does not accept CASSBEAM. ``casa_awp2_accepted`` and
+``diagonal_copolar_is_casa_accepted()`` stay false until a later
+visibility-domain or holography argument. Stage 2 requires a valid
+frozen Stage-1 oracle, not CASSBEAM–CASA equality.
+
 CASA ``awp2`` uses its internal ray-traced EVLA A-term, not a
-``vpmanager`` / ``vptable`` beam. Stage 1 asks whether the committed
-CASSBEAM evaluator reproduces that independent CASA model. Loading our
-tables into CASA would test ingestion, not beam-model accuracy.
+``vpmanager`` / ``vptable`` beam. The exported ``.pb`` is an
+image-domain PB / normalization product, not a complex per-receptor
+Jones. Loading our CASSBEAM tables into CASA would test ingestion, not
+beam-model accuracy. Do not remove CASSBEAM squint to match these
+scalar ``.pb`` files.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, Literal
 
 import numpy as np
 from astropy.io import fits
@@ -25,6 +34,7 @@ from numpy.typing import ArrayLike, NDArray
 from sl1mjax.cassbeam_beam import (
     CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE,
     BeamImagingMode,
+    diagonal_copolar_is_casa_accepted,
     voltage_beam_for_mode,
 )
 from sl1mjax.coordinates import radec_to_lmn
@@ -39,8 +49,10 @@ POWER_ORACLE_SCHEMA_VERSION = 1
 POLARIZATION_ORACLE_SCHEMA_VERSION = 1
 POWER_ORACLE_VOLTAGE_PATTERN = "casa_default_evla_raytraced"
 POWER_ORACLE_CONTOUR = 0.05
+CORE_CONTOUR = 0.10
 CENTRE_OFFSET_PIXEL_TOLERANCE = 0.25
 FWHM_FRACTIONAL_TOLERANCE = 0.05
+GateStatus = Literal["pass", "fail", "false", "not_run"]
 _FROZEN_POWER_DIR = Path(__file__).with_name("data") / "casa_awp2_oracle"
 _POWER_MANIFEST = "manifest.json"
 POINT_SOURCE_ROLES = (
@@ -70,7 +82,12 @@ class CasaAwp2PowerPlane:
 
 @dataclass(frozen=True)
 class PowerBeamComparison:
-    """Declared Stage-1 metrics inside CASA's 5% power contour."""
+    """Stage-1 metrics for one CASA ``.pb`` plane.
+
+    ``accepted`` is the historical 5% all-or-nothing flag. Named gates
+    live on :class:`CasaAwp2Stage1Gates`. Do not treat ``accepted`` as
+    CASSBEAM scientific acceptance.
+    """
 
     centre_offset_l_arcmin: float
     centre_offset_m_arcmin: float
@@ -81,6 +98,43 @@ class PowerBeamComparison:
     max_abs_residual: float
     contour_pixel_count: int
     accepted: bool
+    rms_residual_core: float
+    max_abs_residual_core: float
+    core_contour_pixel_count: int
+    peak_residual_radius_arcmin: float
+    casa_power_at_peak_residual: float
+    sl1mjax_power_at_peak_residual: float
+    centre_ok: bool
+    fwhm_ok: bool
+    core_pointwise_ok: bool
+    five_percent_pointwise_ok: bool
+    stokes: str = ""
+    fits: str = ""
+
+
+@dataclass(frozen=True)
+class CasaAwp2Stage1Gates:
+    """Split Stage-1 claims. Freezing the oracle is not CASSBEAM acceptance."""
+
+    casa_awp2_scalar_core_compatible: GateStatus
+    casa_awp2_scalar_5percent_equivalent: GateStatus
+    casa_awp2_rrll_oracle_valid: GateStatus
+    casa_full_jones_convention_accepted: GateStatus
+    casa_awp2_accepted: bool
+    diagonal_copolar_is_casa_accepted: bool
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CasaAwp2Stage1Report:
+    """Directory-level Stage-1 comparison plus the split gates."""
+
+    gates: CasaAwp2Stage1Gates
+    comparisons: tuple[PowerBeamComparison, ...]
+    identical_stokes_groups: tuple[tuple[str, ...], ...]
+    casa_version: str | None
+    voltage_pattern: str
+    frozen_products: bool
 
 
 def power_oracle_dir() -> Path:
@@ -113,7 +167,7 @@ def power_oracle_is_frozen() -> bool:
 
 
 def polarization_oracle_is_frozen() -> bool:
-    """Stage 2 is not frozen until Stage 1 is accepted and visibilities exist."""
+    """Stage 2 visibility oracle. Requires a frozen Stage-1 product, not equality."""
 
     return False
 
@@ -193,10 +247,11 @@ def compare_power_beams(
     contour: float = POWER_ORACLE_CONTOUR,
     power_tolerance: float = CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE,
 ) -> PowerBeamComparison:
-    """Compare normalised power inside the CASA contour.
+    """Compare normalised power at the 5% and 10% CASA contours.
 
-    Both images are divided by the interpolated pointing-centre value.
-    The gate checks absolute centre location, FWHM, and residual power.
+    Both images are divided by the pointing-centre value. The 5%
+    all-or-nothing flag is ``accepted``. Core compatibility uses the
+    10% contour and does not loosen the 5% residual tolerance.
     """
 
     model = np.asarray(sl1mjax_power, dtype=np.float64)
@@ -204,24 +259,31 @@ def compare_power_beams(
         raise ValueError("SL1MJax power must match the CASA image shape")
     casa_norm = _normalize_at_pointing(casa.power, casa.l_rad, casa.m_rad)
     model_norm = _normalize_at_pointing(model, casa.l_rad, casa.m_rad)
-    inside = np.isfinite(casa_norm) & np.isfinite(model_norm) & (casa_norm >= contour)
-    if int(np.count_nonzero(inside)) < 16:
-        raise ValueError("CASA 5% contour is too small to compare")
     residual = model_norm - casa_norm
+    five = _contour_residual(casa_norm, residual, contour)
+    core = _contour_residual(casa_norm, residual, CORE_CONTOUR)
+    if five.count < 16:
+        raise ValueError("CASA 5% contour is too small to compare")
+    if core.count < 16:
+        raise ValueError("CASA 10% contour is too small to compare")
     casa_l, casa_m = _mainlobe_centroid(casa_norm, casa.l_rad, casa.m_rad)
     model_l, model_m = _mainlobe_centroid(model_norm, casa.l_rad, casa.m_rad)
     pixel = _mean_pixel_scale_rad(casa.l_rad, casa.m_rad)
     offset = float(np.hypot(model_l - casa_l, model_m - casa_m))
     casa_fwhm = _mean_fwhm_arcmin(casa_norm, casa.l_rad, casa.m_rad)
     model_fwhm = _mean_fwhm_arcmin(model_norm, casa.l_rad, casa.m_rad)
-    rms = float(np.sqrt(np.mean(np.square(residual[inside]))))
-    peak = float(np.max(np.abs(residual[inside])))
     fwhm_ok = abs(model_fwhm / casa_fwhm - 1.0) <= FWHM_FRACTIONAL_TOLERANCE
-    accepted = (
-        peak <= power_tolerance
-        and rms <= power_tolerance
-        and offset <= CENTRE_OFFSET_PIXEL_TOLERANCE * pixel
-        and fwhm_ok
+    centre_ok = offset <= CENTRE_OFFSET_PIXEL_TOLERANCE * pixel
+    five_pointwise_ok = (
+        five.peak <= power_tolerance and five.rms <= power_tolerance
+    )
+    core_pointwise_ok = (
+        core.peak <= power_tolerance and core.rms <= power_tolerance
+    )
+    accepted = centre_ok and fwhm_ok and five_pointwise_ok
+    peak_index = five.peak_index
+    radius_arcmin = float(
+        np.rad2deg(np.hypot(casa.l_rad[peak_index], casa.m_rad[peak_index])) * 60.0
     )
     return PowerBeamComparison(
         centre_offset_l_arcmin=float(np.rad2deg(model_l - casa_l) * 60.0),
@@ -229,19 +291,37 @@ def compare_power_beams(
         centre_offset_pixels=offset / pixel,
         fwhm_casa_arcmin=casa_fwhm,
         fwhm_sl1mjax_arcmin=model_fwhm,
-        rms_residual=rms,
-        max_abs_residual=peak,
-        contour_pixel_count=int(np.count_nonzero(inside)),
+        rms_residual=five.rms,
+        max_abs_residual=five.peak,
+        contour_pixel_count=five.count,
         accepted=accepted,
+        rms_residual_core=core.rms,
+        max_abs_residual_core=core.peak,
+        core_contour_pixel_count=core.count,
+        peak_residual_radius_arcmin=radius_arcmin,
+        casa_power_at_peak_residual=float(casa_norm[peak_index]),
+        sl1mjax_power_at_peak_residual=float(model_norm[peak_index]),
+        centre_ok=centre_ok,
+        fwhm_ok=fwhm_ok,
+        core_pointwise_ok=core_pointwise_ok,
+        five_percent_pointwise_ok=five_pointwise_ok,
+        stokes=casa.stokes,
+        fits=casa.path.name,
     )
 
 
 def compare_power_oracle_directory(directory: Path) -> tuple[PowerBeamComparison, ...]:
     """Compare Stage-1 FITS in a checksummed manifest directory.
 
-    Does not require ``frozen: true``. Used after Bacchus generation and
-    before acceptance. A disagreement is a measured beam difference.
+    Does not require ``frozen: true``. Used after Bacchus generation.
+    A disagreement is a measured beam difference, not a missing file.
     """
+
+    return evaluate_casa_awp2_stage1(directory).comparisons
+
+
+def evaluate_casa_awp2_stage1(directory: Path) -> CasaAwp2Stage1Report:
+    """Compare checksummed Stage-1 planes and score the split gates."""
 
     payload = json.loads((directory / _POWER_MANIFEST).read_text(encoding="utf-8"))
     if str(payload.get("voltage_pattern", "")) != POWER_ORACLE_VOLTAGE_PATTERN:
@@ -249,8 +329,10 @@ def compare_power_oracle_directory(directory: Path) -> tuple[PowerBeamComparison
             "Stage-1 oracle must use CASA's default EVLA ray-traced A-term; "
             f"got voltage_pattern={payload.get('voltage_pattern')!r}"
         )
-    comparisons = []
-    for plane in payload.get("planes", ()):
+    planes = tuple(payload.get("planes", ()))
+    loaded_planes: list[CasaAwp2PowerPlane] = []
+    comparisons: list[PowerBeamComparison] = []
+    for plane in planes:
         if plane.get("parallactic_angle_rad") is None:
             raise ValueError(f"{plane.get('fits')} is missing parallactic_angle_rad")
         path = directory / str(plane["fits"])
@@ -263,18 +345,101 @@ def compare_power_oracle_directory(directory: Path) -> tuple[PowerBeamComparison
             parallactic_angle_rad=float(plane["parallactic_angle_rad"]),
             stokes=str(plane["stokes"]),
         )
+        loaded_planes.append(loaded)
         comparisons.append(compare_power_beams(loaded, sl1mjax_power_on_plane(loaded)))
     if not comparisons:
         raise ValueError(f"{directory} declares no Stage-1 planes")
-    return tuple(comparisons)
+    identical = _identical_stokes_groups(loaded_planes, planes)
+    gates = stage1_gates_from_comparisons(
+        tuple(comparisons),
+        identical_stokes_groups=identical,
+    )
+    return CasaAwp2Stage1Report(
+        gates=gates,
+        comparisons=tuple(comparisons),
+        identical_stokes_groups=identical,
+        casa_version=payload.get("casa_version"),
+        voltage_pattern=str(payload.get("voltage_pattern")),
+        frozen_products=bool(payload.get("frozen")),
+    )
 
 
 def compare_frozen_power_oracle() -> tuple[PowerBeamComparison, ...]:
     """Load frozen Stage-1 FITS and compare every declared plane."""
 
+    return evaluate_frozen_stage1().comparisons
+
+
+def evaluate_frozen_stage1() -> CasaAwp2Stage1Report:
+    """Score the committed Stage-1 oracle. Products may be frozen without acceptance."""
+
     if not power_oracle_is_frozen():
         raise FileNotFoundError("CASA awp2 power oracle is not frozen")
-    return compare_power_oracle_directory(_FROZEN_POWER_DIR)
+    return evaluate_casa_awp2_stage1(_FROZEN_POWER_DIR)
+
+
+def stage1_gates_from_comparisons(
+    comparisons: tuple[PowerBeamComparison, ...],
+    *,
+    identical_stokes_groups: tuple[tuple[str, ...], ...] = (),
+) -> CasaAwp2Stage1Gates:
+    """Split the historical all-or-nothing ``accepted`` flag into named claims."""
+
+    stokes_i = tuple(item for item in comparisons if item.stokes in {"I", "IQUV", ""})
+    if not stokes_i:
+        stokes_i = comparisons
+    core_pass = all(
+        item.centre_ok and item.fwhm_ok and item.core_pointwise_ok for item in stokes_i
+    )
+    five_pass = all(item.accepted for item in stokes_i)
+    rrll_present = any(item.stokes in {"RR", "LL"} for item in comparisons)
+    if not rrll_present:
+        rrll_status: GateStatus = "not_run"
+        rrll_note = "no RR/LL planes were compared"
+    elif identical_stokes_groups:
+        rrll_status = "false"
+        rrll_note = (
+            "CASA I, RR, and LL .pb planes are identical; the export has no "
+            "hand-dependent information"
+        )
+    else:
+        rrll_status = "not_run"
+        rrll_note = "RR/LL planes differ from I but are not a Jones export"
+    notes = (
+        "CASA .pb is an image-domain PB/normalization product, not a "
+        "complex per-receptor Jones",
+        rrll_note,
+        "Do not remove CASSBEAM squint to match these scalar .pb files",
+        "Stage 2 requires a frozen Stage-1 oracle, not CASSBEAM–CASA equality",
+    )
+    return CasaAwp2Stage1Gates(
+        casa_awp2_scalar_core_compatible="pass" if core_pass else "fail",
+        casa_awp2_scalar_5percent_equivalent="pass" if five_pass else "fail",
+        casa_awp2_rrll_oracle_valid=rrll_status,
+        casa_full_jones_convention_accepted="not_run",
+        casa_awp2_accepted=False,
+        diagonal_copolar_is_casa_accepted=diagonal_copolar_is_casa_accepted(),
+        notes=notes,
+    )
+
+
+def stage1_report_as_dict(report: CasaAwp2Stage1Report) -> dict[str, Any]:
+    """JSON-ready Stage-1 report. Does not mark CASSBEAM accepted."""
+
+    return {
+        "role": "casa_awp2_stage1_comparison",
+        "frozen_products": report.frozen_products,
+        "casa_awp2_accepted": report.gates.casa_awp2_accepted,
+        "diagonal_copolar_is_casa_accepted": (
+            report.gates.diagonal_copolar_is_casa_accepted
+        ),
+        "casa_version": report.casa_version,
+        "voltage_pattern": report.voltage_pattern,
+        "identical_stokes_groups": [list(group) for group in report.identical_stokes_groups],
+        "gates": asdict(report.gates),
+        "n_planes": len(report.comparisons),
+        "planes": [asdict(item) for item in report.comparisons],
+    }
 
 
 def write_sine_projected_power_fits(
@@ -364,6 +529,54 @@ def stokes_model_values(name: str) -> tuple[float, float, float, float]:
     if name == "I+V":
         return (1.0, 0.0, 0.0, 1.0)
     raise ValueError(f"unsupported Stokes model {name!r}")
+
+
+@dataclass(frozen=True)
+class _ContourResidual:
+    rms: float
+    peak: float
+    count: int
+    peak_index: tuple[int, ...]
+
+
+def _contour_residual(
+    casa_norm: np.ndarray,
+    residual: np.ndarray,
+    contour: float,
+) -> _ContourResidual:
+    inside = np.isfinite(casa_norm) & np.isfinite(residual) & (casa_norm >= contour)
+    count = int(np.count_nonzero(inside))
+    if count == 0:
+        return _ContourResidual(rms=float("nan"), peak=float("nan"), count=0, peak_index=(0, 0))
+    values = residual[inside]
+    rms = float(np.sqrt(np.mean(np.square(values))))
+    peak = float(np.max(np.abs(values)))
+    masked = np.where(inside, np.abs(residual), -1.0)
+    peak_index = tuple(int(item) for item in np.unravel_index(int(np.argmax(masked)), residual.shape))
+    return _ContourResidual(rms=rms, peak=peak, count=count, peak_index=peak_index)
+
+
+def _identical_stokes_groups(
+    planes: list[CasaAwp2PowerPlane],
+    records: tuple[dict[str, Any], ...],
+) -> tuple[tuple[str, ...], ...]:
+    groups: dict[tuple[float, str], list[int]] = {}
+    for index, record in enumerate(records):
+        hourangle = str(record.get("hourangle", ""))
+        key = (float(record["frequency_hz"]), hourangle)
+        groups.setdefault(key, []).append(index)
+    identical: list[tuple[str, ...]] = []
+    for indexes in groups.values():
+        if len(indexes) < 2:
+            continue
+        first = np.asarray(planes[indexes[0]].power)
+        names = [planes[index].path.name for index in indexes]
+        if all(
+            np.array_equal(first, planes[index].power, equal_nan=True)
+            for index in indexes[1:]
+        ):
+            identical.append(tuple(names))
+    return tuple(identical)
 
 
 def _normalize_at_pointing(

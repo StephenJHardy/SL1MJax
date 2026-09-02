@@ -1091,13 +1091,17 @@ approximation.
 
 ## Immediate next step
 
-Run `scripts/generate_casa_awp2_power_oracle.py` on Bacchus with CASA
-6. It must use `awp2`'s default EVLA ray-traced A-term
-(`vptable=""`, no `vpmanager`). Copy the FITS and checksummed
-manifest into `src/sl1mjax/data/casa_awp2_oracle/` and freeze only
-after `compare_frozen_power_oracle()` accepts centre, FWHM, and
-residual power. Then implement Stage 2 (`I`, `I+Q`, `I+U`, `I+V`
-predictions).
+`scripts/generate_casa_awp2_power_oracle.py` ran on Bacchus 2026-09-02
+with CASA 6.7.6.14 (`awp2`, `vptable=""`, default EVLA A-term). The
+18-plane CASA products are frozen in
+`src/sl1mjax/data/casa_awp2_oracle/` as an immutable scalar `.pb`
+reference. Split gates: I-core 10% **pass**, 5% skirt/null **fail**,
+RR/LL oracle **false** (I/RR/LL planes are identical), full-Jones
+convention **not_run**. Do not set `casa_awp2_accepted`. Stage 2
+requires this frozen oracle, not CASSBEAM–CASA equality. Do not
+remove CASSBEAM squint to match these files. Polarisation validation
+needs a CASA visibility-domain I/I+Q/I+U/I+V experiment or Perley
+holography.
 Do not invert CASA visibilities back into Jones.
 Do not start 3C391 imaging on this artifact. Do not enable the unused
 Airy `0.06` FWHM half-offset. Do not build a cache. Do not replace the

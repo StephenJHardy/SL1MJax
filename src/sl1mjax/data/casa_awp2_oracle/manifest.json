@@ -1,0 +1,208 @@
+{
+  "casa_awp2_accepted": false,
+  "casa_version": "6.7.6.14",
+  "cell": "4arcsec",
+  "diagonal_copolar_accepted": false,
+  "frozen": true,
+  "imsize": 512,
+  "kind": "casa_awp2_power_oracle",
+  "notes": "Frozen CASA 6.7.6.14 awp2 default EVLA ray-traced .pb reference. This freezes the CASA measurement, not CASSBEAM acceptance. I/RR/LL planes are pixel-identical for each frequency and hour angle; the export is an image-domain PB/normalization product, not a per-receptor Jones. Do not set casa_awp2_accepted or diagonal_copolar_is_casa_accepted from these files. Do not remove CASSBEAM squint to match them. Stage 2 requires this frozen oracle, not CASSBEAM\u2013CASA equality.",
+  "pblimit": 0.01,
+  "phase_centre_deg": [
+    180.0,
+    45.0
+  ],
+  "planes": [
+    {
+      "fits": "I_4564_ha0.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "transit",
+      "measurement_set": "ms_4564_ha0/ms_4564_ha0.vla.d.ms",
+      "parallactic_angle_rad": -3.1302980818922674,
+      "sha256": "d1edc197038032d81d2d8afbccc156d8060458b795ec2a3c0ae82a2510342c84",
+      "stokes": "I",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "RR_4564_ha0.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "transit",
+      "measurement_set": "ms_4564_ha0/ms_4564_ha0.vla.d.ms",
+      "parallactic_angle_rad": -3.1302980818922674,
+      "sha256": "252edd9bcda1167459a6ef5eb644e753073326b8d0c0e5d47901afd80f406ba8",
+      "stokes": "RR",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "LL_4564_ha0.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "transit",
+      "measurement_set": "ms_4564_ha0/ms_4564_ha0.vla.d.ms",
+      "parallactic_angle_rad": -3.1302980818922674,
+      "sha256": "c0fe38ccdb301471180e67a8440f2078c755a9e941fddfefbd318f2d839a61ce",
+      "stokes": "LL",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "I_4564_ha_plus2.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "2:00:00",
+      "measurement_set": "ms_4564_ha_plus2/ms_4564_ha_plus2.vla.d.ms",
+      "parallactic_angle_rad": 1.8339164582386953,
+      "sha256": "1190b0a5759817edad62afcde1b32bb3a9e7768445bb69f8ddbea85812f51e81",
+      "stokes": "I",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "RR_4564_ha_plus2.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "2:00:00",
+      "measurement_set": "ms_4564_ha_plus2/ms_4564_ha_plus2.vla.d.ms",
+      "parallactic_angle_rad": 1.8339164582386953,
+      "sha256": "ce499205e46e48fe1511bd7f881a16b4895df2bcba702d5b0bc75dce0dcc1eed",
+      "stokes": "RR",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "LL_4564_ha_plus2.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "2:00:00",
+      "measurement_set": "ms_4564_ha_plus2/ms_4564_ha_plus2.vla.d.ms",
+      "parallactic_angle_rad": 1.8339164582386953,
+      "sha256": "4b6faa61946eeba7b837b5a94ed11b7fb910edd16076f20e1d469f4611b55327",
+      "stokes": "LL",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "I_4564_ha_minus2.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "-2:00:00",
+      "measurement_set": "ms_4564_ha_minus2/ms_4564_ha_minus2.vla.d.ms",
+      "parallactic_angle_rad": -1.8282861196599514,
+      "sha256": "c1bd8eb707983778b47b6a777bac1e275ce3847bdcfc5d50ab042945deca669b",
+      "stokes": "I",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "RR_4564_ha_minus2.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "-2:00:00",
+      "measurement_set": "ms_4564_ha_minus2/ms_4564_ha_minus2.vla.d.ms",
+      "parallactic_angle_rad": -1.8282861196599514,
+      "sha256": "47d1f908b08eb2e4b052e98538eac042765d97f2bdb5644c8d9af2ddab06d2ef",
+      "stokes": "RR",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "LL_4564_ha_minus2.pb.fits",
+      "frequency_hz": 4564000000.0,
+      "hourangle": "-2:00:00",
+      "measurement_set": "ms_4564_ha_minus2/ms_4564_ha_minus2.vla.d.ms",
+      "parallactic_angle_rad": -1.8282861196599514,
+      "sha256": "dc99ce6ec845ce0fa4b367d19e0f10c62eb6b9afcf3a8df26c9863108647e5b2",
+      "stokes": "LL",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "I_4692_ha0.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "transit",
+      "measurement_set": "ms_4692_ha0/ms_4692_ha0.vla.d.ms",
+      "parallactic_angle_rad": -3.1302980818922674,
+      "sha256": "98da1fbe024aefa103e0561f96ce8edbe31e676e979db8a27723f827c29ad228",
+      "stokes": "I",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "RR_4692_ha0.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "transit",
+      "measurement_set": "ms_4692_ha0/ms_4692_ha0.vla.d.ms",
+      "parallactic_angle_rad": -3.1302980818922674,
+      "sha256": "6e5e230c986064fbe11deec72c5c0d244ed04570155f50cc6ade0317e9154412",
+      "stokes": "RR",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "LL_4692_ha0.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "transit",
+      "measurement_set": "ms_4692_ha0/ms_4692_ha0.vla.d.ms",
+      "parallactic_angle_rad": -3.1302980818922674,
+      "sha256": "e0e55ab10ea5548739b8d577d85fc76960ed2082f4f2cff6a3ea8a66f6d62ab3",
+      "stokes": "LL",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "I_4692_ha_plus2.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "2:00:00",
+      "measurement_set": "ms_4692_ha_plus2/ms_4692_ha_plus2.vla.d.ms",
+      "parallactic_angle_rad": 1.8339164582386953,
+      "sha256": "82f7f5ee6b49e8504294adbee205d993cd68674ae5430a8bd75ed3fb2e76a93b",
+      "stokes": "I",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "RR_4692_ha_plus2.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "2:00:00",
+      "measurement_set": "ms_4692_ha_plus2/ms_4692_ha_plus2.vla.d.ms",
+      "parallactic_angle_rad": 1.8339164582386953,
+      "sha256": "0bdf5028071c19474065b318f797238ff87f4e75a549771f7ea9b63c92836c86",
+      "stokes": "RR",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "LL_4692_ha_plus2.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "2:00:00",
+      "measurement_set": "ms_4692_ha_plus2/ms_4692_ha_plus2.vla.d.ms",
+      "parallactic_angle_rad": 1.8339164582386953,
+      "sha256": "ea57b88190d259ff43fd38b8f67577b54df7a9e7dca8eaba123afabb6bc3eb21",
+      "stokes": "LL",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "I_4692_ha_minus2.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "-2:00:00",
+      "measurement_set": "ms_4692_ha_minus2/ms_4692_ha_minus2.vla.d.ms",
+      "parallactic_angle_rad": -1.8282861196599514,
+      "sha256": "aefcab25afe12e6c4b91e2d9d419ae1f7238cb939906649cd943613a6c46b462",
+      "stokes": "I",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "RR_4692_ha_minus2.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "-2:00:00",
+      "measurement_set": "ms_4692_ha_minus2/ms_4692_ha_minus2.vla.d.ms",
+      "parallactic_angle_rad": -1.8282861196599514,
+      "sha256": "358580586e1ca74893c8d383bff3f4d492f5da54c25d9db7d2582bd990eee8f9",
+      "stokes": "RR",
+      "telescope": "VLA"
+    },
+    {
+      "fits": "LL_4692_ha_minus2.pb.fits",
+      "frequency_hz": 4692000000.0,
+      "hourangle": "-2:00:00",
+      "measurement_set": "ms_4692_ha_minus2/ms_4692_ha_minus2.vla.d.ms",
+      "parallactic_angle_rad": -1.8282861196599514,
+      "sha256": "15dbf8d10a97aafa5fd45b6eaf37d56d708b34279dd0c00be569c4365d6ed825",
+      "stokes": "LL",
+      "telescope": "VLA"
+    }
+  ],
+  "schema_version": 1,
+  "tclean": {
+    "aterm": true,
+    "gridder": "awp2",
+    "niter": 0,
+    "psterm": false,
+    "vptable": "",
+    "wprojplanes": 1
+  },
+  "telescope": "VLA",
+  "voltage_pattern": "casa_default_evla_raytraced"
+}

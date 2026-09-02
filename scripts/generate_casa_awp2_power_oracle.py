@@ -7,9 +7,11 @@ internal model and does not take a ``vpmanager`` / ``vptable`` beam.
 Do not load our CASSBEAM tables into CASA here; that would test
 ingestion, not beam-model accuracy.
 
-Outputs land in ``outputs/casa_awp2_power_oracle/``. Copy that directory
-into ``src/sl1mjax/data/casa_awp2_oracle/`` and set ``frozen: true`` only
-after the comparison accepts coordinates, FWHM, and residual power.
+Outputs land in ``outputs/casa_awp2_power_oracle/``. Copy the FITS and
+checksummed manifest into ``src/sl1mjax/data/casa_awp2_oracle/`` to
+freeze the CASA measurement. That freeze is not CASSBEAM acceptance.
+``casa_awp2_accepted`` and ``diagonal_copolar_is_casa_accepted()`` stay
+false until a later visibility-domain or holography argument.
 ``setpbimage`` remains a possible later plumbing experiment. It is not
 this oracle and is not the ``awp2`` ingest path.
 """
@@ -267,9 +269,9 @@ def main() -> None:
         "planes": planes,
         "notes": (
             "Stage-1 CASA awp2 power beams from the default EVLA ray-traced "
-            "A-term. Compare with the committed CASSBEAM evaluator. Not "
-            "frozen until SL1MJax comparison accepts centre, FWHM, and "
-            "residual power. Do not load CASSBEAM tables into CASA for "
+            "A-term. Freeze as an immutable CASA .pb reference after "
+            "checksums are written. Do not set casa_awp2_accepted from "
+            "this generation. Do not load CASSBEAM tables into CASA for "
             "this oracle."
         ),
     }
@@ -277,7 +279,7 @@ def main() -> None:
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     print(OUTPUT / "manifest.json")
-    print(f"wrote {len(planes)} planes; frozen is false until comparison accepts")
+    print(f"wrote {len(planes)} planes; frozen is false until copied into src data")
 
 
 if __name__ == "__main__":

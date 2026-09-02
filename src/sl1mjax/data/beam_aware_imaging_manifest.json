@@ -14,7 +14,7 @@
     "full_jones_frozen": false,
     "full_jones_factory_refuses_unfrozen": true,
     "diagonal_copolar_casa_accepted": false,
-    "casa_awp2_stage1_frozen": false,
+    "casa_awp2_stage1_frozen": true,
     "casa_awp2_stage2_implemented": false,
     "analytic_squint_evidence_grade": false,
     "antenna_frame_polarization_verified": false,
@@ -107,9 +107,9 @@
   "unfrozen_or_unimplemented_gates": {
     "full_jones_reference_is_frozen": false,
     "diagonal_copolar_is_casa_accepted": false,
-    "power_oracle_is_frozen": false,
+    "power_oracle_is_frozen": true,
     "polarization_oracle_is_frozen": false,
-    "casa_awp2_stage2": "not implemented until Stage 1 is frozen",
+    "casa_awp2_stage2": "not implemented; Stage 1 oracle is a frozen scalar .pb reference",
     "perley_interpolated_frequency_policy": "declared and refused",
     "analytic_airy_0.06_fwhm_half_offset": "unused and not evidence-grade"
   },

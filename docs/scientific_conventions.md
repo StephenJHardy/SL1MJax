@@ -104,12 +104,17 @@ Direction-dependent beam conventions are frozen in
   centre row. `casa_parang_true` applies \(P^H E P\); `uncalibrated`
   applies \(E P\). Unfrozen full Jones refuses evaluation, including
   `voltage_beam_for_mode("full_jones")`. A full-Jones interpolator must
-  not run until the nominal diagonal/co-polar mode meets a declared
-  CASA `awp2` main-lobe tolerance. Stage 1 compares CASA's default
-  EVLA ray-traced `awp2` `.pb` with the committed CASSBEAM evaluator
-  and is not frozen. Stage 2 compares complex visibilities after
-  Stage 1 is accepted. Loading CASSBEAM tables into CASA is not that
-  oracle. Holography is sought
+  not run until a later visibility-domain or holography argument
+  accepts the Jones convention. Stage 1 compares CASA's default
+  EVLA ray-traced `awp2` `.pb` with the committed CASSBEAM evaluator.
+  The CASA `.pb` products are frozen as a scalar reference; that
+  freeze is not CASSBEAM acceptance. I-core agreement inside the 10%
+  contour passes. Equivalence inside the 5% contour fails at the
+  CASSBEAM first-null skirt; do not loosen the 5% tolerance. CASA
+  I/RR/LL `.pb` planes are identical, so they are not a per-receptor
+  Jones oracle. Stage 2 compares complex visibilities and requires the
+  frozen Stage-1 oracle, not CASSBEAM–CASA equality. Loading CASSBEAM
+  tables into CASA is not that oracle. Holography is sought
   only if residuals remain significant. A full-Jones artifact replaces analytic
   squint when it already contains squint, and must not re-apply
   on-axis D/X/P after `casa_parang_true`. Beyond full-Jones support

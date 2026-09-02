@@ -17,6 +17,7 @@ build/
 *.compskymodel.flat/
 *.ptg.txt
 *.fits
+!src/sl1mjax/data/casa_awp2_oracle/*.fits
 outputs/
 
 # CASA runtime logs and task state
@@ -26,5 +27,5 @@ casa-*.log
 # Downloaded observatory archives
 /data/*.tgz
 data/3c391
-
+tmp/*
 .DS_Store

@@ -63,6 +63,8 @@ from sl1mjax.calibration_terms import (  # noqa: E402
 )
 from sl1mjax.casa_awp2_oracle import (  # noqa: E402
     compare_frozen_power_oracle,
+    evaluate_casa_awp2_stage1,
+    evaluate_frozen_stage1,
     polarization_oracle_is_frozen,
     power_oracle_is_frozen,
 )
@@ -362,6 +364,8 @@ __all__ = [
     "CalibrationSolution",
     "CassbeamCBandVoltageBeam",
     "compare_frozen_power_oracle",
+    "evaluate_casa_awp2_stage1",
+    "evaluate_frozen_stage1",
     "CalibrationSolveConfig",
     "CompositeHandoverPolicy",
     "CompositeScalarVoltageBeam",

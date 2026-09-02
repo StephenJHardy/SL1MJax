@@ -74,7 +74,7 @@ SCIENCE_STATUS_TO_GATE = {
     "casa_awp2_stage2_implemented": "polarization_oracle_is_frozen",
 }
 EXPECTED_STRING_GATES = {
-    "casa_awp2_stage2": "not implemented until Stage 1 is frozen",
+    "casa_awp2_stage2": "not implemented; Stage 1 oracle is a frozen scalar .pb reference",
     "perley_interpolated_frequency_policy": "declared and refused",
     "analytic_airy_0.06_fwhm_half_offset": "unused and not evidence-grade",
 }

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -13,19 +14,23 @@ from sl1mjax.casa_awp2_oracle import (
     POWER_ORACLE_VOLTAGE_PATTERN,
     STOKES_MODELS,
     CasaAwp2PowerPlane,
-    compare_frozen_power_oracle,
     compare_power_beams,
     compare_power_oracle_directory,
+    evaluate_frozen_stage1,
     geometric_visibility_phase,
     load_power_plane,
     polarization_oracle_is_frozen,
     power_oracle_is_frozen,
     predict_point_source_visibilities,
     sl1mjax_power_on_plane,
+    stage1_gates_from_comparisons,
     stokes_model_values,
     write_sine_projected_power_fits,
 )
-from sl1mjax.cassbeam_beam import CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE as BEAM_TOLERANCE
+from sl1mjax.cassbeam_beam import (
+    CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE as BEAM_TOLERANCE,
+    diagonal_copolar_is_casa_accepted,
+)
 
 
 def _synthetic_plane(tmp_path: Path) -> CasaAwp2PowerPlane:
@@ -69,7 +74,9 @@ def test_synthetic_power_comparison_is_identity(tmp_path: Path) -> None:
     model = sl1mjax_power_on_plane(plane)
     comparison = compare_power_beams(plane, model)
     assert comparison.accepted
+    assert comparison.core_pointwise_ok
     assert comparison.max_abs_residual < 1.0e-12
+    assert comparison.max_abs_residual_core < 1.0e-12
     assert abs(comparison.centre_offset_pixels) < 1.0e-6
     assert comparison.fwhm_casa_arcmin == pytest.approx(
         comparison.fwhm_sl1mjax_arcmin, rel=1.0e-6
@@ -132,13 +139,13 @@ def test_point_source_visibility_contract() -> None:
     assert STOKES_MODELS == ("I", "I+Q", "I+U", "I+V")
 
 
-def test_frozen_oracles_are_absent() -> None:
+def test_frozen_oracle_is_a_reference_not_cassbeam_acceptance() -> None:
     assert POWER_ORACLE_VOLTAGE_PATTERN == "casa_default_evla_raytraced"
-    assert power_oracle_is_frozen() is False
+    assert power_oracle_is_frozen() is True
     assert polarization_oracle_is_frozen() is False
+    assert diagonal_copolar_is_casa_accepted() is False
     assert CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE == pytest.approx(BEAM_TOLERANCE)
-    with pytest.raises(FileNotFoundError, match="not frozen"):
-        compare_frozen_power_oracle()
+    assert CASA_AWP2_MAIN_LOBE_POWER_TOLERANCE == pytest.approx(0.05)
 
 
 def test_unfrozen_directory_requires_default_evla_pattern_and_pa(
@@ -167,11 +174,40 @@ def test_unfrozen_directory_requires_default_evla_pattern_and_pa(
         compare_power_oracle_directory(tmp_path)
 
 
-@pytest.mark.skipif(
-    not power_oracle_is_frozen(),
-    reason="CASA awp2 power oracle is not frozen; generate it on Bacchus",
-)
-def test_casa_awp2_main_lobe_contract() -> None:
-    comparisons = compare_frozen_power_oracle()
-    assert comparisons
-    assert all(item.accepted for item in comparisons)
+def test_stage1_gates_split_core_skirt_and_rrll() -> None:
+    report = evaluate_frozen_stage1()
+    gates = report.gates
+    assert report.frozen_products is True
+    assert report.identical_stokes_groups
+    assert all(len(group) == 3 for group in report.identical_stokes_groups)
+    assert gates.casa_awp2_scalar_core_compatible == "pass"
+    assert gates.casa_awp2_scalar_5percent_equivalent == "fail"
+    assert gates.casa_awp2_rrll_oracle_valid == "false"
+    assert gates.casa_full_jones_convention_accepted == "not_run"
+    assert gates.casa_awp2_accepted is False
+    assert gates.diagonal_copolar_is_casa_accepted is False
+    stokes_i = [item for item in report.comparisons if item.stokes == "I"]
+    assert stokes_i
+    assert all(item.centre_ok and item.fwhm_ok and item.core_pointwise_ok for item in stokes_i)
+    assert all(not item.five_percent_pointwise_ok for item in stokes_i)
+    assert all(item.peak_residual_radius_arcmin > 8.5 for item in stokes_i)
+    assert all(item.casa_power_at_peak_residual > 0.05 for item in stokes_i)
+    assert all(item.sl1mjax_power_at_peak_residual < 0.01 for item in stokes_i)
+
+
+def test_stage1_gates_mark_rrll_not_run_without_hand_planes() -> None:
+    gates = stage1_gates_from_comparisons(
+        (
+            SimpleNamespace(
+                stokes="I",
+                centre_ok=True,
+                fwhm_ok=True,
+                core_pointwise_ok=True,
+                accepted=False,
+            ),
+        )
+    )
+    assert gates.casa_awp2_scalar_core_compatible == "pass"
+    assert gates.casa_awp2_scalar_5percent_equivalent == "fail"
+    assert gates.casa_awp2_rrll_oracle_valid == "not_run"
+    assert gates.casa_full_jones_convention_accepted == "not_run"
