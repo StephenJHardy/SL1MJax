@@ -25,15 +25,16 @@ import numpy as np
 from sl1mjax.beam import VLABeamCatalog, VLAPrimaryBeam
 from sl1mjax.calibration import (
     apply_calibration,
-    identity_solution,
     import_casa_polarization_solution,
     load_casa_calibration_golden,
 )
 from sl1mjax.composite import MosaicSkyComponent, predict_mosaic_composite
-from sl1mjax.data.averaging import average_frequency_bins, average_time_bins
-from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.data.ms import extract_measurement_set
 from sl1mjax.direct_operator import DirectDFTConfig
+from sl1mjax.fullpol_prep import (
+    apply_polarization_before_averaging,
+    polarization_terms_only,
+)
 from sl1mjax.polarization_diagnostics import (
     calibrator_polarization_floor,
     deterministic_calibrator_cohort_split,
@@ -77,34 +78,7 @@ def _corrected_from_casa(case):
 def _polarization_terms_only(solution):
     """Keep Kcross/D/X/P. Identity G/K/B for already-corrected target DATA."""
 
-    identity = identity_solution(
-        antenna_count=solution.antenna_count,
-        correlations=solution.correlations,
-        frequency_hz=solution.bandpass_frequency_hz,
-        time_s=solution.gain_time_s,
-        reference_antenna=solution.reference_antenna,
-    )
-    return replace(
-        identity,
-        receptors=solution.receptors,
-        reference_frequency_hz=solution.reference_frequency_hz,
-        antenna_position_m=solution.antenna_position_m,
-        cross_hand_delay_s=solution.cross_hand_delay_s,
-        cross_hand_delay_valid=solution.cross_hand_delay_valid,
-        leakage=solution.leakage,
-        leakage_frequency_hz=solution.leakage_frequency_hz,
-        leakage_valid=solution.leakage_valid,
-        leakage_application=solution.leakage_application,
-        rl_phase=solution.rl_phase,
-        rl_phase_frequency_hz=solution.rl_phase_frequency_hz,
-        rl_phase_valid=solution.rl_phase_valid,
-        apply_parallactic_angle=True,
-        provenance={
-            **solution.provenance,
-            "gkb": "identity_on_corrected_data",
-            "evidence_grade": False,
-        },
-    )
+    return polarization_terms_only(solution)
 
 
 def _field_label(field_id: int) -> str:
@@ -150,20 +124,6 @@ def _load_sky_components(
             f"frozen Stokes-I directory is missing summary.json: {frozen}"
         )
     return _components_from_checkpoint(checkpoint, protocol, mosaic_phase_centre_rad)
-
-
-def _average_target(
-    block: VisibilityBlock,
-    *,
-    frequency_bins: int,
-    time_bin_seconds: float,
-) -> VisibilityBlock:
-    averaged = block
-    if frequency_bins < averaged.frequency_hz.size:
-        averaged = average_frequency_bins(averaged, bin_count=frequency_bins)
-    if time_bin_seconds > 0:
-        averaged = average_time_bins(averaged, bin_seconds=time_bin_seconds)
-    return averaged
 
 
 def _fit_payload(fitted) -> dict[str, Any]:
@@ -361,7 +321,6 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 f"expected {len(science_fields)} science blocks, got {len(dataset.blocks)}"
             )
-        pol_only = _polarization_terms_only(imported)
         mosaic_phase_centre = dataset.blocks[0].phase_centre_rad
         sky_roots = tuple(arguments.sky_root or ())
         if DEFAULT_SKY_ROOT.is_dir():
@@ -393,14 +352,16 @@ def main(argv: list[str] | None = None) -> int:
         direct = DirectDFTConfig(precision=arguments.precision)
         labels: list[str] = []
         field_ids: list[int] = []
-        averaged_blocks: list[VisibilityBlock] = []
+        print("applying polarisation Jones at native resolution, then averaging", flush=True)
+        prepared = []
         for block in dataset.blocks:
             field_id = int(np.unique(block.field_id)[0]) if block.field_id is not None else -1
             label = _field_label(field_id)
-            print(f"averaging {label}", flush=True)
-            averaged_blocks.append(
-                _average_target(
+            print(f"calibrating then averaging {label}", flush=True)
+            prepared.append(
+                apply_polarization_before_averaging(
                     block,
+                    imported,
                     frequency_bins=arguments.frequency_bins,
                     time_bin_seconds=arguments.time_bin_seconds,
                 )
@@ -409,27 +370,20 @@ def main(argv: list[str] | None = None) -> int:
             field_ids.append(field_id)
         if components is not None:
             print(
-                f"predicting frozen M_I at {len(averaged_blocks)} pointing frames",
+                f"predicting frozen M_I at {len(prepared)} pointing frames",
                 flush=True,
             )
             predictions = predict_mosaic_composite(
-                tuple(averaged_blocks),
+                tuple(prepared),
                 components,
                 mosaic_phase_centre,
                 primary_beam=beam,
                 config=direct,
             )
-            averaged_blocks = [
+            prepared = [
                 replace(block, model_visibility=prediction)
-                for block, prediction in zip(averaged_blocks, predictions, strict=True)
+                for block, prediction in zip(prepared, predictions, strict=True)
             ]
-        print("applying polarisation-only Jones to CORRECTED_DATA", flush=True)
-        prepared = []
-        for block in averaged_blocks:
-            corrected = apply_calibration(block, pol_only, extrapolate=True)
-            if block.model_visibility is not None:
-                corrected = replace(corrected, model_visibility=block.model_visibility)
-            prepared.append(corrected)
 
         report["corrected_data_state"] = {
             "data_column": "CORRECTED_DATA",
@@ -438,7 +392,8 @@ def main(argv: list[str] | None = None) -> int:
                 "CASA G/K/B already present in CORRECTED_DATA; DATA was not reread"
             ),
             "polarization_apply": (
-                "identity G/K/B plus imported Kcross/D/X/P, "
+                "identity G/K/B plus imported Kcross/D/X/P at native resolution "
+                "before time/frequency averaging, "
                 "leakage_application=casa_parallel_preserving"
             ),
             "frequency_bins": arguments.frequency_bins,
