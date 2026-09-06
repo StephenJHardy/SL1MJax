@@ -18,6 +18,7 @@ build/
 *.ptg.txt
 *.fits
 !src/sl1mjax/data/casa_awp2_oracle/*.fits
+!src/sl1mjax/data/holography_thol0001_lower_c/*.png
 outputs/
 
 # CASA runtime logs and task state
@@ -27,5 +28,6 @@ casa-*.log
 # Downloaded observatory archives
 /data/*.tgz
 data/3c391
+data/holography
 tmp/*
 .DS_Store

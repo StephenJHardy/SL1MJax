@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "files": {
+    "audit": "pointing_audit.json",
+    "fixture": "metadata_fixture.json",
+    "occupancy_summary": "occupancy_summary.json",
+    "occupancy_combined": "occupancy_combined.png",
+    "pass_1": "occupancy_pass_1.png",
+    "pass_2": "occupancy_pass_2.png",
+    "transition_2": "transition_ea04.png",
+    "transition_3": "transition_ea05.png",
+    "transition_4": "transition_ea06.png",
+    "visibility_audit": "visibility_audit.json",
+    "visibility_summary": "visibility_summary.json",
+    "commissioning_ms_provenance": "commissioning_ms.provenance.json",
+    "three_c286_graph": "three_c286_graph.json",
+    "three_c147_point_model": "three_c147_point_model.json",
+    "diagonal_product": "diagonal_product.json",
+    "diagonal_manifest": "diagonal_manifest.json",
+    "fullpol_product": "fullpol_product.json",
+    "fullpol_manifest": "fullpol_manifest.json"
+  },
+  "snap_pass2_to_memo_lattice": false,
+  "overlap_proof_passed": true,
+  "occupancy_explanation": "pass_1 is dense-only: 275 cells, 275/289 on the filled 17\u00d717, 196/197 on the circular 17\u00d717; pass_2 is sparse-only: 529 cells (exactly 23\u00b2=529), 289/529 on the filled 23\u00d723 lattice, 259/377 on the circular 23\u00d723; combined nearest-spacing relabel changes the dense/sparse split from per-pass 275/529 to 191/606; combined dense count is below 17\u00b2=289; it is closer to the circular 17\u00d717 (197 cells) than to the filled square; combined sparse count is not 23\u00b2=529; extra cells are off-lattice fragments or dense-pass points reassigned to the sparse family; combined occupancy exceeds one pass: repeated visits to the same cells; clustering keeps extra cells off the exact Memo 195 lattice (tolerance 0.35 arcmin); transition guards remove slew samples and do not create new lattice points."
+}

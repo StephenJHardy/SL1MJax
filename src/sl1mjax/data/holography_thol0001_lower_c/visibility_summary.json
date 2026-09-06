@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "thol0001_lower_c_visibility_summary",
+  "source_ms": "/media/stephen/astro/vla/extracted/THOL0001.sb31628704.eb31629959.57401.169024456016.ms",
+  "commissioning_ms": "/media/stephen/astro/vla/extracted/commissioning/THOL0001.sb31628704.eb31629959.lowerC.spw45.ms",
+  "source_ms_unchanged": true,
+  "n_rows": 7127406,
+  "n_channels": 64,
+  "n_correlations": 4,
+  "channel_32_only": false,
+  "columns_present": ["DATA", "FLAG", "WEIGHT", "WEIGHT_SPECTRUM"],
+  "corrected_data": false,
+  "weight_note": "WEIGHT_SPECTRUM is present but undefined on source and dest; populated original weight is WEIGHT, uniformly 4e6",
+  "flag_fraction_by_correlation": {
+    "RR": 0.09509841308324515,
+    "RL": 0.09509841308324515,
+    "LR": 0.09509841308324515,
+    "LL": 0.09509841308324515
+  },
+  "cross_hands": {
+    "RL": {"weighted_mean_amp": 0.007294269639524545, "mean_weight": 4000000.0, "n": 412774464},
+    "LR": {"weighted_mean_amp": 0.007457911493718228, "mean_weight": 4000000.0, "n": 412774464}
+  },
+  "holoraster_baseline_kinds": {
+    "reference_reference": 329406,
+    "moving_reference": 1521520,
+    "moving_moving": 2064920,
+    "other": 1589940
+  },
+  "on_axis_rows": 1621620,
+  "fields": {
+    "J0542+4951": {
+      "n_rows": 1165320,
+      "role": "on-axis 3C147",
+      "flag_fraction": 0.23437768166683828,
+      "flux_bandpass_scans": [2, 51],
+      "flux_bandpass_rows": 82836,
+      "flux_bandpass_flag_fraction": 0.0,
+      "phase_scans_interleaved": true
+    },
+    "C147-*": {
+      "n_rows": 247104,
+      "octants_complete": true,
+      "scans": [5, 6, 7, 8, 9, 10, 11, 12],
+      "state": "OBSERVE_TARGET#UNSPECIFIED",
+      "looks_like_intended_leakage_scan": true,
+      "calibrate_pol_named": false
+    },
+    "HOLORASTER": {
+      "n_rows": 5505786,
+      "state": "MAP_ANTENNA_SURFACE#ON_SOURCE",
+      "flag_fraction": 0.047108623546211204,
+      "moving_antennas_per_raster_scan": 20,
+      "n_raster_scans": 40
+    },
+    "J1331+3030": {
+      "n_rows": 209196,
+      "role": "3C286",
+      "scan": 103,
+      "flag_fraction": 0.6881967150423526,
+      "n_times": 298,
+      "chi_deg_span": 0.46849568450541607,
+      "parallactic_coverage": "single short visit; not a parallactic-angle track"
+    }
+  },
+  "calibration_not_applied": true,
+  "named_products_pending": [],
+  "named_products": {
+    "diagonal": "src/sl1mjax/data/holography_thol0001_lower_c/diagonal_manifest.json",
+    "fullpol": "src/sl1mjax/data/holography_thol0001_lower_c/fullpol_manifest.json"
+  }
+}

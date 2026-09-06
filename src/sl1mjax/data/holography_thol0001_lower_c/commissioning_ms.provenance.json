@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "thol0001_lower_c_commissioning_ms",
+  "immutable": true,
+  "n_native_channels_kept": 64,
+  "correlations": [
+    "RR",
+    "RL",
+    "LR",
+    "LL"
+  ],
+  "channel_32_only": false,
+  "field_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "field_names": [
+    "J0542+4951",
+    "C147-N",
+    "C147-NW",
+    "C147-W",
+    "C147-SW",
+    "C147-S",
+    "C147-SE",
+    "C147-E",
+    "C147-NE",
+    "J0542+4951",
+    "HOLORASTER",
+    "J1331+3030"
+  ],
+  "data_desc_ids": [
+    4,
+    5
+  ],
+  "spectral_window_ids": [
+    4,
+    5
+  ],
+  "source_ms": "/media/stephen/astro/vla/extracted/THOL0001.sb31628704.eb31629959.57401.169024456016.ms",
+  "dest_ms": "/media/stephen/astro/vla/extracted/commissioning/THOL0001.sb31628704.eb31629959.lowerC.spw45.ms",
+  "provenance": {
+    "project": "THOL0001",
+    "scheduling_block": "sb31628704",
+    "execution_block": "eb31629959",
+    "observation_project": "uid://evla/pdb/4538748"
+  }
+}
