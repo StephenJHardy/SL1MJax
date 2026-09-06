@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "present": true,
+  "field_id": 11,
+  "field_name": "J1331+3030",
+  "n_times": 298,
+  "chi_rad_min": -1.0489848566579538,
+  "chi_rad_max": -1.0408080644319497,
+  "chi_rad_span_wrapped": 0.008176792226004093,
+  "chi_rad_span": 0.008176792226004093,
+  "chi_deg_span": 0.46849568450541607,
+  "notes": [
+    "Field 9 spans much more of the observation than 3C286; use it for Df vs Df+QU",
+    "3C286 is a single short visit and is not a parallactic-angle track",
+    "chi_deg_span is the time-ordered unwrapped track, not wrapped min/max"
+  ]
+}

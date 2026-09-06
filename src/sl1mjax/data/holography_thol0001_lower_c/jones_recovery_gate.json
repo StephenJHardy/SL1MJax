@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "blocked": true,
+  "completed": {
+    "diagonal_apply_back": false,
+    "post_b_source_test": false,
+    "polarisation_calibration": false,
+    "three_c286_apply_back": false,
+    "casa_jax_calibration_golden": false,
+    "first_beam_recovery": false,
+    "full_jones": false
+  },
+  "next_in_order": "diagonal_apply_back",
+  "most_important_next_artifact": "casa_jax_calibration_golden",
+  "df_variants": ["Df", "Df+QU", "D_fixed_pol"],
+  "golden_conventions": [
+    "table_order",
+    "conjugation_and_baseline_orientation",
+    "correlation_packing",
+    "rl_handedness",
+    "parallactic_angle_treatment",
+    "unsupported_antenna_channel_masking",
+    "no_double_application"
+  ],
+  "notes": [
+    "Jones recovery remains blocked until the listed checks pass",
+    "Diagonal product uses parang=false; full-pol uses parang=true",
+    "Five antennas absent from usable 3C286 data must not inherit identity Kcross/Xf",
+    "The CASA/JAX calibration golden separates calibration convention errors from holography-coordinate and beam-recovery errors"
+  ]
+}

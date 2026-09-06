@@ -1,0 +1,23 @@
+{
+  "product": "thol0001_lower_c_diagonal",
+  "vis": "/media/stephen/astro/vla/extracted/commissioning/work/THOL0001.lowerC.spw45.work.ms",
+  "refant": "ea02",
+  "held_out_reference": "ea26",
+  "held_out_flux_scan": "51",
+  "held_out_flux_scan_kind": "g_holdout",
+  "held_out_flux_scan_note": "G1_hold_scan51 is a G holdout only; scan 51 was used in B0",
+  "parang": false,
+  "calwt": false,
+  "tables": {
+    "antpos": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/antpos.cal",
+    "G0": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G0.cal",
+    "K0": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/K0.cal",
+    "B0": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/B0.cal",
+    "G1": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1.cal",
+    "G1_hold_scan51": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1_hold_scan51.cal"
+  },
+  "model": "CASA Perley-Butler 2017 3C147_C.im on field 0",
+  "c147_offset_used_for_d": false,
+  "holoraster_used_for_moving_gains": false,
+  "flag_version": "sl1mjax_diagonal_input"
+}

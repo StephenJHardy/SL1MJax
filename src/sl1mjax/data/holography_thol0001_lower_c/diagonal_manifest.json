@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "product": "thol0001_lower_c_diagonal",
+  "parang": false,
+  "calwt": false,
+  "flag_version": "sl1mjax_diagonal_input",
+  "model": {
+    "3C147": "CASA Perley-Butler 2017 3C147_C.im field 0"
+  },
+  "tables": {
+    "antpos": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/antpos.cal",
+      "sha256": "ea224dc326a5babfcf74aa28db37ee08da28899e7192e3f586a1ef215a5520fb"
+    },
+    "G0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G0.cal",
+      "sha256": "ebfb376bed921792fd42317efdb3d65dbfc252cd20a31d52c922b7975f021372"
+    },
+    "K0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/K0.cal",
+      "sha256": "d6fb58da60a2d14d3c698cb98adaf526d456af0e73ac620f3a8c94646b80c49b"
+    },
+    "B0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/B0.cal",
+      "sha256": "e44e71ddf97f9d1d1561492121caaa289b83f3db25945faf3417137a7404dcba"
+    },
+    "G1": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1.cal",
+      "sha256": "73a08886740b5c54e3bcae766886ef8b4d389d53b6d2394e5fe070444bd48230"
+    },
+    "G1_hold_scan51": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1_hold_scan51.cal",
+      "sha256": "18318d0c75125291208cca09f8b2c3d3f7b1426ac40ee7ff72ebaee97e53e38e"
+    },
+    "B2_scan2": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/B2_scan2.cal",
+      "sha256": "0e21004df825fe400b95b97df869843f90db1de10bcfbc9870a60e2631d2fc70"
+    }
+  },
+  "snap_pass2_to_memo_lattice": false,
+  "c147_offset_used_for_d": false,
+  "jones_recovery_blocked": true,
+  "most_important_next_artifact": "casa_jax_calibration_golden",
+  "weight_model": "preserve nominal WEIGHT; do not treat 4e6 as reduced chi-squared",
+  "notes": [
+    "solved from on-axis 3C147 scans 2/51 and interleaved field 9",
+    "HOLORASTER and C147-* were not used in K/B/G",
+    "G1_hold_scan51 is a G holdout only: scan 51 is excluded from G but was used in B0",
+    "A genuine scan-51 source-model test needs B2_scan2 applied to scan 51",
+    "refant ea02; held-out reference ea26",
+    "CORRECTED_DATA on the work MS is not this product; tables are the product",
+    "Jones recovery remains blocked until the validation order passes"
+  ]
+}

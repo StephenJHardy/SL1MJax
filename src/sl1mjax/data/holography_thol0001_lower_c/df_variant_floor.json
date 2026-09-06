@@ -1,0 +1,13 @@
+{
+  "Df_vs_DfQU": {
+    "n": 23328,
+    "median_abs_delta": 0.0011438047513365746,
+    "p90_abs_delta": 0.24204815924167633,
+    "notes": [
+      "Any material difference is the leakage systematic floor",
+      "Recovered off-axis Jones must not depend on which reasonable D was used"
+    ]
+  },
+  "Df": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal",
+  "Df_QU": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal"
+}

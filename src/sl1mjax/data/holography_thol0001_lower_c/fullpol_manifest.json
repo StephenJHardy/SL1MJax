@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "product": "thol0001_lower_c_fullpol",
+  "parang": true,
+  "calwt": false,
+  "flag_version": "sl1mjax_fullpol_input",
+  "model": {
+    "3C147_D": "on-axis fields 0 and 9; unpolarized with uncertainty floor",
+    "3C286": "Perley-Butler I plus casaguide Q/U (11.2%, 66 deg), V=0"
+  },
+  "tables": {
+    "antpos": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/antpos.cal",
+      "sha256": "ea224dc326a5babfcf74aa28db37ee08da28899e7192e3f586a1ef215a5520fb"
+    },
+    "K0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/K0.cal",
+      "sha256": "d6fb58da60a2d14d3c698cb98adaf526d456af0e73ac620f3a8c94646b80c49b"
+    },
+    "B0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/B0.cal",
+      "sha256": "e44e71ddf97f9d1d1561492121caaa289b83f3db25945faf3417137a7404dcba"
+    },
+    "G1": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1.cal",
+      "sha256": "73a08886740b5c54e3bcae766886ef8b4d389d53b6d2394e5fe070444bd48230"
+    },
+    "Kcross": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Kcross.cal",
+      "sha256": "babd4c52c0ef77469e6c7914417c88346cf5783c0db1575c8164a0a2d454865d"
+    },
+    "Df": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal",
+      "sha256": "eb61c60c3427e2ff0d79f7252ebc34d730fc1e904b9db4e8020988c53453a01f"
+    },
+    "Df_QU": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal",
+      "sha256": "e2bc71d26067307c69253afd6f980735bde7acdf5bd7940026b6a62210b34464"
+    },
+    "Xf": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Xf.cal",
+      "sha256": "a8926017dcd056dc8004608d083f9a93fce15e19212bd6b55c1002c076ced6d5"
+    }
+  },
+  "snap_pass2_to_memo_lattice": false,
+  "c147_offset_used_for_d": false,
+  "jones_recovery_blocked": true,
+  "most_important_next_artifact": "casa_jax_calibration_golden",
+  "weight_model": "preserve nominal WEIGHT; do not treat 4e6 as reduced chi-squared",
+  "notes": [
+    "Df from on-axis 3C147 only; C147-* excluded",
+    "Df assumes Q=U=0; Df+QU is required before treating D as unique",
+    "Kcross and Xf from 3C286 after D",
+    "A connected 3C286 graph is not term coverage; absent antennas must not inherit identity X",
+    "work MS CORRECTED_DATA has full-pol apply on fields 0,9,11 only",
+    "commissioning MS was not modified",
+    "Jones recovery remains blocked; the CASA/JAX calibration golden is the next artifact"
+  ]
+}

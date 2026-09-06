@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "jones_recovery_blocked": true,
+  "most_important_next_artifact": "casa_jax_calibration_golden",
+  "holdouts": {
+    "G1_hold_scan51": {
+      "kind": "g_holdout",
+      "tests": ["gain_interpolation"],
+      "does_not_test": ["end_to_end_calibration", "source_model", "bandpass"]
+    },
+    "B2_scan2_on_scan51": {
+      "kind": "bandpass_ablation",
+      "status": "solved",
+      "sha256": "0e21004df825fe400b95b97df869843f90db1de10bcfbc9870a60e2631d2fc70",
+      "structure_audit": {
+        "accepted_as_point": true,
+        "model_ratio_uv_slopes": [0.0019, 0.0038, 0.0022, 0.0022, 0.0041, 0.0026],
+        "closure_median": 1.0448,
+        "closure_mad": 0.5256,
+        "closure_uv_slope": -0.016,
+        "flattened": false
+      }
+    }
+  },
+  "term_coverage": {
+    "three_c286_absent": ["ea03", "ea11", "ea13", "ea19", "ea25"],
+    "kcross_xf": "global_reference_frame",
+    "support": "full_pol_via_global_x",
+    "invalid_identity_inheritance": [],
+    "passed": true
+  },
+  "field9_parallactic": {
+    "n_times": 1075,
+    "chi_deg_span": 103.20132005152706,
+    "three_c286_chi_deg_span": 0.46849568450541607
+  },
+  "df_variants": {
+    "Df_sha256": "eb61c60c3427e2ff0d79f7252ebc34d730fc1e904b9db4e8020988c53453a01f",
+    "Df_QU_sha256": "e2bc71d26067307c69253afd6f980735bde7acdf5bd7940026b6a62210b34464",
+    "n": 23328,
+    "median_abs_delta": 0.0011438047513365746,
+    "p90_abs_delta": 0.24204815924167633,
+    "note": "Median D agrees; the p90 difference is the leakage systematic floor"
+  },
+  "casa_jax_golden": {
+    "n_rows": 1404,
+    "native_channels": 64,
+    "scans": [18, 58],
+    "diagonal": {
+      "passed": false,
+      "rr_ll": "amp ratio ~1; residual is a ~0.2 deg phase floor, max ~0.5 deg",
+      "spw4_rr_rms": 0.001556,
+      "spw4_rr_max_rel": 0.00855
+    },
+    "fullpol": {
+      "passed": false,
+      "rr_ll": "same ~1 percent phase floor as diagonal",
+      "rl_lr": "convention failure; max_rel 7 to 26 on held-out HOLORASTER samples"
+    }
+  },
+  "validation_order": {
+    "diagonal_apply_back": false,
+    "post_b_source_test": false,
+    "polarisation_calibration": false,
+    "three_c286_apply_back": false,
+    "casa_jax_calibration_golden": false,
+    "first_beam_recovery": false,
+    "full_jones": false
+  },
+  "notes": [
+    "G1_hold_scan51 is a G holdout only",
+    "Scan-51 source test used B2_scan2, not B0",
+    "Closure MAD is large; do not treat flattening as the acceptance test",
+    "Five 3C286-absent antennas inherit the global Kcross/Xf, not identity",
+    "Jones recovery stays blocked until the CASA/JAX golden locks conventions"
+  ]
+}

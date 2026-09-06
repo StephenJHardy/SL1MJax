@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "product": "fullpol",
+  "measurement_set": "/media/stephen/astro/vla/extracted/commissioning/validation/THOL0001.lowerC.golden.fullpol.ms",
+  "tables": {
+    "antpos": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/antpos.cal",
+      "sha256": "ea224dc326a5babfcf74aa28db37ee08da28899e7192e3f586a1ef215a5520fb"
+    },
+    "G1": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1.cal",
+      "sha256": "73a08886740b5c54e3bcae766886ef8b4d389d53b6d2394e5fe070444bd48230"
+    },
+    "K0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/K0.cal",
+      "sha256": "d6fb58da60a2d14d3c698cb98adaf526d456af0e73ac620f3a8c94646b80c49b"
+    },
+    "B0": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/B0.cal",
+      "sha256": "e44e71ddf97f9d1d1561492121caaa289b83f3db25945faf3417137a7404dcba"
+    },
+    "Kcross": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Kcross.cal",
+      "sha256": "babd4c52c0ef77469e6c7914417c88346cf5783c0db1575c8164a0a2d454865d"
+    },
+    "Df": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal",
+      "sha256": "eb61c60c3427e2ff0d79f7252ebc34d730fc1e904b9db4e8020988c53453a01f"
+    },
+    "Xf": {
+      "path": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Xf.cal",
+      "sha256": "a8926017dcd056dc8004608d083f9a93fce15e19212bd6b55c1002c076ced6d5"
+    }
+  },
+  "conventions": {
+    "schema_version": 1,
+    "conventions": [
+      "table_order",
+      "conjugation_and_baseline_orientation",
+      "correlation_packing",
+      "rl_handedness",
+      "parallactic_angle_treatment",
+      "unsupported_antenna_channel_masking",
+      "no_double_application"
+    ],
+    "diagonal_parang": false,
+    "fullpol_parang": true,
+    "requested_parang": true,
+    "diagonal_table_order": [
+      "antpos",
+      "G1",
+      "K0",
+      "B0"
+    ],
+    "fullpol_table_order": [
+      "antpos",
+      "G1",
+      "K0",
+      "B0",
+      "Kcross",
+      "Df",
+      "Xf"
+    ],
+    "calwt": false,
+    "apply_from": "raw DATA",
+    "compare": [
+      "RR",
+      "RL",
+      "LR",
+      "LL"
+    ],
+    "jones_recovery_blocked": true,
+    "most_important_next_artifact": "casa_jax_calibration_golden",
+    "notes": [
+      "Jones recovery remains blocked until the required validation order passes. The CASA/JAX calibration golden is the next required artifact.",
+      "Full-pol uses parang=true; diagonal uses parang=false",
+      "Do not apply tables twice; JAX starts from DATA, not CORRECTED_DATA"
+    ]
+  },
+  "comparison": {
+    "passed": false,
+    "by_data_desc": {
+      "ddid_4": {
+        "schema_version": 1,
+        "passed": false,
+        "per_correlation": {
+          "RR": {
+            "n": 20088,
+            "max_abs": 0.00992503629518967,
+            "rms": 0.001556363682507089,
+            "max_rel": 0.008548369517894472,
+            "passed": false
+          },
+          "RL": {
+            "n": 20088,
+            "max_abs": 0.040498602703308774,
+            "rms": 0.006162701896138539,
+            "max_rel": 13.472099630318663,
+            "passed": false
+          },
+          "LR": {
+            "n": 20088,
+            "max_abs": 0.027480262237013015,
+            "rms": 0.004843306978583121,
+            "max_rel": 26.090929543200797,
+            "passed": false
+          },
+          "LL": {
+            "n": 20088,
+            "max_abs": 0.010935605352487962,
+            "rms": 0.0014373313929515403,
+            "max_rel": 0.018922018158202984,
+            "passed": false
+          }
+        },
+        "conventions": [
+          "table_order",
+          "conjugation_and_baseline_orientation",
+          "correlation_packing",
+          "rl_handedness",
+          "parallactic_angle_treatment",
+          "unsupported_antenna_channel_masking",
+          "no_double_application"
+        ],
+        "jones_recovery_blocked": true,
+        "notes": [
+          "This comparison isolates calibration conventions from holography coordinates",
+          "Jones recovery remains blocked until the required validation order passes. The CASA/JAX calibration golden is the next required artifact."
+        ]
+      },
+      "ddid_5": {
+        "schema_version": 1,
+        "passed": false,
+        "per_correlation": {
+          "RR": {
+            "n": 20088,
+            "max_abs": 0.012296415800937039,
+            "rms": 0.0019122340807898592,
+            "max_rel": 0.011056814492687746,
+            "passed": false
+          },
+          "RL": {
+            "n": 20088,
+            "max_abs": 0.037942991785928096,
+            "rms": 0.0060161683269820505,
+            "max_rel": 7.862353636093247,
+            "passed": false
+          },
+          "LR": {
+            "n": 20088,
+            "max_abs": 0.025311999814984786,
+            "rms": 0.0038449991467520593,
+            "max_rel": 10.794663696397976,
+            "passed": false
+          },
+          "LL": {
+            "n": 20088,
+            "max_abs": 0.009594822300597055,
+            "rms": 0.0013023414734640367,
+            "max_rel": 0.019216286505682068,
+            "passed": false
+          }
+        },
+        "conventions": [
+          "table_order",
+          "conjugation_and_baseline_orientation",
+          "correlation_packing",
+          "rl_handedness",
+          "parallactic_angle_treatment",
+          "unsupported_antenna_channel_masking",
+          "no_double_application"
+        ],
+        "jones_recovery_blocked": true,
+        "notes": [
+          "This comparison isolates calibration conventions from holography coordinates",
+          "Jones recovery remains blocked until the required validation order passes. The CASA/JAX calibration golden is the next required artifact."
+        ]
+      }
+    }
+  },
+  "held_out_reference": "ea26",
+  "reference_antenna": "ea02",
+  "jones_recovery_blocked": true,
+  "most_important_next_artifact": "casa_jax_calibration_golden"
+}

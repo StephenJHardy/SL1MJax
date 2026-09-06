@@ -1,0 +1,24 @@
+{
+  "product": "thol0001_lower_c_df_qu",
+  "vis": "/media/stephen/astro/vla/extracted/commissioning/work/THOL0001.lowerC.spw45.work.ms",
+  "poltype": "Df+QU",
+  "fields": "0,9",
+  "c147_offset_used_for_d": false,
+  "compare_with": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal",
+  "holdout": {
+    "field_id": 9,
+    "axes": [
+      "time",
+      "antenna",
+      "channel"
+    ],
+    "held_out_reference": "ea26"
+  },
+  "tables": {
+    "Df_QU": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal"
+  },
+  "notes": [
+    "Df assumes Q=U=0; Df+QU solves a global 3C147 Q/U",
+    "Difference on held-out field 9 is the leakage systematic floor"
+  ]
+}

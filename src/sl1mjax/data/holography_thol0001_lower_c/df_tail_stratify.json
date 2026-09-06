@@ -1,0 +1,281 @@
+{
+  "n": 23328,
+  "n_tail": 2334,
+  "tail_quantile": 0.9,
+  "tail_threshold": 0.24204815924167633,
+  "median_abs_delta": 0.0011438047513365746,
+  "p90_abs_delta": 0.24204815924167633,
+  "by_antenna": [
+    {
+      "antenna": "ea02",
+      "role": "reference",
+      "n_tail": 107,
+      "median_abs_delta": 0.0005707900272682309,
+      "median_real_delta": 0.0,
+      "median_imag_delta": 0.0
+    },
+    {
+      "antenna": "ea03",
+      "role": "reference",
+      "n_tail": 108,
+      "median_abs_delta": 0.0012101562460884452,
+      "median_real_delta": 2.7101486921310425e-07,
+      "median_imag_delta": 2.868473529815674e-07
+    },
+    {
+      "antenna": "ea04",
+      "role": "moving",
+      "n_tail": 98,
+      "median_abs_delta": 0.0012107586953788996,
+      "median_real_delta": 3.5800039768218994e-06,
+      "median_imag_delta": -2.637505531311035e-06
+    },
+    {
+      "antenna": "ea05",
+      "role": "moving",
+      "n_tail": 78,
+      "median_abs_delta": 0.001143570989370346,
+      "median_real_delta": 1.0617077350616455e-07,
+      "median_imag_delta": 1.9278377294540405e-06
+    },
+    {
+      "antenna": "ea06",
+      "role": "moving",
+      "n_tail": 90,
+      "median_abs_delta": 0.00121029163710773,
+      "median_real_delta": 6.456393748521805e-06,
+      "median_imag_delta": 3.6135315895080566e-07
+    },
+    {
+      "antenna": "ea07",
+      "role": "reference",
+      "n_tail": 108,
+      "median_abs_delta": 0.0011436566710472107,
+      "median_real_delta": 4.637986421585083e-07,
+      "median_imag_delta": 8.4657222032547e-07
+    },
+    {
+      "antenna": "ea08",
+      "role": "moving",
+      "n_tail": 76,
+      "median_abs_delta": 0.0011436014901846647,
+      "median_real_delta": 2.915039658546448e-07,
+      "median_imag_delta": 5.239620804786682e-06
+    },
+    {
+      "antenna": "ea09",
+      "role": "moving",
+      "n_tail": 81,
+      "median_abs_delta": 0.001144244335591793,
+      "median_real_delta": 7.962808012962341e-07,
+      "median_imag_delta": 1.1324882507324219e-06
+    },
+    {
+      "antenna": "ea10",
+      "role": "moving",
+      "n_tail": 75,
+      "median_abs_delta": 0.0012105762725695968,
+      "median_real_delta": 4.340428858995438e-06,
+      "median_imag_delta": 1.105479896068573e-06
+    },
+    {
+      "antenna": "ea11",
+      "role": "moving",
+      "n_tail": 83,
+      "median_abs_delta": 0.0012106905924156308,
+      "median_real_delta": 1.7927959561347961e-06,
+      "median_imag_delta": 6.034970283508301e-07
+    },
+    {
+      "antenna": "ea12",
+      "role": "reference",
+      "n_tail": 108,
+      "median_abs_delta": 0.0012103695189580321,
+      "median_real_delta": -9.5367431640625e-07,
+      "median_imag_delta": 9.020790457725525e-06
+    },
+    {
+      "antenna": "ea13",
+      "role": "moving",
+      "n_tail": 86,
+      "median_abs_delta": 0.0012103444896638393,
+      "median_real_delta": 4.32133674621582e-06,
+      "median_imag_delta": 6.109476089477539e-07
+    },
+    {
+      "antenna": "ea14",
+      "role": "reference",
+      "n_tail": 108,
+      "median_abs_delta": 0.0011435227934271097,
+      "median_real_delta": 6.016343832015991e-07,
+      "median_imag_delta": 2.3229513317346573e-06
+    },
+    {
+      "antenna": "ea15",
+      "role": "moving",
+      "n_tail": 97,
+      "median_abs_delta": 0.0012107553193345666,
+      "median_real_delta": 5.386769771575928e-06,
+      "median_imag_delta": 1.5012919902801514e-06
+    },
+    {
+      "antenna": "ea16",
+      "role": "moving",
+      "n_tail": 88,
+      "median_abs_delta": 0.0011441301321610808,
+      "median_real_delta": 4.977919161319733e-07,
+      "median_imag_delta": 1.3872049748897552e-06
+    },
+    {
+      "antenna": "ea17",
+      "role": "moving",
+      "n_tail": 77,
+      "median_abs_delta": 0.0012105775531381369,
+      "median_real_delta": 7.487833499908447e-07,
+      "median_imag_delta": 3.871507942676544e-06
+    },
+    {
+      "antenna": "ea18",
+      "role": "moving",
+      "n_tail": 82,
+      "median_abs_delta": 0.00114386435598135,
+      "median_real_delta": 7.133930921554565e-07,
+      "median_imag_delta": 1.4137476682662964e-06
+    },
+    {
+      "antenna": "ea19",
+      "role": "moving",
+      "n_tail": 77,
+      "median_abs_delta": 0.0012107824441045523,
+      "median_real_delta": 2.125278115272522e-06,
+      "median_imag_delta": 7.916241884231567e-07
+    },
+    {
+      "antenna": "ea20",
+      "role": "moving",
+      "n_tail": 81,
+      "median_abs_delta": 0.0011430303566157818,
+      "median_real_delta": 1.0281801223754883e-06,
+      "median_imag_delta": 4.373723641037941e-06
+    },
+    {
+      "antenna": "ea21",
+      "role": "moving",
+      "n_tail": 65,
+      "median_abs_delta": 0.001210519578307867,
+      "median_real_delta": 6.088521331548691e-07,
+      "median_imag_delta": 1.8477439880371094e-06
+    },
+    {
+      "antenna": "ea22",
+      "role": "moving",
+      "n_tail": 77,
+      "median_abs_delta": 0.0011425947304815054,
+      "median_real_delta": 2.345070242881775e-06,
+      "median_imag_delta": 8.666887879371643e-06
+    },
+    {
+      "antenna": "ea23",
+      "role": "moving",
+      "n_tail": 63,
+      "median_abs_delta": 0.0012103777844458818,
+      "median_real_delta": 5.038455128669739e-07,
+      "median_imag_delta": 1.2274831533432007e-06
+    },
+    {
+      "antenna": "ea24",
+      "role": "reference",
+      "n_tail": 108,
+      "median_abs_delta": 0.0012105025816708803,
+      "median_real_delta": -1.4542602002620697e-06,
+      "median_imag_delta": 2.300366759300232e-07
+    },
+    {
+      "antenna": "ea25",
+      "role": "moving",
+      "n_tail": 68,
+      "median_abs_delta": 0.0011434999760240316,
+      "median_real_delta": 5.862675607204437e-07,
+      "median_imag_delta": 6.277114152908325e-07
+    },
+    {
+      "antenna": "ea26",
+      "role": "reference",
+      "n_tail": 107,
+      "median_abs_delta": 0.0012106976937502623,
+      "median_real_delta": 8.530914783477783e-07,
+      "median_imag_delta": 1.0137446224689484e-06
+    },
+    {
+      "antenna": "ea27",
+      "role": "moving",
+      "n_tail": 77,
+      "median_abs_delta": 0.0011432890314608812,
+      "median_real_delta": 2.711080014705658e-06,
+      "median_imag_delta": 1.5534460544586182e-06
+    },
+    {
+      "antenna": "ea28",
+      "role": "moving",
+      "n_tail": 61,
+      "median_abs_delta": 0.0012104019988328218,
+      "median_real_delta": 4.931353032588959e-07,
+      "median_imag_delta": 1.1883676052093506e-06
+    }
+  ],
+  "by_spectral_window": {
+    "4": {
+      "n_tail": 876,
+      "median_abs_delta": 0.0008732364512979984
+    },
+    "5": {
+      "n_tail": 1458,
+      "median_abs_delta": 0.0012780989054590464
+    }
+  },
+  "edge_channel_tail_fraction": 0.17823479005998286,
+  "snr": {
+    "median_snr_all": 1354.4251708984375,
+    "median_snr_tail": 705.3523559570312
+  },
+  "gauge_aligned": {
+    "median_abs_delta": 0.04166324809193611,
+    "p90_abs_delta": 0.18334835767745972,
+    "median_abs_delta_after_refant": 0.041796136647462845,
+    "p90_abs_delta_after_refant": 0.18326103687286377
+  },
+  "concentrated_in_failed_subset": false,
+  "adopt_as_floor": false,
+  "notes": [
+    "A p90 of 0.24 is not an ordinary leakage floor until the tail is explained",
+    "Primary comparison is held-out visibility prediction, not raw D-table distance",
+    "Df and Df+QU need not share a polarization gauge"
+  ],
+  "df_keywords": {
+    "ParType": "Complex",
+    "MSName": "THOL0001.lowerC.spw45.work.ms",
+    "VisCal": "Df Jones",
+    "PolBasis": "unknown",
+    "CASA_Version": "6.7.6-14",
+    "OBSERVATION": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal/OBSERVATION",
+    "ANTENNA": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal/ANTENNA",
+    "FIELD": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal/FIELD",
+    "SPECTRAL_WINDOW": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal/SPECTRAL_WINDOW",
+    "HISTORY": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal/HISTORY"
+  },
+  "df_qu_keywords": {
+    "ParType": "Complex",
+    "MSName": "THOL0001.lowerC.spw45.work.ms",
+    "VisCal": "Df Jones",
+    "PolBasis": "unknown",
+    "CASA_Version": "6.7.6-14",
+    "OBSERVATION": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal/OBSERVATION",
+    "ANTENNA": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal/ANTENNA",
+    "FIELD": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal/FIELD",
+    "SPECTRAL_WINDOW": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal/SPECTRAL_WINDOW",
+    "HISTORY": "Table: /media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df_QU.cal/HISTORY"
+  },
+  "df_qu_source_pol": {
+    "found": false
+  }
+}

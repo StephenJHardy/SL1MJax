@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "present": true,
+  "n_rows": 209196,
+  "n_channels": 64,
+  "n_correlations": 4,
+  "per_correlation": {
+    "RR": {
+      "n_unflagged": 4174592,
+      "flag_fraction": 0.6881967150423526
+    },
+    "RL": {
+      "n_unflagged": 4174592,
+      "flag_fraction": 0.6881967150423526
+    },
+    "LR": {
+      "n_unflagged": 4174592,
+      "flag_fraction": 0.6881967150423526
+    },
+    "LL": {
+      "n_unflagged": 4174592,
+      "flag_fraction": 0.6881967150423526
+    }
+  },
+  "broadband_graph": {
+    "RR": {
+      "n_active_antennas": 22,
+      "n_components": 1,
+      "connected": true
+    },
+    "RL": {
+      "n_active_antennas": 22,
+      "n_components": 1,
+      "connected": true
+    },
+    "LR": {
+      "n_active_antennas": 22,
+      "n_components": 1,
+      "connected": true
+    },
+    "LL": {
+      "n_active_antennas": 22,
+      "n_components": 1,
+      "connected": true
+    }
+  },
+  "connectivity": {
+    "RR": {
+      "n_connected_channels": 64,
+      "n_channels": 64,
+      "fraction_connected": 1.0
+    },
+    "RL": {
+      "n_connected_channels": 64,
+      "n_channels": 64,
+      "fraction_connected": 1.0
+    },
+    "LR": {
+      "n_connected_channels": 64,
+      "n_channels": 64,
+      "fraction_connected": 1.0
+    },
+    "LL": {
+      "n_connected_channels": 64,
+      "n_channels": 64,
+      "fraction_connected": 1.0
+    }
+  },
+  "usable_for_x_evpa": true,
+  "disconnected_or_narrowband": false,
+  "active_antennas": [
+    "ea02",
+    "ea04",
+    "ea05",
+    "ea06",
+    "ea07",
+    "ea08",
+    "ea09",
+    "ea10",
+    "ea12",
+    "ea14",
+    "ea15",
+    "ea16",
+    "ea17",
+    "ea18",
+    "ea20",
+    "ea21",
+    "ea22",
+    "ea23",
+    "ea24",
+    "ea26",
+    "ea27",
+    "ea28"
+  ],
+  "absent_antennas": [
+    "ea03",
+    "ea11",
+    "ea13",
+    "ea19",
+    "ea25"
+  ],
+  "connectivity_is_not_term_coverage": true,
+  "field_ids": [
+    11
+  ],
+  "antenna_names": [
+    "ea02",
+    "ea03",
+    "ea04",
+    "ea05",
+    "ea06",
+    "ea07",
+    "ea08",
+    "ea09",
+    "ea10",
+    "ea11",
+    "ea12",
+    "ea13",
+    "ea14",
+    "ea15",
+    "ea16",
+    "ea17",
+    "ea18",
+    "ea19",
+    "ea20",
+    "ea21",
+    "ea22",
+    "ea23",
+    "ea24",
+    "ea25",
+    "ea26",
+    "ea27",
+    "ea28"
+  ],
+  "notes": [
+    "3C286 chi span is too small to separate source polarization from D",
+    "surviving samples may still constrain Kcross, R-L phase, EVPA, and V floor",
+    "A connected 3C286 graph proves an X solution is possible; it does not prove every antenna received a valid Kcross/Xf solution",
+    "Antennas absent from usable 3C286 data must receive a mathematically justified global/reference-frame X solution or be marked unsupported for full-polarisation holography. They must not silently inherit identity Kcross/Xf corrections."
+  ]
+}

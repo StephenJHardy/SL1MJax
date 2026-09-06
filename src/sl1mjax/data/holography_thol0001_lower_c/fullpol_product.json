@@ -1,0 +1,30 @@
+{
+  "product": "thol0001_lower_c_fullpol",
+  "vis": "/media/stephen/astro/vla/extracted/commissioning/work/THOL0001.lowerC.spw45.work.ms",
+  "refant": "ea02",
+  "held_out_reference": "ea26",
+  "parang": true,
+  "calwt": false,
+  "tables": {
+    "antpos": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/antpos.cal",
+    "G1": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/G1.cal",
+    "K0": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/K0.cal",
+    "B0": "/media/stephen/astro/vla/extracted/commissioning/products/diagonal/B0.cal",
+    "Kcross": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Kcross.cal",
+    "Df": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Df.cal",
+    "Xf": "/media/stephen/astro/vla/extracted/commissioning/products/fullpol/Xf.cal"
+  },
+  "model": {
+    "3C147_D": "manual unpolarized I=1 on field 9; Q=U=V=0 with explicit uncertainty",
+    "3C286": {
+      "I": 7.5,
+      "Q": 0.3416587801836722,
+      "U": 0.7673781844197847,
+      "V": 0.0,
+      "fractional_polarisation": 0.112,
+      "evpa_deg": 66.0
+    }
+  },
+  "c147_offset_used_for_d": false,
+  "flag_version": "sl1mjax_fullpol_input"
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "present": true,
+  "field_id": 9,
+  "field_name": "J0542+4951",
+  "n_times": 1075,
+  "chi_rad_min": -3.1346008051925134,
+  "chi_rad_max": 3.108142626388666,
+  "chi_rad_span_wrapped": 6.242743431581179,
+  "chi_rad_span": 1.8012028273035914,
+  "chi_deg_span": 103.20132005152706,
+  "notes": [
+    "Field 9 spans much more of the observation than 3C286; use it for Df vs Df+QU",
+    "3C286 is a single short visit and is not a parallactic-angle track",
+    "chi_deg_span is the time-ordered unwrapped track, not wrapped min/max"
+  ]
+}

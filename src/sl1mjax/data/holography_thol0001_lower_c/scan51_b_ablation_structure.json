@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "holdout_kind": "bandpass_ablation",
+  "channels": {
+    "RR": [
+      {
+        "channel": 0,
+        "frequency_hz": 4500000000.0,
+        "n": 41418,
+        "median_amp_over_model": 0.004660633392632008,
+        "model_ratio_uv_slope": 0.0018695166221209245,
+        "flattened": false
+      },
+      {
+        "channel": 32,
+        "frequency_hz": 4564000000.0,
+        "n": 41418,
+        "median_amp_over_model": 0.002846118062734604,
+        "model_ratio_uv_slope": 0.003779056730707012,
+        "flattened": false
+      },
+      {
+        "channel": 63,
+        "frequency_hz": 4626000000.0,
+        "n": 41418,
+        "median_amp_over_model": 0.003931872546672821,
+        "model_ratio_uv_slope": 0.002197285812798535,
+        "flattened": false
+      }
+    ],
+    "LL": [
+      {
+        "channel": 0,
+        "frequency_hz": 4500000000.0,
+        "n": 41418,
+        "median_amp_over_model": 0.004743829369544983,
+        "model_ratio_uv_slope": 0.0022047296490728466,
+        "flattened": false
+      },
+      {
+        "channel": 32,
+        "frequency_hz": 4564000000.0,
+        "n": 41418,
+        "median_amp_over_model": 0.0028550000861287117,
+        "model_ratio_uv_slope": 0.004095158052626864,
+        "flattened": false
+      },
+      {
+        "channel": 63,
+        "frequency_hz": 4626000000.0,
+        "n": 41418,
+        "median_amp_over_model": 0.003928104881197214,
+        "model_ratio_uv_slope": 0.002588412332723894,
+        "flattened": false
+      }
+    ]
+  },
+  "closure_amplitudes": {
+    "n": 17550,
+    "median": 1.044842440869717,
+    "mad": 0.5255702057782872,
+    "uv_slope": -0.015982793926417726,
+    "point_like": true
+  },
+  "accepted_as_point": true,
+  "notes": [
+    "Model ratios and closure amplitudes are the source-structure test",
+    "Per-baseline flattening is omitted because it can hide resolved structure",
+    "A genuine scan-51 source-model or end-to-end test requires a bandpass solved from scan 2 only (B2_scan2) applied to scan 51. Alternatively split scan 51 by baselines or channels."
+  ],
+  "scans": [
+    51
+  ],
+  "field_id": 0,
+  "visibility_column": "CORRECTED_DATA"
+}

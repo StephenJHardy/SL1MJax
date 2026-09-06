@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "jones_recovery_blocked": true,
+  "most_important_next_artifact": "casa_jax_calibration_golden",
+  "holdouts": {
+    "G1_hold_scan51": {
+      "kind": "g_holdout",
+      "tests": ["gain_interpolation"],
+      "does_not_test": ["end_to_end_calibration", "source_model", "bandpass"],
+      "reason": "Scan 51 is excluded from G but was used in B0. Record existing apply-back as a G holdout, not a general holdout."
+    },
+    "B2_scan2_on_scan51": {
+      "kind": "bandpass_ablation",
+      "tests": ["bandpass_transfer", "source_model_on_scan51"],
+      "status": "required",
+      "reason": "Solve bandpass from scan 2 only and apply it to scan 51. Alternatively split scan 51 by baselines or channels."
+    }
+  },
+  "validation_order": [
+    "diagonal_apply_back",
+    "post_b_source_test",
+    "polarisation_calibration",
+    "three_c286_apply_back",
+    "casa_jax_calibration_golden",
+    "first_beam_recovery",
+    "full_jones"
+  ],
+  "notes": [
+    "Per-baseline flattening is not a source-structure acceptance test",
+    "Use model ratios and closure amplitudes versus UV distance",
+    "Do not start first beam recovery until the CASA/JAX golden locks conventions"
+  ]
+}

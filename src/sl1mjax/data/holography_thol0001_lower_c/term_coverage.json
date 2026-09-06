@@ -1,0 +1,1082 @@
+{
+  "schema_version": 1,
+  "antenna_names": [
+    "ea02",
+    "ea03",
+    "ea04",
+    "ea05",
+    "ea06",
+    "ea07",
+    "ea08",
+    "ea09",
+    "ea10",
+    "ea11",
+    "ea12",
+    "ea13",
+    "ea14",
+    "ea15",
+    "ea16",
+    "ea17",
+    "ea18",
+    "ea19",
+    "ea20",
+    "ea21",
+    "ea22",
+    "ea23",
+    "ea24",
+    "ea25",
+    "ea26",
+    "ea27",
+    "ea28"
+  ],
+  "spectral_window_ids": [
+    4,
+    5
+  ],
+  "terms": {
+    "K": {
+      "ea02": {
+        "4": "unflagged_identity",
+        "5": "unflagged_identity"
+      },
+      "ea03": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea04": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea05": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea06": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea07": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea08": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea09": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea10": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea11": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea12": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea13": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea14": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea15": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea16": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea17": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea18": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea19": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea20": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea21": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea22": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea23": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea24": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea25": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea26": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea27": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea28": {
+        "4": "solved",
+        "5": "solved"
+      }
+    },
+    "B": {
+      "ea02": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea03": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea04": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea05": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea06": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea07": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea08": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea09": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea10": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea11": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea12": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea13": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea14": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea15": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea16": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea17": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea18": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea19": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea20": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea21": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea22": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea23": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea24": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea25": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea26": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea27": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea28": {
+        "4": "solved",
+        "5": "solved"
+      }
+    },
+    "G": {
+      "ea02": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea03": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea04": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea05": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea06": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea07": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea08": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea09": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea10": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea11": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea12": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea13": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea14": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea15": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea16": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea17": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea18": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea19": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea20": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea21": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea22": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea23": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea24": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea25": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea26": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea27": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea28": {
+        "4": "solved",
+        "5": "solved"
+      }
+    },
+    "Kcross": {
+      "ea02": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea03": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea04": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea05": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea06": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea07": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea08": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea09": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea10": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea11": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea12": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea13": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea14": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea15": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea16": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea17": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea18": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea19": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea20": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea21": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea22": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea23": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea24": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea25": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea26": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea27": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea28": {
+        "4": "solved",
+        "5": "solved"
+      }
+    },
+    "Df": {
+      "ea02": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea03": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea04": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea05": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea06": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea07": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea08": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea09": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea10": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea11": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea12": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea13": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea14": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea15": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea16": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea17": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea18": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea19": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea20": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea21": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea22": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea23": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea24": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea25": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea26": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea27": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea28": {
+        "4": "solved",
+        "5": "solved"
+      }
+    },
+    "Xf": {
+      "ea02": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea03": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea04": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea05": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea06": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea07": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea08": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea09": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea10": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea11": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea12": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea13": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea14": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea15": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea16": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea17": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea18": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea19": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea20": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea21": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea22": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea23": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea24": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea25": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea26": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea27": {
+        "4": "solved",
+        "5": "solved"
+      },
+      "ea28": {
+        "4": "solved",
+        "5": "solved"
+      }
+    }
+  },
+  "three_c286_active": [
+    "ea02",
+    "ea04",
+    "ea05",
+    "ea06",
+    "ea07",
+    "ea08",
+    "ea09",
+    "ea10",
+    "ea12",
+    "ea14",
+    "ea15",
+    "ea16",
+    "ea17",
+    "ea18",
+    "ea20",
+    "ea21",
+    "ea22",
+    "ea23",
+    "ea24",
+    "ea26",
+    "ea27",
+    "ea28"
+  ],
+  "three_c286_absent": [
+    "ea03",
+    "ea11",
+    "ea13",
+    "ea19",
+    "ea25"
+  ],
+  "global_x": true,
+  "fullpol_support": {
+    "schema_version": 1,
+    "by_antenna": {
+      "ea02": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea03": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": false,
+        "support": "full_pol_via_global_x"
+      },
+      "ea04": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea05": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea06": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea07": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea08": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea09": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea10": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea11": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": false,
+        "support": "full_pol_via_global_x"
+      },
+      "ea12": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea13": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": false,
+        "support": "full_pol_via_global_x"
+      },
+      "ea14": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea15": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea16": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea17": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea18": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea19": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": false,
+        "support": "full_pol_via_global_x"
+      },
+      "ea20": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea21": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea22": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea23": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea24": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea25": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": false,
+        "support": "full_pol_via_global_x"
+      },
+      "ea26": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea27": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      },
+      "ea28": {
+        "Kcross": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "Xf": {
+          "4": "solved",
+          "5": "solved"
+        },
+        "in_usable_3c286": true,
+        "support": "full_pol"
+      }
+    },
+    "unsupported_full_pol": [],
+    "invalid_identity_inheritance": [],
+    "full_pol_via_global_x": [
+      "ea03",
+      "ea11",
+      "ea13",
+      "ea19",
+      "ea25"
+    ],
+    "needs_justified_global_x": [],
+    "global_x": true,
+    "passed": true,
+    "identity_inheritance_forbidden": true,
+    "notes": [
+      "Antennas absent from usable 3C286 data must receive a mathematically justified global/reference-frame X solution or be marked unsupported for full-polarisation holography. They must not silently inherit identity Kcross/Xf corrections.",
+      "A connected graph is necessary but not sufficient for term coverage",
+      "Identical unflagged Kcross/Xf on every antenna is a global reference-frame X"
+    ]
+  },
+  "jones_recovery_blocked": true,
+  "notes": [
+    "Antennas absent from usable 3C286 data must receive a mathematically justified global/reference-frame X solution or be marked unsupported for full-polarisation holography. They must not silently inherit identity Kcross/Xf corrections.",
+    "Jones recovery remains blocked until the required validation order passes. The CASA/JAX calibration golden is the next required artifact."
+  ]
+}
