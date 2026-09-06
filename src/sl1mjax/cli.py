@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -95,9 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     image.add_argument("--visibility-tile-size", type=int, default=256)
     image.add_argument("--pixel-tile-size", type=int, default=1024)
-    image.add_argument(
-        "--precision", choices=("float32", "float64"), default="float64"
-    )
+    image.add_argument("--precision", choices=("float32", "float64"), default="float64")
     image.add_argument("--patience", type=int, default=100)
     image.add_argument("--validation-interval", type=int, default=10)
     image.add_argument("--holdout-fraction", type=float, default=0.2)
@@ -110,6 +109,94 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument("--pixel-model", choices=PIXEL_MODEL_NAMES, default="delta")
     image.add_argument("--gaussian-sigma-pixels", type=float, default=0.5)
     image.add_argument("--square-width-pixels", type=float, default=1.0)
+
+    pointing_audit = commands.add_parser(
+        "holography-pointing-audit",
+        help="Reconstruct HOLORASTER pointing from MAIN metadata and POINTING",
+    )
+    pointing_audit.add_argument("measurement_set", type=Path)
+    pointing_audit.add_argument("--output", type=Path)
+    pointing_audit.add_argument("--field", default="HOLORASTER")
+    pointing_audit.add_argument(
+        "--frequencies-hz",
+        default="4.564e9,4.692e9",
+        help="comma-separated native channel target frequencies",
+    )
+    pointing_audit.add_argument("--archive", type=Path)
+    pointing_audit.add_argument("--column", default="POINTING_OFFSET")
+    pointing_audit.add_argument(
+        "--bundle",
+        type=Path,
+        help="write versioned audit JSON, metadata fixture, occupancy maps, and transition plots",
+    )
+
+    commissioning_copy = commands.add_parser(
+        "holography-commissioning-copy",
+        help="Copy SPWs 4/5 and commissioning fields to an immutable derived MS",
+    )
+    commissioning_copy.add_argument("source", type=Path)
+    commissioning_copy.add_argument("destination", type=Path)
+
+    visibility_audit = commands.add_parser(
+        "holography-visibility-audit",
+        help="Pre-calibration visibility audit of a commissioning MS",
+    )
+    visibility_audit.add_argument("measurement_set", type=Path)
+    visibility_audit.add_argument("--output", type=Path)
+
+    source_audit = commands.add_parser(
+        "holography-source-model-audit",
+        help="Test the 3C147 point model on flux/bandpass scans",
+    )
+    source_audit.add_argument("measurement_set", type=Path)
+    source_audit.add_argument("--output", type=Path)
+
+    graph_audit = commands.add_parser(
+        "holography-c286-graph",
+        help="Audit surviving 3C286 antennas, channels, and cross-hands",
+    )
+    graph_audit.add_argument("measurement_set", type=Path)
+    graph_audit.add_argument("--output", type=Path)
+
+    coverage = commands.add_parser(
+        "holography-term-coverage",
+        help="Antenna and SPW coverage for K/B/G/Kcross/Df/Xf",
+    )
+    coverage.add_argument("measurement_set", type=Path)
+    coverage.add_argument("--product-root", type=Path, required=True)
+    coverage.add_argument("--output", type=Path)
+
+    parang = commands.add_parser(
+        "holography-field-parang",
+        help="Parallactic-angle span for one field (field 9 by default)",
+    )
+    parang.add_argument("measurement_set", type=Path)
+    parang.add_argument("--field-id", type=int, default=9)
+    parang.add_argument("--output", type=Path)
+
+    structure = commands.add_parser(
+        "holography-structure-audit",
+        help="3C147 model ratios and closure amplitudes versus UV",
+    )
+    structure.add_argument("measurement_set", type=Path)
+    structure.add_argument("--scans", default="51")
+    structure.add_argument("--holdout-kind", default="bandpass_ablation")
+    structure.add_argument("--output", type=Path)
+
+    golden_copy = commands.add_parser(
+        "holography-calibration-golden-copy",
+        help="Copy a small native-resolution HOLORASTER MS for the CASA/JAX golden",
+    )
+    golden_copy.add_argument("source", type=Path)
+    golden_copy.add_argument("destination", type=Path)
+    golden_copy.add_argument("--scans", default="18,58")
+    golden_copy.add_argument("--times-per-scan", type=int, default=2)
+
+    gate = commands.add_parser(
+        "holography-jones-gate",
+        help="Report the Jones-recovery validation gate",
+    )
+    gate.add_argument("--output", type=Path)
     return parser
 
 
@@ -143,10 +230,7 @@ def main(argv: list[str] | None = None) -> int:
             roles=(
                 None
                 if arguments.roles is None
-                else tuple(
-                    CalibratorRole(value)
-                    for value in _names(arguments.roles) or ()
-                )
+                else tuple(CalibratorRole(value) for value in _names(arguments.roles) or ())
             ),
             data_description_ids=_ids(arguments.data_description_ids),
             channels=_ids(arguments.channels),
@@ -197,6 +281,193 @@ def main(argv: list[str] | None = None) -> int:
             arguments.output,
         )
         print("\n".join(str(path) for path in products))
+        return 0
+    if arguments.command == "holography-pointing-audit":
+        from sl1mjax.holography_ms import audit_holography_measurement_set
+        from sl1mjax.holography_pointing_audit import (
+            format_pointing_reconstruction_audit,
+            pointing_reconstruction_audit_as_dict,
+        )
+
+        frequencies = tuple(
+            float(item) for item in arguments.frequencies_hz.split(",") if item.strip()
+        )
+        audit = audit_holography_measurement_set(
+            arguments.measurement_set,
+            field_name=arguments.field,
+            target_frequency_hz=frequencies,
+            selected_column=arguments.column,
+            archive_path=arguments.archive,
+        )
+        print(format_pointing_reconstruction_audit(audit))
+        if arguments.bundle is not None:
+            from sl1mjax.holography_pointing_maps import write_pointing_audit_bundle
+
+            written = write_pointing_audit_bundle(audit, arguments.bundle)
+            print("\n".join(str(path) for path in written.values()))
+        if arguments.output is not None:
+            arguments.output.write_text(
+                json.dumps(pointing_reconstruction_audit_as_dict(audit), indent=2) + "\n"
+            )
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-commissioning-copy":
+        from sl1mjax.holography_commissioning import copy_commissioning_measurement_set
+
+        selection = copy_commissioning_measurement_set(arguments.source, arguments.destination)
+        print(selection.dest_ms)
+        return 0
+    if arguments.command == "holography-visibility-audit":
+        from sl1mjax.holography_commissioning import (
+            audit_commissioning_visibilities,
+            write_visibility_audit,
+        )
+
+        report = audit_commissioning_visibilities(arguments.measurement_set)
+        print(
+            json.dumps(
+                {
+                    key: report[key]
+                    for key in (
+                        "n_rows",
+                        "n_channels",
+                        "n_correlations",
+                        "d_scan",
+                        "three_c286",
+                        "baseline_kind_totals",
+                        "flag_fraction_by_correlation",
+                        "cross_hands",
+                        "notes",
+                    )
+                    if key in report
+                },
+                indent=2,
+            )
+        )
+        if arguments.output is not None:
+            write_visibility_audit(report, arguments.output)
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-source-model-audit":
+        from sl1mjax.holography_calibration import three_c147_point_model_audit, write_json
+
+        report = three_c147_point_model_audit(arguments.measurement_set)
+        print(
+            json.dumps(
+                {
+                    key: report[key]
+                    for key in ("accepted_as_point", "scans", "n_rows", "holdout_antenna", "notes")
+                },
+                indent=2,
+            )
+        )
+        if arguments.output is not None:
+            write_json(report, arguments.output)
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-c286-graph":
+        from sl1mjax.holography_calibration import three_c286_surviving_graph, write_json
+
+        report = three_c286_surviving_graph(arguments.measurement_set)
+        print(json.dumps(report, indent=2))
+        if arguments.output is not None:
+            write_json(report, arguments.output)
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-term-coverage":
+        from sl1mjax.holography_calibration import term_coverage_from_casa_tables, write_json
+
+        root = arguments.product_root
+        report = term_coverage_from_casa_tables(
+            {
+                "K": root / "diagonal" / "K0.cal",
+                "B": root / "diagonal" / "B0.cal",
+                "G": root / "diagonal" / "G1.cal",
+                "Kcross": root / "fullpol" / "Kcross.cal",
+                "Df": root / "fullpol" / "Df.cal",
+                "Xf": root / "fullpol" / "Xf.cal",
+            },
+            measurement_set=arguments.measurement_set,
+        )
+        print(
+            json.dumps(
+                {
+                    "three_c286_absent": report["three_c286_absent"],
+                    "fullpol_support": {
+                        key: report["fullpol_support"][key]
+                        for key in (
+                            "unsupported_full_pol",
+                            "invalid_identity_inheritance",
+                            "needs_justified_global_x",
+                            "passed",
+                        )
+                    },
+                    "jones_recovery_blocked": report["jones_recovery_blocked"],
+                },
+                indent=2,
+            )
+        )
+        if arguments.output is not None:
+            write_json(report, arguments.output)
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-field-parang":
+        from sl1mjax.holography_calibration import field_parallactic_report, write_json
+
+        report = field_parallactic_report(arguments.measurement_set, arguments.field_id)
+        print(json.dumps(report, indent=2))
+        if arguments.output is not None:
+            write_json(report, arguments.output)
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-structure-audit":
+        from sl1mjax.holography_calibration import three_c147_structure_audit, write_json
+
+        scans = tuple(int(item) for item in arguments.scans.split(",") if item.strip())
+        report = three_c147_structure_audit(
+            arguments.measurement_set,
+            scans=scans,
+            holdout_kind=arguments.holdout_kind,
+        )
+        print(
+            json.dumps(
+                {
+                    "accepted_as_point": report["accepted_as_point"],
+                    "holdout_kind": report["holdout_kind"],
+                    "closure_amplitudes": report["closure_amplitudes"],
+                    "notes": report["notes"],
+                },
+                indent=2,
+            )
+        )
+        if arguments.output is not None:
+            write_json(report, arguments.output)
+            print(arguments.output)
+        return 0
+    if arguments.command == "holography-calibration-golden-copy":
+        from sl1mjax.holography_calibration_golden import (
+            copy_golden_measurement_set,
+            select_golden_holoraster_rows,
+        )
+
+        scans = tuple(int(item) for item in arguments.scans.split(",") if item.strip())
+        rows = select_golden_holoraster_rows(
+            arguments.source,
+            scans=scans,
+            times_per_scan=arguments.times_per_scan,
+        )
+        destination = copy_golden_measurement_set(arguments.source, arguments.destination, rows)
+        print(destination)
+        print(f"n_rows={rows.size}")
+        return 0
+    if arguments.command == "holography-jones-gate":
+        from sl1mjax.holography_calibration import jones_recovery_gate, write_json
+
+        report = jones_recovery_gate()
+        print(json.dumps(report, indent=2))
+        if arguments.output is not None:
+            write_json(report, arguments.output)
+            print(arguments.output)
         return 0
     raise AssertionError(f"unhandled command {arguments.command}")
 
