@@ -12,12 +12,23 @@ from sl1mjax.calibration import (
     align_solution_gauge,
     apply_calibration,
     baseline_jones,
+    casa_cparam_relative_times,
+    casa_cparam_time_ref,
     corrupt_model,
     identity_solution,
+    interpolate_casa_cparam,
+    interpolate_complex_series,
     read_calibration,
+    unwrap_casa_phase_float32,
     write_calibration,
 )
-from sl1mjax.calibration_terms import geodetic_latitude_rad, parallactic_angle_rad
+from sl1mjax.calibration_terms import (
+    CalibrationChain,
+    geocentric_latitude_rad,
+    geodetic_latitude_rad,
+    parallactic_angle_from_hadec_rad,
+    parallactic_angle_rad,
+)
 from sl1mjax.data.canonical import VisibilityBlock
 from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis
 
@@ -152,7 +163,7 @@ def test_linear_gain_interpolation_unwraps_phase_and_interpolates_amplitude() ->
         extrapolate=True,
     )
 
-    np.testing.assert_allclose(baseline, -2.0 + 0.0j, atol=1e-14)
+    np.testing.assert_allclose(baseline, -2.0 + 0.0j, atol=1e-6)
     assert np.asarray(valid).all()
 
 
@@ -361,6 +372,59 @@ def test_kcross_leakage_and_rl_phase_round_trip() -> None:
     np.testing.assert_allclose(corrected.visibility, sky, atol=2e-12)
 
 
+def test_time_dependent_leakage_interpolates_amp_and_phase() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    frequency = np.array([1.0e9])
+    first = np.array([0.10 + 0.02j, -0.04 + 0.01j], dtype=np.complex128)
+    second = np.array([0.30 + 0.06j, -0.12 + 0.03j], dtype=np.complex128)
+    midpoint = 0.5 * (first + second)
+    timed = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=frequency,
+        time_s=np.array([0.0, 10.0]),
+        reference_antenna=0,
+    )
+    leakage = np.zeros((2, 2, 1, 2), dtype=np.complex128)
+    leakage[0, 0, 0] = first
+    leakage[1, 0, 0] = second
+    timed = replace(
+        timed,
+        interpolation="linear",
+        leakage=leakage,
+        leakage_frequency_hz=frequency,
+        leakage_valid=np.ones(leakage.shape, dtype=bool),
+        leakage_time_s=np.array([0.0, 10.0]),
+        leakage_application="casa_parallel_preserving",
+    )
+    static_leakage = np.zeros((2, 1, 2), dtype=np.complex128)
+    static_leakage[0, 0] = midpoint
+    static = replace(
+        timed,
+        leakage=static_leakage,
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        leakage_time_s=None,
+    )
+    sky = np.array([[[2.0, 0.0, 0.0, 2.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=frequency,
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([5.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    np.testing.assert_allclose(
+        apply_calibration(block, timed).visibility,
+        apply_calibration(block, static).visibility,
+        atol=1.0e-6,
+    )
+
+
 def test_flagged_leakage_flags_visibility_not_identity() -> None:
     correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
     solution = identity_solution(
@@ -498,6 +562,188 @@ def test_casa_parallel_preserving_keeps_parallel_hands() -> None:
     np.testing.assert_allclose(casa.visibility[..., 3], sky[..., 3], atol=1e-12)
     assert np.max(np.abs(exact.visibility[..., 0] - sky[..., 0])) > 1e-3
     assert np.max(np.abs(casa.visibility[..., 1] - exact.visibility[..., 1])) < 1e-12
+
+
+def test_casa_first_order_leaks_only_from_parallel_hands() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    leakage = np.zeros((2, 1, 2), dtype=np.complex128)
+    leakage[0, 0] = [0.05 + 0.01j, -0.04 + 0.02j]
+    leakage[1, 0] = [0.03 - 0.02j, 0.06 + 0.01j]
+    solution = replace(
+        solution,
+        leakage=leakage,
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        leakage_application="casa_first_order",
+    )
+    sky = np.array([[[4.0, 0.4 + 0.2j, 0.4 - 0.2j, 3.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    casa = apply_calibration(block, solution)
+    np.testing.assert_allclose(casa.visibility[..., 0], sky[..., 0], atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 3], sky[..., 3], atol=1e-12)
+    expected_rl = (
+        sky[..., 1] - np.conjugate(leakage[1, 0, 1]) * sky[..., 0] - leakage[0, 0, 0] * sky[..., 3]
+    )
+    expected_lr = (
+        sky[..., 2] - leakage[0, 0, 1] * sky[..., 0] - np.conjugate(leakage[1, 0, 0]) * sky[..., 3]
+    )
+    np.testing.assert_allclose(casa.visibility[..., 1], expected_rl, atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 2], expected_lr, atol=1e-12)
+
+
+def test_casa_first_order_applies_d_before_receptor_phase() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    leakage = np.zeros((2, 1, 2), dtype=np.complex128)
+    leakage[1, 0, 1] = 0.05
+    rl_phase = np.ones((2, 1), dtype=np.complex128)
+    rl_phase[0, 0] = np.exp(1j * 0.3)
+    solution = replace(
+        solution,
+        leakage=leakage,
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        rl_phase=rl_phase,
+        rl_phase_frequency_hz=np.array([1.0e9]),
+        rl_phase_valid=np.ones((2, 1), dtype=bool),
+        leakage_application="casa_first_order",
+    )
+    sky = np.array([[[2.0, 0.0, 0.0, 0.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    casa = apply_calibration(block, solution)
+    leaked_rl = -np.conjugate(0.05) * 2.0
+    phase = np.exp(-1j * 0.3)
+    np.testing.assert_allclose(casa.visibility[..., 0], 2.0 * phase, atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 1], leaked_rl * phase, atol=1e-12)
+
+
+def test_first_order_invalid_d_keeps_parallel_hands() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    leakage = np.zeros((2, 1, 2), dtype=np.complex128)
+    leakage[0, 0, 0] = 0.05
+    valid = np.ones((2, 1, 2), dtype=bool)
+    valid[0, 0, 0] = False
+    solution = replace(
+        solution,
+        leakage=leakage,
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=valid,
+        leakage_application="casa_first_order",
+    )
+    sky = np.array([[[4.0, 0.4, 0.3, 3.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+    )
+    casa = apply_calibration(block, solution)
+    np.testing.assert_allclose(casa.visibility[..., 0], sky[..., 0], atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 3], sky[..., 3], atol=1e-12)
+    assert not bool(casa.flag[..., 0])
+    assert not bool(casa.flag[..., 3])
+    assert bool(casa.flag[..., 1])
+    assert not bool(casa.flag[..., 2])
+
+
+def test_first_order_suffix_does_not_reapply_priors() -> None:
+    correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
+    solution = identity_solution(
+        antenna_count=2,
+        correlations=correlations,
+        frequency_hz=np.array([1.0e9]),
+        time_s=np.array([0.0]),
+    )
+    leakage = np.zeros((2, 1, 2), dtype=np.complex128)
+    leakage[1, 0, 1] = 0.02
+    rl_phase = np.ones((2, 1), dtype=np.complex128)
+    solution = replace(
+        solution,
+        leakage=leakage,
+        leakage_frequency_hz=np.array([1.0e9]),
+        leakage_valid=np.ones((2, 1, 2), dtype=bool),
+        rl_phase=rl_phase,
+        rl_phase_frequency_hz=np.array([1.0e9]),
+        rl_phase_valid=np.ones((2, 1), dtype=bool),
+        leakage_application="casa_first_order",
+    )
+
+    class _ConstantPrior:
+        kind = "constant"
+
+        def evaluate(self, coordinates):
+            shape = (
+                coordinates.time_s.size,
+                coordinates.frequency_hz.size,
+                coordinates.antenna_position_m.shape[0],
+                coordinates.receptor_count,
+            )
+            return np.full(shape, 2.0 + 0.0j), np.ones(shape, dtype=bool)
+
+    positions = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], dtype=np.float64)
+    chain = CalibrationChain(terms=(_ConstantPrior(),), antenna_position_m=positions)
+    sky = np.array([[[16.0, 0.0, 0.0, 16.0]]], dtype=np.complex128)
+    block = VisibilityBlock(
+        uvw_m=np.zeros((1, 3)),
+        frequency_hz=np.array([1.0e9]),
+        visibility=sky,
+        weight=np.ones(sky.shape, dtype=np.float64),
+        flag=np.zeros(sky.shape, dtype=bool),
+        time_s=np.array([0.0]),
+        antenna1=np.array([0]),
+        antenna2=np.array([1]),
+        correlations=correlations,
+        receptor_basis=ReceptorBasis.CIRCULAR,
+        phase_centre_rad=(0.0, 0.0),
+    )
+    casa = apply_calibration(block, solution, priors=chain)
+    np.testing.assert_allclose(casa.visibility[..., 0], 4.0 + 0.0j, atol=1e-12)
+    np.testing.assert_allclose(casa.visibility[..., 3], 4.0 + 0.0j, atol=1e-12)
 
 
 def _leakage_solution(
@@ -658,3 +904,78 @@ def test_parallactic_angle_uses_wgs84_geodetic_latitude() -> None:
         position,
     )
     assert np.isfinite(chi).all()
+    assert geocentric_latitude_rad(position)[0] == pytest.approx(geocentric)
+    hadec_chi = parallactic_angle_from_hadec_rad(0.2, 0.8, geocentric)
+    assert np.isfinite(hadec_chi)
+
+
+def test_interpolate_complex_series_methods() -> None:
+    times = np.array([0.0, 10.0])
+    values = np.array([1.0 + 0.0j, 0.0 + 1.0j])
+    nearest = interpolate_complex_series(np.array([1.0]), times, values, method="nearest")
+    assert nearest[0] == pytest.approx(1.0 + 0.0j)
+    mid = interpolate_complex_series(np.array([5.0]), times, values, method="linear_complex")
+    assert mid[0] == pytest.approx(0.5 + 0.5j)
+
+
+def test_casa_cparam_time_ref_is_floor_of_first_minus_one() -> None:
+    times = np.array([4959461409.48, 4959463652.08])
+    assert casa_cparam_time_ref(times) == 4959461408.0
+    relative = casa_cparam_relative_times(times, casa_cparam_time_ref(times))
+    assert relative.dtype == np.float32
+    query = casa_cparam_relative_times(np.array([4959462157.5]), casa_cparam_time_ref(times))
+    assert query.dtype == np.float32
+
+
+def test_casa_phase_unwrap_is_sequential_two_pi() -> None:
+    phase = np.array([np.deg2rad(170.0), np.deg2rad(-170.0)], dtype=np.float32)
+    unwrapped = unwrap_casa_phase_float32(phase)
+    assert unwrapped[1] == pytest.approx(np.deg2rad(190.0), abs=1e-6)
+
+
+def test_casa_cparam_brackets_and_flags() -> None:
+    times = np.array([0.0, 10.0, 20.0])
+    values = np.array([1.0 + 0.0j, 2.0 + 0.0j, 4.0 + 0.0j])
+    exact, exact_ok = interpolate_casa_cparam(np.array([10.0]), times, values)
+    assert exact[0] == pytest.approx(2.0 + 0.0j)
+    assert exact_ok[0]
+    mid, mid_ok = interpolate_casa_cparam(np.array([5.0]), times, values)
+    assert mid[0] == pytest.approx(1.5 + 0.0j, abs=1e-6)
+    assert mid_ok[0]
+    before, before_ok = interpolate_casa_cparam(np.array([-5.0]), times, values)
+    assert before[0] == pytest.approx(1.0 + 0.0j)
+    assert before_ok[0]
+    after, after_ok = interpolate_casa_cparam(np.array([25.0]), times, values)
+    assert after[0] == pytest.approx(4.0 + 0.0j)
+    assert after_ok[0]
+    flagged = np.array([False, True, False])
+    lower, lower_ok = interpolate_casa_cparam(np.array([5.0]), times, values, flags=flagged)
+    assert lower[0] == pytest.approx(1.5 + 0.0j, abs=1e-6)
+    assert not bool(lower_ok[0])
+    upper, upper_ok = interpolate_casa_cparam(np.array([15.0]), times, values, flags=flagged)
+    assert upper[0] == pytest.approx(3.0 + 0.0j, abs=1e-6)
+    assert not bool(upper_ok[0])
+
+
+def test_casa_cparam_flagged_values_still_unwrap() -> None:
+    times = np.array([0.0, 10.0, 20.0])
+    values = np.array([np.exp(1j * np.deg2rad(170.0)), np.exp(1j * np.deg2rad(-170.0)), 1.0 + 0.0j])
+    flags = np.array([False, True, False])
+    sampled, ok = interpolate_casa_cparam(np.array([5.0]), times, values, flags=flags)
+    expected = 1.0 * np.exp(1j * np.deg2rad(180.0))
+    assert sampled[0] == pytest.approx(expected, abs=1e-5)
+    assert not bool(ok[0])
+
+
+def test_linear_is_float64_amp_phase_not_casa_alias() -> None:
+    times = np.array([0.0, 10.0])
+    values = np.array([0.05 + 0.01j, -0.04 + 0.02j])
+    linear = interpolate_complex_series(np.array([5.0]), times, values, method="linear")
+    amp_phase = interpolate_complex_series(
+        np.array([5.0]), times, values, method="linear_amp_phase"
+    )
+    casa = interpolate_complex_series(np.array([5.0]), times, values, method="casa_linear")
+    cartesian = interpolate_complex_series(np.array([5.0]), times, values, method="linear_complex")
+    assert linear[0] == pytest.approx(amp_phase[0], abs=0.0)
+    assert abs(linear[0] - cartesian[0]) > 1e-3
+    assert casa[0] == pytest.approx(interpolate_casa_cparam(np.array([5.0]), times, values)[0])

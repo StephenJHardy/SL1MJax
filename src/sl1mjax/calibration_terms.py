@@ -24,9 +24,7 @@ class CalibrationCoordinates:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "time_s", np.asarray(self.time_s, dtype=np.float64))
-        object.__setattr__(
-            self, "frequency_hz", np.asarray(self.frequency_hz, dtype=np.float64)
-        )
+        object.__setattr__(self, "frequency_hz", np.asarray(self.frequency_hz, dtype=np.float64))
         object.__setattr__(
             self,
             "antenna_position_m",
@@ -34,10 +32,7 @@ class CalibrationCoordinates:
         )
         if self.time_s.ndim != 1 or self.frequency_hz.ndim != 1:
             raise ValueError("time and frequency coordinates must be one-dimensional")
-        if (
-            self.antenna_position_m.ndim != 2
-            or self.antenna_position_m.shape[1] != 3
-        ):
+        if self.antenna_position_m.ndim != 2 or self.antenna_position_m.shape[1] != 3:
             raise ValueError("antenna_position_m must have shape (antenna, 3)")
         if self.receptor_count < 1:
             raise ValueError("receptor_count must be positive")
@@ -52,9 +47,7 @@ class PriorJonesTerm(Protocol):
     @property
     def provenance(self) -> dict[str, Any]: ...
 
-    def evaluate(
-        self, coordinates: CalibrationCoordinates
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(self, coordinates: CalibrationCoordinates) -> tuple[np.ndarray, np.ndarray]:
         """Return Jones and validity with shape row, channel, antenna, receptor."""
 
 
@@ -86,6 +79,30 @@ def elevation_rad(coordinates: CalibrationCoordinates) -> np.ndarray:
 
 WGS84_A_M = 6378137.0
 WGS84_E2 = 6.69437999014e-3
+
+
+def geocentric_latitude_rad(antenna_position_m: np.ndarray) -> np.ndarray:
+    """Geocentric latitude from ECEF antenna positions, radians."""
+
+    position = np.asarray(antenna_position_m, dtype=np.float64)
+    if position.ndim != 2 or position.shape[1] != 3:
+        raise ValueError("antenna_position_m must have shape (antenna, 3)")
+    return np.arctan2(position[:, 2], np.hypot(position[:, 0], position[:, 1]))
+
+
+def parallactic_angle_from_hadec_rad(
+    hour_angle_rad: np.ndarray,
+    declination_rad: np.ndarray,
+    latitude_rad: np.ndarray,
+) -> np.ndarray:
+    """Alt-az parallactic angle from hour angle, declination, and latitude."""
+
+    ha = np.asarray(hour_angle_rad, dtype=np.float64)
+    dec = np.asarray(declination_rad, dtype=np.float64)
+    lat = np.asarray(latitude_rad, dtype=np.float64)
+    numerator = np.cos(lat) * np.sin(ha)
+    denominator = np.sin(lat) * np.cos(dec) - np.cos(lat) * np.sin(dec) * np.cos(ha)
+    return np.arctan2(numerator, denominator)
 
 
 def geodetic_latitude_rad(antenna_position_m: np.ndarray) -> np.ndarray:
@@ -130,10 +147,9 @@ def parallactic_angle_rad(
     right_ascension, declination = phase_centre_rad
     hour_angle = gmst[:, None] + longitude[None, :] - right_ascension
     numerator = np.cos(latitude)[None, :] * np.sin(hour_angle)
-    denominator = (
-        np.sin(latitude)[None, :] * np.cos(declination)
-        - np.cos(latitude)[None, :] * np.sin(declination) * np.cos(hour_angle)
-    )
+    denominator = np.sin(latitude)[None, :] * np.cos(declination) - np.cos(latitude)[
+        None, :
+    ] * np.sin(declination) * np.cos(hour_angle)
     return np.arctan2(numerator, denominator)
 
 
@@ -143,9 +159,7 @@ def airmass_from_elevation(
     """Plane-parallel airmass, optionally floored for non-CASA applications."""
 
     selected = np.maximum(elevation, minimum_elevation_rad)
-    return np.asarray(
-        1.0 / np.maximum(np.sin(selected), np.finfo(np.float64).tiny)
-    )
+    return np.asarray(1.0 / np.maximum(np.sin(selected), np.finfo(np.float64).tiny))
 
 
 def _spw_index(spectral_window_ids: np.ndarray, selected: int) -> int:
@@ -166,9 +180,7 @@ class GainCurveTerm:
     kind: str = field(default="gain_curve", init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "coefficients", np.asarray(self.coefficients, dtype=np.float64)
-        )
+        object.__setattr__(self, "coefficients", np.asarray(self.coefficients, dtype=np.float64))
         object.__setattr__(
             self,
             "spectral_window_ids",
@@ -182,9 +194,7 @@ class GainCurveTerm:
         if self.valid.shape != self.coefficients.shape[:-1]:
             raise ValueError("gain-curve validity must match antenna/spw/receptor")
 
-    def evaluate(
-        self, coordinates: CalibrationCoordinates
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(self, coordinates: CalibrationCoordinates) -> tuple[np.ndarray, np.ndarray]:
         index = _spw_index(self.spectral_window_ids, coordinates.spectral_window_id)
         coefficients = self.coefficients[:, index, :, :]
         if coefficients.shape[1] != coordinates.receptor_count:
@@ -204,9 +214,7 @@ class GainCurveTerm:
                 coefficients.shape[1],
             ),
         ).astype(np.complex128)
-        valid = np.broadcast_to(
-            self.valid[:, index, :][None, None, :, :], jones.shape
-        ).copy()
+        valid = np.broadcast_to(self.valid[:, index, :][None, None, :, :], jones.shape).copy()
         valid &= np.isfinite(jones) & (np.abs(jones) > 0)
         return jones, valid
 
@@ -236,9 +244,7 @@ class OpacityTerm:
         if self.valid.shape != self.zenith_opacity.shape:
             raise ValueError("opacity validity must match opacity values")
 
-    def evaluate(
-        self, coordinates: CalibrationCoordinates
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(self, coordinates: CalibrationCoordinates) -> tuple[np.ndarray, np.ndarray]:
         index = _spw_index(self.spectral_window_ids, coordinates.spectral_window_id)
         tau = self.zenith_opacity[:, index, :]
         if tau.shape[1] != coordinates.receptor_count:
@@ -256,12 +262,8 @@ class OpacityTerm:
                 tau.shape[1],
             ),
         ).astype(np.complex128)
-        valid = np.broadcast_to(
-            self.valid[:, index, :][None, None, :, :], jones.shape
-        ).copy()
-        valid &= np.broadcast_to(
-            (elevation > 0)[:, None, :, None], jones.shape
-        )
+        valid = np.broadcast_to(self.valid[:, index, :][None, None, :, :], jones.shape).copy()
+        valid &= np.broadcast_to((elevation > 0)[:, None, :, None], jones.shape)
         valid &= np.isfinite(jones)
         return jones, valid
 
@@ -296,16 +298,12 @@ class RequantizerTerm:
             if getattr(self, name).shape != (samples,):
                 raise ValueError(f"{name} must match the requantizer sample axis")
 
-    def evaluate(
-        self, coordinates: CalibrationCoordinates
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(self, coordinates: CalibrationCoordinates) -> tuple[np.ndarray, np.ndarray]:
         antennas = coordinates.antenna_position_m.shape[0]
         receptors = coordinates.receptor_count
         if self.gain.shape[1] != receptors:
             raise ValueError("requantizer receptors do not match visibility receptors")
-        output = np.ones(
-            (coordinates.time_s.size, antennas, receptors), dtype=np.float64
-        )
+        output = np.ones((coordinates.time_s.size, antennas, receptors), dtype=np.float64)
         validity = np.zeros(output.shape, dtype=bool)
         for antenna in range(antennas):
             selected = (self.antenna_id == antenna) & (
@@ -327,8 +325,7 @@ class RequantizerTerm:
             nearest = np.where(choose_left, left, right)
             output[:, antenna, :] = gains[nearest]
             domain = (intervals[nearest] <= 0) | (
-                np.abs(coordinates.time_s - times[nearest])
-                <= intervals[nearest] / 2
+                np.abs(coordinates.time_s - times[nearest]) <= intervals[nearest] / 2
             )
             validity[:, antenna, :] = valid[nearest] & domain[:, None]
         jones = np.broadcast_to(
@@ -360,9 +357,7 @@ class CalibrationChain:
                 raise ValueError("chain antenna positions must have shape (antenna, 3)")
             object.__setattr__(self, "antenna_position_m", position)
 
-    def evaluate(
-        self, coordinates: CalibrationCoordinates
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(self, coordinates: CalibrationCoordinates) -> tuple[np.ndarray, np.ndarray]:
         shape = (
             coordinates.time_s.size,
             coordinates.frequency_hz.size,
@@ -467,9 +462,7 @@ def import_casa_prior_table(
             for start in range(0, table.nrows(), chunk_rows):
                 count = min(chunk_rows, table.nrows() - start)
                 offset = (-start) % row_stride
-                chunk = np.asarray(
-                    table.getcol(name, startrow=start, nrow=count), dtype=dtype
-                )
+                chunk = np.asarray(table.getcol(name, startrow=start, nrow=count), dtype=dtype)
                 chunks.append(chunk[offset::row_stride])
             return np.concatenate(chunks)
 
@@ -484,9 +477,7 @@ def import_casa_prior_table(
     provenance = {"source": str(source.resolve()), "viscal": viscal, "role": "oracle"}
     if viscal == "EGainCurve":
         receptors = values.shape[-1] // 4
-        coefficients = np.ones(
-            (antennas, spectral_windows.size, receptors, 4), dtype=np.float64
-        )
+        coefficients = np.ones((antennas, spectral_windows.size, receptors, 4), dtype=np.float64)
         valid = np.zeros(coefficients.shape[:-1], dtype=bool)
         lookup = {value: index for index, value in enumerate(spectral_windows)}
         reshaped = values[:, 0, :].reshape(values.shape[0], receptors, 4)
@@ -654,6 +645,4 @@ def read_calibration_chain(path: str | Path) -> CalibrationChain:
                 )
             else:
                 raise ValueError(f"unsupported prior term {record['kind']!r}")
-    return CalibrationChain(
-        tuple(terms), positions, dict(manifest.get("provenance", {}))
-    )
+    return CalibrationChain(tuple(terms), positions, dict(manifest.get("provenance", {})))

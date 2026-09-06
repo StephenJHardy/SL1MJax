@@ -107,6 +107,7 @@ def polarization_terms_only(solution: CalibrationSolution) -> CalibrationSolutio
         leakage=solution.leakage,
         leakage_frequency_hz=solution.leakage_frequency_hz,
         leakage_valid=solution.leakage_valid,
+        leakage_time_s=solution.leakage_time_s,
         leakage_application=solution.leakage_application,
         rl_phase=solution.rl_phase,
         rl_phase_frequency_hz=solution.rl_phase_frequency_hz,
@@ -127,7 +128,14 @@ def unsupported_dterm_antennas(solution: CalibrationSolution) -> tuple[int, ...]
     if solution.leakage_valid is None:
         return ()
     valid = np.asarray(solution.leakage_valid, dtype=bool)
-    per_antenna = np.any(valid, axis=tuple(range(1, valid.ndim)))
+    if valid.ndim == 3:
+        per_antenna = np.any(valid, axis=(1, 2))
+    elif valid.ndim == 4:
+        per_antenna = np.any(valid, axis=(0, 2, 3))
+    else:
+        raise ValueError(
+            "leakage_valid must be (antenna, frequency, 2) or (time, antenna, frequency, 2)"
+        )
     return tuple(int(index) for index in np.flatnonzero(~per_antenna))
 
 
@@ -214,8 +222,7 @@ def validate_fullpol_ms_inventory(inventory: Mapping[str, Any]) -> tuple[str, ..
         correlations = [str(item) for item in polarizations[0].get("correlations", [])]
     if tuple(correlations) != tuple(item.value for item in REQUIRED_CORRELATIONS):
         failures.append(
-            f"correlation order {correlations} != "
-            f"{[item.value for item in REQUIRED_CORRELATIONS]}"
+            f"correlation order {correlations} != {[item.value for item in REQUIRED_CORRELATIONS]}"
         )
     windows = inventory.get("spectral_windows") or []
     if not windows:
@@ -315,9 +322,7 @@ def beam_comparison_mask(jax_block: VisibilityBlock) -> np.ndarray:
     return np.asarray(jax_block.active, dtype=bool)
 
 
-def casa_comparison_mask(
-    jax_block: VisibilityBlock, casa_block: VisibilityBlock
-) -> np.ndarray:
+def casa_comparison_mask(jax_block: VisibilityBlock, casa_block: VisibilityBlock) -> np.ndarray:
     """JAX-versus-CASA: intersection. Extra CASA flags stay out of the beam test."""
 
     require_aligned_visibility_rows(jax_block, casa_block)
@@ -434,9 +439,7 @@ def fullpol_phase6_folds(
 
     folds = phase6_folds(blocks)
     for index in range(len(blocks)):
-        require_row_locked_fold_masks(
-            folds.train[index], folds.holdout[index], folds.sealed[index]
-        )
+        require_row_locked_fold_masks(folds.train[index], folds.holdout[index], folds.sealed[index])
     prepared = tuple(blocks)
     if poison_sealed:
         prepared = poison_sealed_visibilities(prepared, folds.sealed)
@@ -523,9 +526,7 @@ def scalar_beam_selection_qualification(source: Path) -> dict[str, Any]:
             streamed.get("holdout_loss"), diagonal.get("holdout_loss")
         ),
         "lowest_kkt": "diagonal_copolar",
-        "kkt_means": (
-            "more stationary training solution, not a more accurate physical beam"
-        ),
+        "kkt_means": ("more stationary training solution, not a more accurate physical beam"),
         "scientific_preference_among_scalar_beams": "undecided",
         "freeze_reason": (
             "Diagonal and full Jones share the same co-polar CASSBEAM response. "
@@ -609,13 +610,10 @@ def require_polarisation_ancestor(directory: Path) -> tuple[Path, dict[str, Any]
     payload = json.loads(freeze_path.read_text(encoding="utf-8"))
     if payload.get("role") != POLARISATION_TEST_ANCESTOR_ROLE:
         raise ValueError(
-            f"freeze role is {payload.get('role')!r}, expected "
-            f"{POLARISATION_TEST_ANCESTOR_ROLE}"
+            f"freeze role is {payload.get('role')!r}, expected {POLARISATION_TEST_ANCESTOR_ROLE}"
         )
     if payload.get("not_final_cband_stokes_i") is not True:
-        raise ValueError(
-            "ancestor must be labelled not the final C-band Stokes-I reconstruction"
-        )
+        raise ValueError("ancestor must be labelled not the final C-band Stokes-I reconstruction")
     require_frozen_diagonal_checkpoint(directory)
     return directory, payload
 
@@ -707,9 +705,7 @@ def _pa_mosaic_bins(
         bin_masks = []
         for block, mask in zip(blocks, masks, strict=True):
             selected = np.asarray(mask, dtype=bool) & block.active
-            chi = parallactic_angle_rad(
-                block.time_s, block.phase_centre_rad, antenna_position_m
-            )
+            chi = parallactic_angle_rad(block.time_s, block.phase_centre_rad, antenna_position_m)
             if chi.ndim > 1:
                 chi = np.mean(chi, axis=tuple(range(1, chi.ndim)))
             row_ok = (chi >= low) & (chi < high)
@@ -1096,9 +1092,7 @@ def evaluate_three_c286_gate(floor: Mapping[str, Any]) -> dict[str, Any]:
         angle = float(np.rad2deg(float(floor["casaguide_angle_rad"])))
     failures: list[str] = []
     if abs(fraction - expected["fractional_linear"]) > THREE_C286_FRACTION_ABS:
-        failures.append(
-            f"Q/I,U/I fraction {fraction:.4f} != {expected['fractional_linear']:.3f}"
-        )
+        failures.append(f"Q/I,U/I fraction {fraction:.4f} != {expected['fractional_linear']:.3f}")
     if abs(((angle - expected["casaguide_angle_deg"] + 180.0) % 360.0) - 180.0) > (
         THREE_C286_ANGLE_ABS_DEG
     ):
@@ -1134,8 +1128,6 @@ def correlation_sample_report(
         vis = block.visibility[..., index]
         report[correlation.value] = {
             "active_samples": int(np.count_nonzero(hand)),
-            "median_abs": (
-                float(np.median(np.abs(vis[hand]))) if np.any(hand) else 0.0
-            ),
+            "median_abs": (float(np.median(np.abs(vis[hand]))) if np.any(hand) else 0.0),
         }
     return report
