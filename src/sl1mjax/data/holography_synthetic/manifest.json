@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "description": "Committed three-antenna holography pointing fixture. One reference antenna stays on axis. Antenna 1 samples a 3x3 Memo 195 dense grid at 1.72 arcmin. Antenna 2 samples a 2x2 sparse grid at 4.59 arcmin. One dense sample is missing and one sparse sample is an unsettled slew. The table preserves DIRECTION, TARGET, and POINTING_OFFSET.",
+  "source_ms": "synthetic://thol0001-memo195",
+  "phase_centre_rad": [1.4660765716752369, 0.8726646259971648],
+  "antennas": {
+    "0": "reference",
+    "1": "moving_dense",
+    "2": "moving_sparse"
+  },
+  "memo195": {
+    "dense_n": 17,
+    "dense_spacing_arcmin": 1.72,
+    "sparse_n": 23,
+    "sparse_spacing_arcmin": 4.59
+  },
+  "rime_case": "rime_case.json",
+  "source_model": "three_c147_source_model.json",
+  "metadata_fixture": "metadata_fixture.json"
+}

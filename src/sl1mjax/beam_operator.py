@@ -101,9 +101,7 @@ def unique_visibility_times(time_s: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     return np.unique(np.asarray(time_s, dtype=np.float64), return_inverse=True)
 
 
-def timestep_jones_bytes(
-    antenna_count: int, direction_count: int, channel_count: int
-) -> int:
+def timestep_jones_bytes(antenna_count: int, direction_count: int, channel_count: int) -> int:
     """Bytes for one complex128 Jones slice, including the 2×2 receptors."""
 
     if min(antenna_count, direction_count, channel_count) < 1:
@@ -125,8 +123,16 @@ def predict_voltage_beam(
     node_valid: ArrayLike | None = None,
     kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
     parent_index: ArrayLike | None = None,
+    antenna_pointing_lm_rad: ArrayLike | None = None,
+    pointing_valid: ArrayLike | None = None,
 ) -> BeamOperatorResult:
-    """Predict ``E_p C E_q^H`` visibilities, one exact unique time at a time."""
+    """Predict ``E_p C E_q^H`` visibilities, one exact unique time at a time.
+
+    ``antenna_pointing_lm_rad`` is the holography ``(time, antenna, 2)``
+    pointing displacement ``Δ``. It changes the beam argument only. The
+    Fourier kernel stays on the correlator phase-centre coordinates
+    ``(l, m)``. Do not store that array on ``BeamOperatorConfig``.
+    """
 
     selected = config or BeamOperatorConfig()
     state = require_beam_calibration_state(calibration_state)
@@ -138,6 +144,13 @@ def predict_voltage_beam(
     positions = _require_antenna_positions(antenna_position_m, block)
     _require_circular_block(block)
     unique_times, row_time_index = unique_visibility_times(block.time_s)
+    pointing_offsets, pointing_ok = _prepare_antenna_pointing(
+        antenna_pointing_lm_rad,
+        pointing_valid,
+        n_time=int(unique_times.size),
+        n_antenna=int(block.antenna_count),
+        config_offset=selected.pointing_offset_lm_rad,
+    )
     plane_count = _antenna_plane_count(beam, block.antenna_count)
     batch_antennas = _can_batch_antenna_planes(
         selected,
@@ -154,8 +167,16 @@ def predict_voltage_beam(
     antennas = np.arange(block.antenna_count, dtype=np.int32)
     for time_index, time_s in enumerate(unique_times):
         selected_rows = np.flatnonzero(row_time_index == time_index)
+        selected_rows = _rows_with_valid_pointing(selected_rows, block, time_index, pointing_ok)
+        if selected_rows.size == 0:
+            continue
+        time_offsets = (
+            selected.pointing_offset_lm_rad
+            if pointing_offsets is None
+            else pointing_offsets[time_index]
+        )
         if batch_antennas:
-            evaluation, _parallactic = _evaluate_timestep(
+            evaluation, _parallactic = _evaluate_timestep_antennas(
                 block,
                 l,
                 m,
@@ -164,7 +185,7 @@ def predict_voltage_beam(
                 antenna_id=antennas,
                 antenna_position_m=positions,
                 calibration_state=state,
-                pointing_offset_lm_rad=selected.pointing_offset_lm_rad,
+                pointing_offset_lm_rad=time_offsets,
             )
             last = evaluation
             if selected.policy is BeamOperatorPolicy.MATERIALIZE:
@@ -206,6 +227,7 @@ def predict_voltage_beam(
                 approximation=approximation,
                 parent_index=parent_ids,
                 parent_prediction=parent_prediction,
+                pointing_offset_lm_rad=time_offsets,
             )
         if selected.policy is BeamOperatorPolicy.STREAM:
             last = None
@@ -241,6 +263,8 @@ def adjoint_voltage_beam(
     width_rad: ArrayLike | None = None,
     node_valid: ArrayLike | None = None,
     kernel_approximation: GaussianApproximation | str = GaussianApproximation.WIDE_FIELD,
+    antenna_pointing_lm_rad: ArrayLike | None = None,
+    pointing_valid: ArrayLike | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return the real Stokes adjoint ``Re(Aᴴ residual)`` for a fixed beam.
 
@@ -263,6 +287,13 @@ def adjoint_voltage_beam(
     positions = _require_antenna_positions(antenna_position_m, block)
     _require_circular_block(block)
     unique_times, row_time_index = unique_visibility_times(block.time_s)
+    pointing_offsets, pointing_ok = _prepare_antenna_pointing(
+        antenna_pointing_lm_rad,
+        pointing_valid,
+        n_time=int(unique_times.size),
+        n_antenna=int(block.antenna_count),
+        config_offset=selected.pointing_offset_lm_rad,
+    )
     plane_count = _antenna_plane_count(beam, block.antenna_count)
     batch_antennas = _can_batch_antenna_planes(
         selected,
@@ -275,8 +306,16 @@ def adjoint_voltage_beam(
     antennas = np.arange(block.antenna_count, dtype=np.int32)
     for time_index, time_s in enumerate(unique_times):
         selected_rows = np.flatnonzero(row_time_index == time_index)
+        selected_rows = _rows_with_valid_pointing(selected_rows, block, time_index, pointing_ok)
+        if selected_rows.size == 0:
+            continue
+        time_offsets = (
+            selected.pointing_offset_lm_rad
+            if pointing_offsets is None
+            else pointing_offsets[time_index]
+        )
         if batch_antennas:
-            evaluation, _parallactic = _evaluate_timestep(
+            evaluation, _parallactic = _evaluate_timestep_antennas(
                 block,
                 l,
                 m,
@@ -285,7 +324,7 @@ def adjoint_voltage_beam(
                 antenna_id=antennas,
                 antenna_position_m=positions,
                 calibration_state=state,
-                pointing_offset_lm_rad=selected.pointing_offset_lm_rad,
+                pointing_offset_lm_rad=time_offsets,
             )
             _accumulate_timestep_adjoint(
                 gradient,
@@ -316,8 +355,157 @@ def adjoint_voltage_beam(
                 width=width,
                 node_valid=valid_nodes,
                 approximation=approximation,
+                pointing_offset_lm_rad=time_offsets,
             )
     return _stokes_from_coherency_gradient(gradient)
+
+
+def _prepare_antenna_pointing(
+    antenna_pointing_lm_rad: ArrayLike | None,
+    pointing_valid: ArrayLike | None,
+    *,
+    n_time: int,
+    n_antenna: int,
+    config_offset: tuple[float, float] | None,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """Return ``(time, antenna, 2)`` offsets or ``None`` for the shared mosaic path."""
+
+    if antenna_pointing_lm_rad is None:
+        if pointing_valid is not None:
+            raise ValueError("pointing_valid requires antenna_pointing_lm_rad")
+        return None, None
+    if config_offset is not None:
+        raise ValueError(
+            "do not pass both BeamOperatorConfig.pointing_offset_lm_rad and antenna_pointing_lm_rad"
+        )
+    offsets = np.asarray(antenna_pointing_lm_rad, dtype=np.float64)
+    if offsets.shape != (n_time, n_antenna, 2):
+        raise ValueError("antenna_pointing_lm_rad must have shape (unique_time, antenna, 2)")
+    if pointing_valid is None:
+        valid = np.isfinite(offsets).all(axis=-1)
+    else:
+        valid = np.asarray(pointing_valid, dtype=bool)
+        if valid.shape != (n_time, n_antenna):
+            raise ValueError("pointing_valid must have shape (unique_time, antenna)")
+    return offsets, valid
+
+
+def _rows_with_valid_pointing(
+    selected_rows: np.ndarray,
+    block: VisibilityBlock,
+    time_index: int,
+    pointing_ok: np.ndarray | None,
+) -> np.ndarray:
+    if pointing_ok is None or selected_rows.size == 0:
+        return selected_rows
+    keep = (
+        pointing_ok[time_index, block.antenna1[selected_rows]]
+        & pointing_ok[time_index, block.antenna2[selected_rows]]
+    )
+    return selected_rows[keep]
+
+
+def _offset_for_one_antenna(
+    pointing_offset_lm_rad: np.ndarray | tuple[float, float] | None,
+    antenna: int,
+    config_offset: tuple[float, float] | None,
+) -> tuple[float, float] | None:
+    if pointing_offset_lm_rad is None:
+        return config_offset
+    array = np.asarray(pointing_offset_lm_rad, dtype=np.float64)
+    if array.shape == (2,):
+        return (float(array[0]), float(array[1]))
+    if array.ndim == 2 and array.shape[-1] == 2:
+        offset = array[antenna]
+        if not np.all(np.isfinite(offset)):
+            return None
+        return (float(offset[0]), float(offset[1]))
+    raise ValueError("pointing_offset_lm_rad must be shape (2,) or (antenna, 2)")
+
+
+def _shared_pointing_tuple(
+    pointing_offset_lm_rad: np.ndarray | tuple[float, float] | None,
+) -> tuple[float, float] | None:
+    if pointing_offset_lm_rad is None:
+        return None
+    array = np.asarray(pointing_offset_lm_rad, dtype=np.float64)
+    if array.shape == (2,):
+        return (float(array[0]), float(array[1]))
+    if array.ndim == 2 and array.shape[1] == 2 and np.allclose(array, array[0]):
+        return (float(array[0, 0]), float(array[0, 1]))
+    return None
+
+
+def _evaluate_timestep_antennas(
+    block: VisibilityBlock,
+    l: np.ndarray,
+    m: np.ndarray,
+    time_s: float,
+    *,
+    beam: VoltageBeamModel,
+    antenna_id: np.ndarray,
+    antenna_position_m: np.ndarray,
+    calibration_state: BeamCalibrationState,
+    pointing_offset_lm_rad: np.ndarray | tuple[float, float] | None,
+) -> tuple[BeamEvaluation, np.ndarray]:
+    """Evaluate Jones at one time, allowing a different pointing per antenna."""
+
+    shared = _shared_pointing_tuple(pointing_offset_lm_rad)
+    if shared is not None or pointing_offset_lm_rad is None:
+        return _evaluate_timestep(
+            block,
+            l,
+            m,
+            time_s,
+            beam=beam,
+            antenna_id=antenna_id,
+            antenna_position_m=antenna_position_m,
+            calibration_state=calibration_state,
+            pointing_offset_lm_rad=shared,
+        )
+    offsets = np.asarray(pointing_offset_lm_rad, dtype=np.float64)
+    if offsets.shape != (antenna_id.size, 2):
+        raise ValueError("per-antenna pointing must have shape (antenna, 2)")
+    jones = []
+    valid = []
+    leakage = []
+    provenance: dict[str, object] = {}
+    parallactic = None
+    for index, antenna in enumerate(antenna_id):
+        offset = offsets[index]
+        finite = bool(np.all(np.isfinite(offset)))
+        evaluation, parallactic = _evaluate_timestep(
+            block,
+            l,
+            m,
+            time_s,
+            beam=beam,
+            antenna_id=np.asarray([antenna], dtype=np.int32),
+            antenna_position_m=antenna_position_m,
+            calibration_state=calibration_state,
+            pointing_offset_lm_rad=(float(offset[0]), float(offset[1])) if finite else None,
+        )
+        plane = evaluation.jones[0]
+        plane_valid = np.array(evaluation.valid[0], copy=True)
+        plane_off = np.array(_require_off_diagonal(evaluation)[0], copy=True)
+        if not finite:
+            plane_valid[...] = False
+            plane_off[...] = False
+        jones.append(plane)
+        valid.append(plane_valid)
+        leakage.append(plane_off)
+        provenance = dict(evaluation.provenance)
+    if parallactic is None:
+        raise ValueError("timestep has no antennas")
+    return (
+        BeamEvaluation(
+            jones=np.stack(jones, axis=0),
+            valid=np.stack(valid, axis=0),
+            provenance=provenance,
+            off_diagonal_valid=np.stack(leakage, axis=0),
+        ),
+        parallactic,
+    )
 
 
 def _evaluate_timestep(
@@ -367,9 +555,7 @@ def _accumulate_timestep(
     parent_index: np.ndarray | None = None,
     parent_prediction: np.ndarray | None = None,
 ) -> None:
-    jones, valid_jones, off_jones = _aligned_antenna_jones(
-        evaluation, block.antenna_count
-    )
+    jones, valid_jones, off_jones = _aligned_antenna_jones(evaluation, block.antenna_count)
     _accumulate_from_planes(
         prediction,
         valid,
@@ -413,12 +599,11 @@ def _accumulate_timestep_streamed_antennas(
     approximation: GaussianApproximation,
     parent_index: np.ndarray | None = None,
     parent_prediction: np.ndarray | None = None,
+    pointing_offset_lm_rad: np.ndarray | tuple[float, float] | None = None,
 ) -> BeamEvaluation:
     last: BeamEvaluation | None = None
     pairs = np.unique(
-        np.stack(
-            (block.antenna1[selected_rows], block.antenna2[selected_rows]), axis=1
-        ),
+        np.stack((block.antenna1[selected_rows], block.antenna2[selected_rows]), axis=1),
         axis=0,
     )
     for antenna_p, antenna_q in pairs:
@@ -431,7 +616,9 @@ def _accumulate_timestep_streamed_antennas(
             antenna_id=np.asarray([antenna_p], dtype=np.int32),
             antenna_position_m=antenna_position_m,
             calibration_state=calibration_state,
-            pointing_offset_lm_rad=config.pointing_offset_lm_rad,
+            pointing_offset_lm_rad=_offset_for_one_antenna(
+                pointing_offset_lm_rad, int(antenna_p), config.pointing_offset_lm_rad
+            ),
         )
         last = evaluation_p
         if antenna_q == antenna_p:
@@ -446,7 +633,9 @@ def _accumulate_timestep_streamed_antennas(
                 antenna_id=np.asarray([antenna_q], dtype=np.int32),
                 antenna_position_m=antenna_position_m,
                 calibration_state=calibration_state,
-                pointing_offset_lm_rad=config.pointing_offset_lm_rad,
+                pointing_offset_lm_rad=_offset_for_one_antenna(
+                    pointing_offset_lm_rad, int(antenna_q), config.pointing_offset_lm_rad
+                ),
             )
             last = evaluation_q
         pair_rows = selected_rows[
@@ -526,10 +715,8 @@ def _accumulate_from_planes(
         else:
             for row in selected_rows:
                 pix_ok, pix_off = _pixel_support(
-                    valid_jones[antenna1[row], :, channel]
-                    & valid_jones[antenna2[row], :, channel],
-                    off_jones[antenna1[row], :, channel]
-                    & off_jones[antenna2[row], :, channel],
+                    valid_jones[antenna1[row], :, channel] & valid_jones[antenna2[row], :, channel],
+                    off_jones[antenna1[row], :, channel] & off_jones[antenna2[row], :, channel],
                     node_valid,
                 )
                 valid[row, channel] |= bool(np.any(pix_ok))
@@ -620,9 +807,7 @@ def _accumulate_timestep_adjoint(
     node_valid: np.ndarray,
     approximation: GaussianApproximation,
 ) -> None:
-    jones, valid_jones, off_jones = _aligned_antenna_jones(
-        evaluation, block.antenna_count
-    )
+    jones, valid_jones, off_jones = _aligned_antenna_jones(evaluation, block.antenna_count)
     _accumulate_adjoint_from_planes(
         gradient,
         residual,
@@ -658,11 +843,10 @@ def _accumulate_timestep_adjoint_streamed_antennas(
     width: np.ndarray | None,
     node_valid: np.ndarray,
     approximation: GaussianApproximation,
+    pointing_offset_lm_rad: np.ndarray | tuple[float, float] | None = None,
 ) -> None:
     pairs = np.unique(
-        np.stack(
-            (block.antenna1[selected_rows], block.antenna2[selected_rows]), axis=1
-        ),
+        np.stack((block.antenna1[selected_rows], block.antenna2[selected_rows]), axis=1),
         axis=0,
     )
     for antenna_p, antenna_q in pairs:
@@ -675,7 +859,9 @@ def _accumulate_timestep_adjoint_streamed_antennas(
             antenna_id=np.asarray([antenna_p], dtype=np.int32),
             antenna_position_m=antenna_position_m,
             calibration_state=calibration_state,
-            pointing_offset_lm_rad=config.pointing_offset_lm_rad,
+            pointing_offset_lm_rad=_offset_for_one_antenna(
+                pointing_offset_lm_rad, int(antenna_p), config.pointing_offset_lm_rad
+            ),
         )
         evaluation_q = evaluation_p
         if antenna_q != antenna_p:
@@ -688,7 +874,9 @@ def _accumulate_timestep_adjoint_streamed_antennas(
                 antenna_id=np.asarray([antenna_q], dtype=np.int32),
                 antenna_position_m=antenna_position_m,
                 calibration_state=calibration_state,
-                pointing_offset_lm_rad=config.pointing_offset_lm_rad,
+                pointing_offset_lm_rad=_offset_for_one_antenna(
+                    pointing_offset_lm_rad, int(antenna_q), config.pointing_offset_lm_rad
+                ),
             )
         pair_rows = selected_rows[
             (block.antenna1[selected_rows] == antenna_p)
@@ -744,9 +932,7 @@ def _accumulate_adjoint_from_planes(
     node_valid: np.ndarray,
     approximation: GaussianApproximation,
 ) -> None:
-    packed_residual = pack_coherency(
-        residual[selected_rows], block.correlations, JONES_RECEPTORS
-    )
+    packed_residual = pack_coherency(residual[selected_rows], block.correlations, JONES_RECEPTORS)
     for row_start in range(0, selected_rows.size, config.visibility_chunk_size):
         row_stop = min(row_start + config.visibility_chunk_size, selected_rows.size)
         local = slice(row_start, row_stop)
@@ -787,9 +973,7 @@ def _accumulate_adjoint_from_planes(
                         & off_jones[antenna2[row], pixels, channel],
                         node_valid[pixels],
                     )
-                    left = np.conjugate(
-                        np.swapaxes(jones[antenna1[row], pixels, channel], -1, -2)
-                    )
+                    left = np.conjugate(np.swapaxes(jones[antenna1[row], pixels, channel], -1, -2))
                     right = jones[antenna2[row], pixels, channel]
                     row_pull = (
                         np.conjugate(kernel[local_row])[:, None, None]
@@ -840,9 +1024,7 @@ def _aligned_antenna_jones(
     if jones.shape[0] == 1:
         return jones, valid, off_valid
     if jones.shape[0] != antenna_count:
-        raise ValueError(
-            "beam antenna axis must be 1 or match the block antenna count"
-        )
+        raise ValueError("beam antenna axis must be 1 or match the block antenna count")
     return jones, valid, off_valid
 
 
@@ -925,8 +1107,7 @@ def _plane(
         array = np.broadcast_to(array[:, None], (direction_count, channel_count))
     elif array.shape != (direction_count, channel_count):
         raise ValueError(
-            f"{name} must have shape ({direction_count},) or "
-            f"({direction_count}, {channel_count})"
+            f"{name} must have shape ({direction_count},) or ({direction_count}, {channel_count})"
         )
     if not np.all(np.isfinite(array)):
         raise ValueError(f"{name} must be finite")
@@ -935,10 +1116,14 @@ def _plane(
 
 def _delta_kernel(uvw_wavelengths: np.ndarray, l: np.ndarray, m: np.ndarray) -> np.ndarray:
     n = np.sqrt(np.maximum(1.0 - l * l - m * m, 0.0))
-    phase = 2j * np.pi * (
-        uvw_wavelengths[:, 0, None] * l[None, :]
-        + uvw_wavelengths[:, 1, None] * m[None, :]
-        + uvw_wavelengths[:, 2, None] * (n[None, :] - 1.0)
+    phase = (
+        2j
+        * np.pi
+        * (
+            uvw_wavelengths[:, 0, None] * l[None, :]
+            + uvw_wavelengths[:, 1, None] * m[None, :]
+            + uvw_wavelengths[:, 2, None] * (n[None, :] - 1.0)
+        )
     )
     return np.asarray(np.exp(phase), dtype=np.complex128)
 
@@ -1021,9 +1206,7 @@ def _prepare_parent_split(
     if np.any(parent_ids < 0):
         raise ValueError("parent_index must be non-negative")
     n_parent = int(np.max(parent_ids) + 1)
-    parent_prediction = np.zeros(
-        (n_parent, *block.visibility.shape), dtype=np.complex128
-    )
+    parent_prediction = np.zeros((n_parent, *block.visibility.shape), dtype=np.complex128)
     return parent_ids, parent_prediction
 
 
@@ -1045,15 +1228,11 @@ def _accumulate_visibility(
     if kernel.ndim == 1:
         for parent in np.unique(parents):
             selected = parents == parent
-            parent_prediction[int(parent), rows, channel] += (
-                kernel[selected] @ packed[selected]
-            )
+            parent_prediction[int(parent), rows, channel] += kernel[selected] @ packed[selected]
         return
     for parent in np.unique(parents):
         selected = parents == parent
-        parent_prediction[int(parent), rows, channel] += (
-            kernel[:, selected] @ packed[selected]
-        )
+        parent_prediction[int(parent), rows, channel] += kernel[:, selected] @ packed[selected]
 
 
 def _stokes_from_coherency_gradient(
@@ -1115,16 +1294,14 @@ def _operator_provenance(
         "receptors": [receptor.value for receptor in JONES_RECEPTORS],
         "parallactic_angle": "calibration_terms.parallactic_angle_rad",
         "parallactic_angle_rad_shape": list(
-            parallactic_angle_rad(
-                unique_times, block.phase_centre_rad, antenna_position_m
-            ).shape
+            parallactic_angle_rad(unique_times, block.phase_centre_rad, antenna_position_m).shape
         ),
         "antenna_position_m_shape": list(antenna_position_m.shape),
         "pointing_offset_lm_rad": (
-            None
-            if config.pointing_offset_lm_rad is None
-            else list(config.pointing_offset_lm_rad)
+            None if config.pointing_offset_lm_rad is None else list(config.pointing_offset_lm_rad)
         ),
+        "antenna_pointing": "optional (unique_time, antenna, 2) measurement argument",
+        "fourier_coordinates": "correlator phase centre; pointing changes E only",
         "visibility_chunk_size": config.visibility_chunk_size,
         "pixel_chunk_size": config.pixel_chunk_size,
         "creates_cache": False,

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "name": "3C147",
+  "kind": "point",
+  "standard": "Perley-Butler 2017",
+  "citation": "Perley & Butler 2017, ApJS 230, 7, Table 5",
+  "coefficients": [1.4516, -0.6961, -0.2007, 0.064, -0.0464, 0.0289],
+  "frequency_support_hz": [50000000.0, 50000000000.0],
+  "notes": [
+    "3C147 is known or suspected variable on multi-year timescales",
+    "Point model; test baseline dependence before assigning structure to the beam",
+    "Circular coherency uses the software I,Q,U,V packing, not I/2",
+    "Table 5 evaluates to 8.290006 Jy at 4.564 GHz; CASA setjy 3C147_C.im wrote MODEL_DATA 8.028518676757812 Jy at SPW 4 channel 32"
+  ]
+}

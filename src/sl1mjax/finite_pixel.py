@@ -53,6 +53,8 @@ class IntegrationParentPolicy(StrEnum):
 
     ALL_ACTIVE = "all_active"
     POSITIVE_FLUX = "positive_flux"
+
+
 MODE_DEPTH = {
     VoltageIntegrationMode.POINT_CENTRE: 0,
     VoltageIntegrationMode.ANALYTIC_SQUARE: 0,
@@ -126,9 +128,7 @@ class IntegrationPlan:
         flux = values[self.parent_index] * self.weight
         return np.where(self.node_valid, flux, 0.0)
 
-    def reduce_node_gradient(
-        self, node_gradient: ArrayLike
-    ) -> NDArray[np.float64]:
+    def reduce_node_gradient(self, node_gradient: ArrayLike) -> NDArray[np.float64]:
         """Scatter node derivatives back onto fitted parents."""
 
         values = np.asarray(node_gradient, dtype=np.float64)
@@ -221,7 +221,7 @@ class ManufacturedVoltageBeam:
         if self.rotate_parallactic:
             chi = np.asarray(coordinates.parallactic_angle_rad, dtype=np.float64)
             if chi.size == 1:
-                chi = np.full(1, float(chi))
+                chi = np.full(1, float(np.reshape(chi, -1)[0]))
             rotated = []
             for angle in chi.reshape(-1):
                 rotated.append(_apply_circular_p(plane, float(angle), state))
@@ -238,9 +238,7 @@ class ManufacturedVoltageBeam:
             valid &= inside[None, :, None]
         leakage = valid if self.off_diagonal_valid else np.zeros_like(valid)
         if self.off_diagonal_radius_rad is not None:
-            leak_inside = (l_rad * l_rad + m_rad * m_rad) <= (
-                self.off_diagonal_radius_rad**2
-            )
+            leak_inside = (l_rad * l_rad + m_rad * m_rad) <= (self.off_diagonal_radius_rad**2)
             leakage = leakage & leak_inside[None, :, None]
         return BeamEvaluation(
             jones=jones,
@@ -296,9 +294,7 @@ def choose_node_capacity(node_count: int, capacity: int | None = None) -> int:
     for size in NODE_BUCKET_SIZES:
         if size >= node_count:
             return size
-    raise ValueError(
-        f"node count {node_count} exceeds the largest bucket {NODE_BUCKET_SIZES[-1]}"
-    )
+    raise ValueError(f"node count {node_count} exceeds the largest bucket {NODE_BUCKET_SIZES[-1]}")
 
 
 def integration_plan_from_table(
@@ -354,9 +350,7 @@ def integration_plan_from_table(
             SkyBasisType.DELTA,
             SkyBasisType.UNIFORM_SQUARE,
         }:
-            raise ValueError(
-                f"unsupported sky basis {component.basis_type.value!r}"
-            )
+            raise ValueError(f"unsupported sky basis {component.basis_type.value!r}")
         use_delta = (
             selected_mode is VoltageIntegrationMode.POINT_CENTRE
             or component.basis_type is SkyBasisType.DELTA
@@ -414,9 +408,7 @@ def pad_integration_plan(
     extra = selected - plan.node_count
     valid = plan.node_valid
     return IntegrationPlan(
-        parent_index=np.concatenate(
-            (plan.parent_index[valid], np.zeros(extra, dtype=np.int32))
-        ),
+        parent_index=np.concatenate((plan.parent_index[valid], np.zeros(extra, dtype=np.int32))),
         l_rad=np.concatenate((plan.l_rad[valid], np.zeros(extra))),
         m_rad=np.concatenate((plan.m_rad[valid], np.zeros(extra))),
         width_rad=np.concatenate((plan.width_rad[valid], np.zeros(extra))),
@@ -443,6 +435,8 @@ def predict_voltage_from_plan(
     config: BeamOperatorConfig | None = None,
     backend: str = "numpy",
     split_parents: bool = False,
+    antenna_pointing_lm_rad: ArrayLike | None = None,
+    pointing_valid: ArrayLike | None = None,
 ) -> BeamOperatorResult:
     """Predict visibilities from fitted parent fluxes and a frozen plan."""
 
@@ -460,6 +454,8 @@ def predict_voltage_from_plan(
         width_rad=plan.width_rad,
         node_valid=plan.node_valid,
         kernel_approximation=plan.approximation,
+        antenna_pointing_lm_rad=antenna_pointing_lm_rad,
+        pointing_valid=pointing_valid,
     )
     if split_parents:
         if backend != "numpy":
@@ -484,6 +480,8 @@ def adjoint_voltage_from_plan(
     calibration_state: BeamCalibrationState | str,
     config: BeamOperatorConfig | None = None,
     backend: str = "numpy",
+    antenna_pointing_lm_rad: ArrayLike | None = None,
+    pointing_valid: ArrayLike | None = None,
 ) -> NDArray[np.float64]:
     """Return the Stokes-I adjoint reduced onto fitted parents."""
 
@@ -511,6 +509,8 @@ def adjoint_voltage_from_plan(
                     parent_index=plan.parent_index,
                     node_weight=plan.weight,
                     parent_count=plan.parent_count,
+                    antenna_pointing_lm_rad=antenna_pointing_lm_rad,
+                    pointing_valid=pointing_valid,
                 ),
                 dtype=np.float64,
             ),
@@ -529,6 +529,8 @@ def adjoint_voltage_from_plan(
         width_rad=plan.width_rad,
         node_valid=plan.node_valid,
         kernel_approximation=plan.approximation,
+        antenna_pointing_lm_rad=antenna_pointing_lm_rad,
+        pointing_valid=pointing_valid,
     )
     return plan.reduce_node_gradient(stokes_i)
 
@@ -544,6 +546,8 @@ def predict_voltage_from_plan_value_and_grad(
     config: BeamOperatorConfig | None = None,
     train_mask: Any = None,
     operator_mode: str = "vjp",
+    antenna_pointing_lm_rad: Any = None,
+    pointing_valid: Any = None,
 ) -> tuple[Array, Array]:
     """Stokes-I value and parent gradient for a frozen JAX integration plan.
 
@@ -566,6 +570,8 @@ def predict_voltage_from_plan_value_and_grad(
             calibration_state=calibration_state,
             config=config,
             train_mask=train_mask,
+            antenna_pointing_lm_rad=antenna_pointing_lm_rad,
+            pointing_valid=pointing_valid,
         )
     if operator_mode != "vjp":
         raise ValueError("operator_mode must be 'vjp' or 'explicit_jax'")
@@ -578,6 +584,8 @@ def predict_voltage_from_plan_value_and_grad(
         calibration_state=calibration_state,
         config=config,
         train_mask=train_mask,
+        antenna_pointing_lm_rad=antenna_pointing_lm_rad,
+        pointing_valid=pointing_valid,
     )
 
 
@@ -615,9 +623,7 @@ def _reject_weight_drift(plan: IntegrationPlan) -> None:
         selected = plan.node_valid & (plan.parent_index == parent)
         total = float(plan.weight[selected].sum())
         if abs(total - 1.0) > 1.0e-12:
-            raise ValueError(
-                f"parent {plan.parent_id[parent]} node weights sum to {total}"
-            )
+            raise ValueError(f"parent {plan.parent_id[parent]} node weights sum to {total}")
 
 
 def _coefficient(value: np.ndarray | None) -> np.ndarray:

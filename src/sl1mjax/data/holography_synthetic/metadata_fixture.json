@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "source_name": "3C147",
+  "phase_centre_rad": [1.4660765716752369, 0.8726646259971648],
+  "unique_time_s": [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0],
+  "antenna_names": ["ea01", "ea02", "ea03"],
+  "antenna_position_m": [
+    [-1601162.0, -5042003.0, 3553983.0],
+    [-1601100.0, -5042100.0, 3553900.0],
+    [-1601200.0, -5042190.0, 3554000.0]
+  ],
+  "state_labels": ["reference_on_axis", "dense_raster", "sparse_raster", "slew"],
+  "pointing_table": "pointing_table.json",
+  "notes": [
+    "Metadata-only fixture: POINTING, FIELD, STATE, and ANTENNA. No visibilities.",
+    "Replace with a tiny extract from THOL0001 when the archive arrives."
+  ]
+}

@@ -35,6 +35,7 @@ NVSS_TOTAL_SQUINT_FWHM_FRACTION = 0.055
 
 ON_AXIS_DI_JONES_ORDER = "GKB Kcross D X P"
 CIRCULAR_P_JONES = "diag(exp(-i chi), exp(+i chi))"
+RESIDUAL_JONES_SKY_FRAME = "P^H (I+eps) P"
 CIRCULAR_STOKES = "RR=I+V, LL=I-V, RL=Q+iU, LR=Q-iU"
 JONES_RECEPTOR_ORDER = (Receptor.R, Receptor.L)
 ANALYTIC_SQUINT_RECEPTOR_HALF_OFFSET_FWHM = VLA_SQUINT_FWHM_FRACTION
@@ -534,9 +535,7 @@ def select_perley2016_cband_window(
 def nearest_perley2016_cband_window(frequency_hz: float) -> Perley2016CBandWindow:
     """CASA-parity nearest-window selection inside the Table 5 band."""
 
-    return select_perley2016_cband_window(
-        frequency_hz, policy=PerleyFrequencyPolicy.CASA_NEAREST
-    )
+    return select_perley2016_cband_window(frequency_hz, policy=PerleyFrequencyPolicy.CASA_NEAREST)
 
 
 def gaussian_fwhm_rad(frequency_hz: ArrayLike) -> NDArray[np.float64]:
@@ -569,9 +568,7 @@ def squint_receptor_half_offset_rad(
     """Return the evidence-grade receptor half-offset, or refuse."""
 
     if policy is SquintMagnitudePolicy.LEGACY_ANALYTIC_HALF_OFFSET:
-        raise ValueError(
-            "legacy analytic half-offset is not evidence-grade; refuse to enable it"
-        )
+        raise ValueError("legacy analytic half-offset is not evidence-grade; refuse to enable it")
     if policy is not SquintMagnitudePolicy.EVLA195:
         raise ValueError(f"unknown squint magnitude policy {policy!r}")
     return evla195_receptor_half_offset_rad(frequency_hz)
@@ -625,8 +622,7 @@ def current_versus_evla195_total_squint_ratio(frequency_hz: float) -> float:
     """Return how many times larger the unused Airy total is than Memo 195."""
 
     return float(
-        current_analytic_total_squint_rad(frequency_hz)
-        / evla195_total_squint_rad(frequency_hz)
+        current_analytic_total_squint_rad(frequency_hz) / evla195_total_squint_rad(frequency_hz)
     )
 
 
@@ -661,6 +657,5 @@ def _require_frequency_inside_perley_support(frequency_hz: float) -> None:
     low, high = perley2016_frequency_support_hz()
     if frequency_hz < low or frequency_hz > high:
         raise ValueError(
-            f"frequency {frequency_hz} Hz is outside Perley 2016 C-band support "
-            f"[{low}, {high}] Hz"
+            f"frequency {frequency_hz} Hz is outside Perley 2016 C-band support [{low}, {high}] Hz"
         )
