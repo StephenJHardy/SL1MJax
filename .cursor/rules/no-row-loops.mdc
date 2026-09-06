@@ -1,0 +1,16 @@
+---
+description: Do not spend hours of compute to save minutes of coding
+alwaysApply: true
+---
+
+# Vectorize visibility work by default
+
+If a path will touch more than a toy number of visibility rows, do not write a
+Python `for row in ...` estimator, interpolator, or geometry walk.
+
+Use NumPy/JAX batch kernels as the first implementation, not as a later
+optimization. A one-core CPython loop on Bacchus is a bug even when it is
+scientifically correct.
+
+Existing per-row helpers may be used only on already-reduced samples or in
+unit tests. Do not call them from HOLORASTER-scale recover or predict paths.
