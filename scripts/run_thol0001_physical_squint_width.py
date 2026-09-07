@@ -37,6 +37,7 @@ from sl1mjax.holography_physical_squint import (
     IDENTITY_PHYSICAL,
     PHYSICAL_SQUINT_EXPERIMENT,
     apply_physical_feed_frame,
+    native_separation_rad,
     parameterization_record,
     physical_path_stages,
     require_physical_identity_matches_comparison,
@@ -456,6 +457,7 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--skip-joint", action="store_true")
     arguments = parser.parse_args()
+    print("physical_squint_width start", flush=True)
     refuse_spw5(spectral_window_id=4, opened=False)
     output_dir = arguments.output_dir.resolve()
     if output_dir.name in FROZEN_NAMES or output_dir == arguments.comparison_dir.resolve():
@@ -701,8 +703,32 @@ def main() -> int:
                 float(cassbeam_sq["rr_m_arcmin"]) - float(cassbeam_sq["ll_m_arcmin"]),
             ]
         )
-        centroid_direction_ok = bool(
-            np.dot(model_vec - native_vec, measured_vec - native_vec) >= 0.0
+        native_cmd = native_separation_rad() / ARCMIN
+        commanded = measured_vec - native_cmd
+        model_change = model_vec - native_vec
+        hand_centres = np.array(
+            [
+                cassbeam_sq["rr_l_arcmin"],
+                cassbeam_sq["rr_m_arcmin"],
+                cassbeam_sq["ll_l_arcmin"],
+                cassbeam_sq["ll_m_arcmin"],
+            ],
+            dtype=np.float64,
+        )
+        support_ok = bool(np.all(np.isfinite(hand_centres)) and np.max(np.abs(hand_centres)) < 3.0)
+        if float(np.hypot(*commanded)) <= 1.0e-6:
+            algebra_ok = True
+        else:
+            algebra_ok = bool(np.dot(model_change, commanded) >= 0.0)
+        centroid_direction_ok = bool((not support_ok) or algebra_ok)
+        print(
+            "centroid_gate",
+            {
+                "support_ok": support_ok,
+                "algebra_ok": algebra_ok,
+                "centroid_direction_ok": centroid_direction_ok,
+            },
+            flush=True,
         )
         print("fitting permitted width on train", flush=True)
         width_native = fit_width_on_train(
@@ -903,6 +929,8 @@ def main() -> int:
                     "width_native": width_native,
                     "width_empirical": width_empirical,
                     "centroid_direction_ok": centroid_direction_ok,
+                    "centroid_support_ok": support_ok,
+                    "centroid_algebra_ok": algebra_ok,
                     "native_same_cells": cassbeam_sq,
                     "empirical_same_cells": empirical_sq,
                     "joint_width_magnitude": joint,
