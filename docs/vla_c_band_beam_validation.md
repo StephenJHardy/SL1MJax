@@ -103,3 +103,5 @@ CASSBEAM 0.411′.
 - One published SPW-4 frequency; SPW 5 remains sealed.
 - Full Jones is an experimental non-detection below the THOL0001 floor.
 - The next artifact is a validation-selected low-order diagonal correction.
+- The independent physical squint/width experiment is SPW-4 development
+  only; see `thol0001_spw4_physical_squint_width.md`. SPW 5 stays sealed.
