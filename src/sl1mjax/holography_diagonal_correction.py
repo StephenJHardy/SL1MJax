@@ -24,12 +24,17 @@ from sl1mjax.holography_calibration import C147_OFFSET_FIELD_IDS
 from sl1mjax.holography_diagonal import THOL0001_REFERENCE_ANTENNA_NAMES
 
 CASSBEAM_DIAGONAL_CORRECTION = "cassbeam_diagonal_low_order_correction"
-SPW4_CORRECTION_PROTOCOL_VERSION = 1
+SPW4_CORRECTION_PROTOCOL_VERSION = 2
 SPW4_TRAINING_FREQUENCY_HZ = THOL0001_SPW4_CHANNEL_32_HZ
 SPW5_FREQUENCY_HZ = THOL0001_LOWER_C_NATIVE_HZ[1]
 HOLORASTER_FIELD_ID = 10
 ON_AXIS_FIELD_IDS = (0, 9)
 OFFSET_CELL_QUANT_PER_RAD = 180.0 * 60.0 / np.pi * 100.0
+PAIRED_DELTA_BOOTSTRAP = 400
+MIN_MOVERS_IMPROVING = 4
+MATERIAL_MAINLOBE_ABS = 0.002
+MATERIAL_MAINLOBE_REL = 0.10
+COPOLAR_HANDS = (("rr", 0, 0), ("ll", 1, 1))
 
 THOL0001_MOVING_ANTENNA_NAMES = (
     "ea04",
@@ -77,9 +82,11 @@ DIAGNOSTIC_AXES = ("reference", "spatial_moving")
 
 PROTOCOL_NOTE = (
     "SPW-4 correction training is HOLORASTER field 10 at native channel 32. "
-    "Selection requires improvement on held-out movers and held-out spatial "
-    "cells, each with a 95% interval. Reference holdouts are diagnostic. "
-    "C147-* and SPW 5 stay unused until the family and selection rule freeze."
+    "Selection uses the paired loss difference ΔL=L_candidate-L_baseline. "
+    "Both ranking holdouts must have a 95% interval lying entirely below "
+    "zero. Spatial clusters are raster cells; mover clusters are the five "
+    "held-out antennas. Individual visibilities are not bootstrap units. "
+    "Reference holdouts are diagnostic. C147-* and SPW 5 stay unused."
 )
 BORESIGHT_NOTE = (
     "C_R(0)=C_L(0)=1. The correction cannot absorb the absolute flux gauge."
@@ -92,11 +99,20 @@ SPW5_NOTE = (
     "SPW 5 remains sealed until the correction family and selection rule are "
     "fixed on SPW 4. It opens once, as the frequency-transfer test."
 )
+PAIRED_DELTA_NOTE = (
+    "The acceptance interval is the clustered bootstrap of the paired "
+    "difference, not an unpaired candidate interval compared with the "
+    "baseline point estimate."
+)
+MOVER_GATE_NOTE = (
+    "With five held-out movers, report every mover's paired ΔL. Accept only "
+    "if at least four improve and none has a material main-lobe regression."
+)
 
 
 @dataclass(frozen=True)
 class HoldoutScore:
-    """One holdout residual-power estimate with a 95% interval."""
+    """Diagnostic residual-power table. Not used to accept a correction."""
 
     axis: str
     residual_power: float
@@ -118,6 +134,71 @@ class HoldoutScore:
 
 
 @dataclass(frozen=True)
+class PairedLossDifference:
+    """Clustered bootstrap of :math:`ΔL=L_{candidate}-L_{baseline}`."""
+
+    axis: str
+    delta: float
+    delta_lo: float
+    delta_hi: float
+    n_clusters: int
+    n_boot: int
+    cluster_kind: str
+
+    def __post_init__(self) -> None:
+        if self.n_clusters < 1:
+            raise ValueError("paired difference needs clusters")
+        values = (self.delta, self.delta_lo, self.delta_hi)
+        if any(not np.isfinite(value) for value in values):
+            raise ValueError("paired difference must be finite")
+        if self.delta_lo > self.delta or self.delta > self.delta_hi:
+            raise ValueError("paired interval must contain the point estimate")
+        if self.cluster_kind not in {"spatial_cell", "moving_antenna", "reference_antenna"}:
+            raise ValueError(f"unsupported bootstrap unit {self.cluster_kind!r}")
+
+    def improves(self) -> bool:
+        return float(self.delta_hi) < 0.0
+
+
+@dataclass(frozen=True)
+class MoverPairedDeltas:
+    """Per-mover paired ΔL for the five frozen holdout antennas."""
+
+    names: tuple[str, ...]
+    delta: NDArray[np.float64]
+    mainlobe_delta: NDArray[np.float64]
+    mainlobe_baseline: NDArray[np.float64]
+
+    def __post_init__(self) -> None:
+        names = tuple(str(name) for name in self.names)
+        delta = np.asarray(self.delta, dtype=np.float64).reshape(-1)
+        main_delta = np.asarray(self.mainlobe_delta, dtype=np.float64).reshape(-1)
+        main_base = np.asarray(self.mainlobe_baseline, dtype=np.float64).reshape(-1)
+        if not (len(names) == delta.size == main_delta.size == main_base.size):
+            raise ValueError("per-mover arrays must match the named movers")
+        object.__setattr__(self, "names", names)
+        object.__setattr__(self, "delta", delta)
+        object.__setattr__(self, "mainlobe_delta", main_delta)
+        object.__setattr__(self, "mainlobe_baseline", main_base)
+
+    @property
+    def n_improving(self) -> int:
+        return int(np.sum(self.delta < 0.0))
+
+    @property
+    def n_material_mainlobe_regression(self) -> int:
+        floor = np.maximum(MATERIAL_MAINLOBE_ABS, MATERIAL_MAINLOBE_REL * self.mainlobe_baseline)
+        return int(np.sum(self.mainlobe_delta > floor))
+
+    def passes(self) -> bool:
+        if self.names != SPW4_HOLDOUT_MOVING_ANTENNA_NAMES:
+            raise ValueError("mover consistency gate requires the five frozen holdout movers")
+        return (
+            self.n_improving >= MIN_MOVERS_IMPROVING and self.n_material_mainlobe_regression == 0
+        )
+
+
+@dataclass(frozen=True)
 class Spw4CorrectionHoldouts:
     """Frozen train and ranking masks for the SPW-4 diagonal correction."""
 
@@ -129,7 +210,14 @@ class Spw4CorrectionHoldouts:
     unused_c147: NDArray[np.bool_]
     protocol_version: int = SPW4_CORRECTION_PROTOCOL_VERSION
     notes: tuple[str, ...] = field(
-        default_factory=lambda: (PROTOCOL_NOTE, BORESIGHT_NOTE, PHASE_NOTE, SPW5_NOTE)
+        default_factory=lambda: (
+            PROTOCOL_NOTE,
+            PAIRED_DELTA_NOTE,
+            MOVER_GATE_NOTE,
+            BORESIGHT_NOTE,
+            PHASE_NOTE,
+            SPW5_NOTE,
+        )
     )
 
     def __post_init__(self) -> None:
@@ -330,35 +418,254 @@ def spw4_correction_holdouts(
     )
 
 
-def axis_improves(baseline: HoldoutScore, candidate: HoldoutScore) -> bool:
-    """Candidate 95% interval lies entirely below the baseline point estimate."""
+def refuse_visibility_bootstrap(cluster_kind: str) -> None:
+    """Individual visibilities are not independent evidence."""
 
-    if baseline.axis != candidate.axis:
-        raise ValueError("holdout scores must share an axis")
-    return float(candidate.residual_power_hi) < float(baseline.residual_power)
+    if str(cluster_kind) in {"visibility", "visibility_row", "row"}:
+        raise RuntimeError("do not bootstrap individual visibilities as independent evidence")
+
+
+def refuse_magnitude_loss(loss_name: str) -> None:
+    if str(loss_name) in {"db_ratio", "magnitude_ratio", "abs_only", "magnitude"}:
+        raise RuntimeError("fit complex visibilities, not magnitudes or dB ratios")
+
+
+def packed_offset_keys(offset_lm_rad: ArrayLike) -> NDArray[np.int64]:
+    keys = quantized_offset_keys(offset_lm_rad)
+    low = keys[:, 1].astype(np.int64) & np.int64(0xFFFFFFFF)
+    return (keys[:, 0].astype(np.int64) << 32) ^ low
+
+
+def spatial_cluster_ids(offset_lm_rad: ArrayLike, mask: ArrayLike) -> NDArray[np.int64]:
+    choose = np.asarray(mask, dtype=bool).reshape(-1)
+    return packed_offset_keys(offset_lm_rad)[choose]
+
+
+def mover_cluster_ids(moving_id: ArrayLike, mask: ArrayLike) -> NDArray[np.int64]:
+    choose = np.asarray(mask, dtype=bool).reshape(-1)
+    return np.asarray(moving_id, dtype=np.int64).reshape(-1)[choose]
+
+
+def copolar_loss_parts(
+    measured: ArrayLike,
+    predicted: ArrayLike,
+    weight: ArrayLike,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Per-sample complex residual and observed power on RR and LL."""
+
+    meas = np.asarray(measured, dtype=np.complex128)
+    pred = np.asarray(predicted, dtype=np.complex128)
+    wgt = np.asarray(weight, dtype=np.float64)
+    if meas.ndim == 4:
+        meas = meas[:, 0]
+        pred = pred[:, 0]
+        wgt = wgt[:, 0]
+    if meas.shape != pred.shape or meas.shape[:-2] != wgt.shape[:-2]:
+        raise ValueError("measured, predicted, and weight must share the sample axis")
+    numer = np.zeros(meas.shape[0], dtype=np.float64)
+    denom = np.zeros(meas.shape[0], dtype=np.float64)
+    for _name, row, col in COPOLAR_HANDS:
+        obs = meas[:, row, col]
+        hat = pred[:, row, col]
+        ww = wgt[:, row, col]
+        finite = np.isfinite(obs) & np.isfinite(hat) & np.isfinite(ww) & (ww > 0.0)
+        resid = ww * np.abs(obs - hat) ** 2
+        power = ww * np.abs(obs) ** 2
+        numer = numer + np.where(finite, resid, 0.0)
+        denom = denom + np.where(finite, power, 0.0)
+    return numer, denom
+
+
+def complex_visibility_loss(
+    measured: ArrayLike,
+    predicted: ArrayLike,
+    weight: ArrayLike,
+) -> float:
+    numer, denom = copolar_loss_parts(measured, predicted, weight)
+    total_den = float(np.sum(denom))
+    if total_den <= 0.0:
+        return float("nan")
+    return float(np.sum(numer) / total_den)
+
+
+def reduce_cluster_parts(
+    numer: ArrayLike,
+    denom: ArrayLike,
+    labels: ArrayLike,
+) -> tuple[NDArray[np.int64], NDArray[np.float64], NDArray[np.float64]]:
+    """Sum residual and observed power inside each cluster. No row bootstrap."""
+
+    values_n = np.asarray(numer, dtype=np.float64).reshape(-1)
+    values_d = np.asarray(denom, dtype=np.float64).reshape(-1)
+    ids = np.asarray(labels).reshape(-1)
+    if values_n.size != ids.size or values_d.size != ids.size:
+        raise ValueError("loss parts and cluster labels must align")
+    unique, inverse = np.unique(ids, return_inverse=True)
+    return (
+        unique.astype(np.int64, copy=False),
+        np.bincount(inverse, weights=values_n),
+        np.bincount(inverse, weights=values_d),
+    )
+
+
+def paired_delta_from_parts(
+    candidate_numer: ArrayLike,
+    candidate_denom: ArrayLike,
+    baseline_numer: ArrayLike,
+    baseline_denom: ArrayLike,
+) -> float:
+    cand_d = float(np.sum(candidate_denom))
+    base_d = float(np.sum(baseline_denom))
+    if cand_d <= 0.0 or base_d <= 0.0:
+        return float("nan")
+    return float(np.sum(candidate_numer) / cand_d - np.sum(baseline_numer) / base_d)
+
+
+def bootstrap_paired_delta(
+    candidate_numer: ArrayLike,
+    candidate_denom: ArrayLike,
+    baseline_numer: ArrayLike,
+    baseline_denom: ArrayLike,
+    *,
+    axis: str,
+    cluster_kind: str,
+    n_boot: int = PAIRED_DELTA_BOOTSTRAP,
+    seed: int = 0,
+) -> PairedLossDifference:
+    """Resample clusters, keeping every row that belongs to a drawn cluster."""
+
+    refuse_visibility_bootstrap(cluster_kind)
+    cand_n = np.asarray(candidate_numer, dtype=np.float64).reshape(-1)
+    cand_d = np.asarray(candidate_denom, dtype=np.float64).reshape(-1)
+    base_n = np.asarray(baseline_numer, dtype=np.float64).reshape(-1)
+    base_d = np.asarray(baseline_denom, dtype=np.float64).reshape(-1)
+    if not (cand_n.size == cand_d.size == base_n.size == base_d.size):
+        raise ValueError("paired bootstrap parts must share one cluster axis")
+    n_cluster = int(cand_n.size)
+    point = paired_delta_from_parts(cand_n, cand_d, base_n, base_d)
+    rng = np.random.default_rng(int(seed))
+    draws = np.empty(int(n_boot), dtype=np.float64)
+    for boot in range(int(n_boot)):
+        index = rng.choice(n_cluster, size=n_cluster, replace=True)
+        draws[boot] = paired_delta_from_parts(
+            cand_n[index], cand_d[index], base_n[index], base_d[index]
+        )
+    finite = draws[np.isfinite(draws)]
+    if finite.size == 0 or not np.isfinite(point):
+        raise ValueError("paired bootstrap produced no finite ΔL")
+    return PairedLossDifference(
+        axis=axis,
+        delta=float(point),
+        delta_lo=float(np.quantile(finite, 0.025)),
+        delta_hi=float(np.quantile(finite, 0.975)),
+        n_clusters=n_cluster,
+        n_boot=int(finite.size),
+        cluster_kind=cluster_kind,
+    )
+
+
+def score_paired_holdout(
+    measured: ArrayLike,
+    candidate: ArrayLike,
+    baseline: ArrayLike,
+    weight: ArrayLike,
+    labels: ArrayLike,
+    *,
+    axis: str,
+    cluster_kind: str,
+    n_boot: int = PAIRED_DELTA_BOOTSTRAP,
+    seed: int = 0,
+) -> PairedLossDifference:
+    refuse_visibility_bootstrap(cluster_kind)
+    cand_n, cand_d = copolar_loss_parts(measured, candidate, weight)
+    base_n, base_d = copolar_loss_parts(measured, baseline, weight)
+    _ids, c_n, c_d = reduce_cluster_parts(cand_n, cand_d, labels)
+    _ids_b, b_n, b_d = reduce_cluster_parts(base_n, base_d, labels)
+    if not np.array_equal(_ids, _ids_b):
+        raise ValueError("candidate and baseline cluster labels drifted")
+    return bootstrap_paired_delta(
+        c_n,
+        c_d,
+        b_n,
+        b_d,
+        axis=axis,
+        cluster_kind=cluster_kind,
+        n_boot=n_boot,
+        seed=seed,
+    )
+
+
+def mover_paired_deltas(
+    measured: ArrayLike,
+    candidate: ArrayLike,
+    baseline: ArrayLike,
+    weight: ArrayLike,
+    moving_id: ArrayLike,
+    antenna_names: Sequence[str],
+    *,
+    mainlobe_mask: ArrayLike | None = None,
+) -> MoverPairedDeltas:
+    """Point ΔL for each frozen holdout mover, plus main-lobe regression."""
+
+    ids = np.asarray(moving_id, dtype=np.int32).reshape(-1)
+    lookup = {str(name): index for index, name in enumerate(antenna_names)}
+    cand_n, cand_d = copolar_loss_parts(measured, candidate, weight)
+    base_n, base_d = copolar_loss_parts(measured, baseline, weight)
+    if mainlobe_mask is None:
+        main = np.ones(ids.size, dtype=bool)
+    else:
+        main = np.asarray(mainlobe_mask, dtype=bool).reshape(-1)
+        if main.size != ids.size:
+            raise ValueError("main-lobe mask must match the mover-holdout samples")
+    deltas = []
+    main_deltas = []
+    main_base = []
+    for name in SPW4_HOLDOUT_MOVING_ANTENNA_NAMES:
+        antenna = lookup.get(name)
+        if antenna is None:
+            raise ValueError(f"antenna name list is missing holdout mover {name}")
+        choose = ids == int(antenna)
+        if not bool(np.any(choose)):
+            raise ValueError(f"mover holdout has no rows for {name}")
+        deltas.append(
+            paired_delta_from_parts(
+                cand_n[choose], cand_d[choose], base_n[choose], base_d[choose]
+            )
+        )
+        lobe = choose & main
+        if bool(np.any(lobe)):
+            main_deltas.append(
+                paired_delta_from_parts(cand_n[lobe], cand_d[lobe], base_n[lobe], base_d[lobe])
+            )
+            den = float(np.sum(base_d[lobe]))
+            main_base.append(float(np.sum(base_n[lobe]) / den) if den > 0.0 else float("nan"))
+        else:
+            main_deltas.append(0.0)
+            main_base.append(0.0)
+    return MoverPairedDeltas(
+        names=SPW4_HOLDOUT_MOVING_ANTENNA_NAMES,
+        delta=np.asarray(deltas, dtype=np.float64),
+        mainlobe_delta=np.asarray(main_deltas, dtype=np.float64),
+        mainlobe_baseline=np.asarray(main_base, dtype=np.float64),
+    )
 
 
 def select_nested_correction(
-    baseline_spatial: HoldoutScore,
-    candidate_spatial: HoldoutScore,
-    baseline_mover: HoldoutScore,
-    candidate_mover: HoldoutScore,
+    spatial: PairedLossDifference,
+    moving: PairedLossDifference,
+    mover_units: MoverPairedDeltas,
     *,
-    reference: tuple[HoldoutScore, HoldoutScore] | None = None,
+    reference: PairedLossDifference | None = None,
 ) -> str:
-    """Accept a nested term only when both ranking holdouts improve."""
+    """Accept a nested term only when both paired ranking intervals improve."""
 
-    if baseline_spatial.axis != "spatial" or candidate_spatial.axis != "spatial":
-        raise ValueError("spatial scores must be labelled spatial")
-    if baseline_mover.axis != "moving" or candidate_mover.axis != "moving":
-        raise ValueError("mover scores must be labelled moving")
-    if reference is not None:
-        baseline_ref, candidate_ref = reference
-        if baseline_ref.axis != "reference" or candidate_ref.axis != "reference":
-            raise ValueError("reference scores must be labelled reference")
-    if axis_improves(baseline_spatial, candidate_spatial) and axis_improves(
-        baseline_mover, candidate_mover
-    ):
+    if spatial.axis != "spatial" or spatial.cluster_kind != "spatial_cell":
+        raise ValueError("spatial gate must cluster by spatial cell")
+    if moving.axis != "moving" or moving.cluster_kind != "moving_antenna":
+        raise ValueError("mover gate must cluster by held-out mover")
+    if reference is not None and reference.cluster_kind != "reference_antenna":
+        raise ValueError("reference scores must cluster by reference antenna")
+    if spatial.improves() and moving.improves() and mover_units.passes():
         return "accept_candidate"
     return "keep_baseline"
 
@@ -381,10 +688,24 @@ def frozen_protocol_payload() -> dict[str, object]:
         "first_ladder": list(FIRST_LADDER_TERMS),
         "ranking_axes": list(RANKING_AXES),
         "diagnostic_axes": list(DIAGNOSTIC_AXES),
+        "selection_rule": "paired_delta_L_ci95_below_zero",
+        "spatial_bootstrap_unit": "spatial_cell",
+        "mover_bootstrap_unit": "moving_antenna",
+        "visibility_bootstrap": False,
+        "min_movers_improving": MIN_MOVERS_IMPROVING,
+        "material_mainlobe_abs": MATERIAL_MAINLOBE_ABS,
+        "material_mainlobe_rel": MATERIAL_MAINLOBE_REL,
         "boresight": "C_R(0)=C_L(0)=1",
         "phase_in_first_ladder": False,
         "full_jones": "experimental",
-        "notes": [PROTOCOL_NOTE, BORESIGHT_NOTE, PHASE_NOTE, SPW5_NOTE],
+        "notes": [
+            PROTOCOL_NOTE,
+            PAIRED_DELTA_NOTE,
+            MOVER_GATE_NOTE,
+            BORESIGHT_NOTE,
+            PHASE_NOTE,
+            SPW5_NOTE,
+        ],
     }
 
 
@@ -396,4 +717,8 @@ def protocol_as_mapping(payload: Mapping[str, object] | None = None) -> Mapping[
         raise RuntimeError("first ladder cannot include phase")
     if record.get("boresight") != "C_R(0)=C_L(0)=1":
         raise RuntimeError("correction protocol lost the boresight-unity constraint")
+    if record.get("selection_rule") != "paired_delta_L_ci95_below_zero":
+        raise RuntimeError("correction protocol must use the paired ΔL interval")
+    if record.get("visibility_bootstrap") is not False:
+        raise RuntimeError("individual visibilities are not bootstrap units")
     return record

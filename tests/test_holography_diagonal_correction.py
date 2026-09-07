@@ -17,20 +17,29 @@ from sl1mjax.holography_diagonal import THOL0001_REFERENCE_ANTENNA_NAMES
 from sl1mjax.holography_diagonal_correction import (
     FIRST_LADDER_TERMS,
     HOLORASTER_FIELD_ID,
+    MIN_MOVERS_IMPROVING,
+    SPW4_CORRECTION_PROTOCOL_VERSION,
     SPW4_HOLDOUT_MOVING_ANTENNA_NAMES,
     SPW4_HOLDOUT_REFERENCE_ANTENNA_NAMES,
     SPW4_TRAINING_FREQUENCY_HZ,
     SPW5_FREQUENCY_HZ,
     THOL0001_MOVING_ANTENNA_NAMES,
-    HoldoutScore,
-    axis_improves,
+    MoverPairedDeltas,
+    PairedLossDifference,
+    bootstrap_paired_delta,
+    complex_visibility_loss,
     frozen_protocol_payload,
+    mover_paired_deltas,
     protocol_as_mapping,
+    reduce_cluster_parts,
     refuse_c147_training,
+    refuse_magnitude_loss,
     refuse_phase_in_first_ladder,
     refuse_spw5,
+    refuse_visibility_bootstrap,
     require_boresight_unity,
     require_disjoint_antenna_cover,
+    score_paired_holdout,
     select_nested_correction,
     spatial_holdout_from_offsets,
     spw4_correction_holdouts,
@@ -119,13 +128,39 @@ def _toy_observation() -> HolographyObservation:
     )
 
 
-def _score(axis: str, point: float, lo: float, hi: float, n: int = 20) -> HoldoutScore:
-    return HoldoutScore(
+def _delta(
+    axis: str,
+    point: float,
+    lo: float,
+    hi: float,
+    *,
+    kind: str,
+    n: int = 20,
+) -> PairedLossDifference:
+    return PairedLossDifference(
         axis=axis,
-        residual_power=point,
-        residual_power_lo=lo,
-        residual_power_hi=hi,
-        n=n,
+        delta=point,
+        delta_lo=lo,
+        delta_hi=hi,
+        n_clusters=n,
+        n_boot=400,
+        cluster_kind=kind,
+    )
+
+
+def _movers(
+    delta: np.ndarray,
+    mainlobe_delta: np.ndarray | None = None,
+    mainlobe_baseline: np.ndarray | None = None,
+) -> MoverPairedDeltas:
+    values = np.asarray(delta, dtype=np.float64)
+    return MoverPairedDeltas(
+        names=SPW4_HOLDOUT_MOVING_ANTENNA_NAMES,
+        delta=values,
+        mainlobe_delta=np.zeros(5) if mainlobe_delta is None else mainlobe_delta,
+        mainlobe_baseline=(
+            np.full(5, 0.01) if mainlobe_baseline is None else mainlobe_baseline
+        ),
     )
 
 
@@ -135,10 +170,14 @@ def test_frozen_partition_covers_published_antennas() -> None:
     assert SPW4_HOLDOUT_REFERENCE_ANTENNA_NAMES == THOL0001_REFERENCE_ANTENNA_NAMES[5:]
     assert HELD_OUT_REFERENCE_ANTENNA in SPW4_HOLDOUT_REFERENCE_ANTENNA_NAMES
     payload = frozen_protocol_payload()
+    assert payload["protocol_version"] == SPW4_CORRECTION_PROTOCOL_VERSION
     assert payload["training_frequency_hz"] == SPW4_TRAINING_FREQUENCY_HZ
     assert payload["spw5_status"] == "sealed"
     assert payload["phase_in_first_ladder"] is False
     assert payload["boresight"] == "C_R(0)=C_L(0)=1"
+    assert payload["selection_rule"] == "paired_delta_L_ci95_below_zero"
+    assert payload["visibility_bootstrap"] is False
+    assert payload["min_movers_improving"] == MIN_MOVERS_IMPROVING
     assert payload["first_ladder"] == list(FIRST_LADDER_TERMS)
     protocol_as_mapping(payload)
 
@@ -188,44 +227,132 @@ def test_frozen_masks_isolate_training_spatial_and_mover_holdouts() -> None:
     assert not np.any(holdouts.train & holdouts.unused_c147)
 
 
-def test_selection_requires_both_ranking_holdouts_with_uncertainty() -> None:
-    baseline_spatial = _score("spatial", 0.10, 0.08, 0.12)
-    better_spatial = _score("spatial", 0.06, 0.05, 0.07)
-    overlapping_spatial = _score("spatial", 0.09, 0.07, 0.11)
-    baseline_mover = _score("moving", 0.11, 0.09, 0.13)
-    better_mover = _score("moving", 0.07, 0.06, 0.08)
-    worse_mover = _score("moving", 0.12, 0.10, 0.14)
-    better_ref = _score("reference", 0.04, 0.03, 0.05)
-    baseline_ref = _score("reference", 0.10, 0.08, 0.12)
-    assert axis_improves(baseline_spatial, better_spatial)
-    assert not axis_improves(baseline_spatial, overlapping_spatial)
-    assert (
-        select_nested_correction(baseline_spatial, better_spatial, baseline_mover, better_mover)
-        == "accept_candidate"
+def test_selection_uses_paired_delta_and_per_mover_gates() -> None:
+    better_spatial = _delta("spatial", -0.02, -0.03, -0.01, kind="spatial_cell")
+    overlapping_spatial = _delta("spatial", -0.01, -0.03, 0.005, kind="spatial_cell")
+    better_mover = _delta("moving", -0.015, -0.02, -0.008, kind="moving_antenna", n=5)
+    worse_mover = _delta("moving", 0.01, -0.002, 0.02, kind="moving_antenna", n=5)
+    better_ref = _delta("reference", -0.04, -0.05, -0.03, kind="reference_antenna", n=2)
+    four_of_five = _movers([-0.02, -0.01, -0.015, -0.008, 0.002])
+    three_of_five = _movers([-0.02, -0.01, -0.015, 0.004, 0.003])
+    mainlobe_hit = _movers(
+        [-0.02, -0.01, -0.015, -0.008, -0.004],
+        mainlobe_delta=np.array([0.0, 0.0, 0.05, 0.0, 0.0]),
+        mainlobe_baseline=np.array([0.01, 0.01, 0.01, 0.01, 0.01]),
     )
+    assert better_spatial.improves()
+    assert not overlapping_spatial.improves()
+    assert four_of_five.passes()
+    assert not three_of_five.passes()
+    assert not mainlobe_hit.passes()
     assert (
-        select_nested_correction(baseline_spatial, better_spatial, baseline_mover, worse_mover)
+        select_nested_correction(better_spatial, better_mover, four_of_five) == "accept_candidate"
+    )
+    assert select_nested_correction(better_spatial, worse_mover, four_of_five) == "keep_baseline"
+    assert (
+        select_nested_correction(overlapping_spatial, better_mover, four_of_five)
         == "keep_baseline"
     )
+    assert select_nested_correction(better_spatial, better_mover, three_of_five) == "keep_baseline"
     assert (
         select_nested_correction(
-            baseline_spatial,
             overlapping_spatial,
-            baseline_mover,
-            better_mover,
-        )
-        == "keep_baseline"
-    )
-    assert (
-        select_nested_correction(
-            baseline_spatial,
-            overlapping_spatial,
-            baseline_mover,
             worse_mover,
-            reference=(baseline_ref, better_ref),
+            four_of_five,
+            reference=better_ref,
         )
         == "keep_baseline"
     )
+
+
+def test_paired_delta_keeps_shared_cluster_covariance() -> None:
+    rng = np.random.default_rng(4)
+    n_cluster = 40
+    shared = 0.08 + 0.04 * rng.standard_normal(n_cluster)
+    baseline = np.maximum(shared, 1.0e-3)
+    candidate = np.maximum(baseline - 0.012 + 0.001 * rng.standard_normal(n_cluster), 1.0e-4)
+    denom = np.ones(n_cluster)
+    unpaired_hi = float(np.quantile(candidate / denom, 0.975))
+    unpaired_point_baseline = float(np.sum(baseline) / np.sum(denom))
+    paired = bootstrap_paired_delta(
+        candidate,
+        denom,
+        baseline,
+        denom,
+        axis="spatial",
+        cluster_kind="spatial_cell",
+        n_boot=400,
+        seed=4,
+    )
+    assert unpaired_hi > unpaired_point_baseline
+    assert paired.improves()
+    assert paired.delta_hi < 0.0
+
+
+def test_complex_loss_is_not_a_magnitude_ratio() -> None:
+    measured = np.zeros((3, 2, 2), dtype=np.complex128)
+    predicted = np.zeros((3, 2, 2), dtype=np.complex128)
+    measured[:, 0, 0] = [1.0 + 0.2j, 2.0 - 0.1j, 0.5]
+    predicted[:, 0, 0] = measured[:, 0, 0]
+    measured[:, 1, 1] = measured[:, 0, 0]
+    predicted[:, 1, 1] = predicted[:, 0, 0]
+    weight = np.ones((3, 2, 2))
+    assert complex_visibility_loss(measured, predicted, weight) == pytest.approx(0.0)
+    predicted[:, 0, 0] = np.abs(measured[:, 0, 0])
+    predicted[:, 1, 1] = np.abs(measured[:, 1, 1])
+    assert complex_visibility_loss(measured, predicted, weight) > 0.0
+    with pytest.raises(RuntimeError, match="complex visibilities"):
+        refuse_magnitude_loss("db_ratio")
+    with pytest.raises(RuntimeError, match="individual visibilities"):
+        refuse_visibility_bootstrap("visibility_row")
+
+
+def test_mover_paired_deltas_report_every_held_out_antenna() -> None:
+    names = _antenna_names()
+    n = 10
+    measured = np.zeros((n, 2, 2), dtype=np.complex128)
+    baseline = np.zeros((n, 2, 2), dtype=np.complex128)
+    candidate = np.zeros((n, 2, 2), dtype=np.complex128)
+    measured[:, 0, 0] = 1.0
+    measured[:, 1, 1] = 1.0
+    baseline[:, 0, 0] = 0.8
+    baseline[:, 1, 1] = 0.8
+    candidate[:, 0, 0] = 0.95
+    candidate[:, 1, 1] = 0.95
+    weight = np.ones((n, 2, 2))
+    movers = np.repeat(
+        np.array([8, 13, 18, 22, 28], dtype=np.int32),
+        2,
+    )
+    report = mover_paired_deltas(
+        measured, candidate, baseline, weight, movers, names
+    )
+    assert report.names == SPW4_HOLDOUT_MOVING_ANTENNA_NAMES
+    assert report.n_improving == 5
+    assert report.passes()
+
+
+def test_cluster_reduction_does_not_treat_rows_as_units() -> None:
+    numer = np.array([1.0, 1.0, 3.0, 3.0, 3.0])
+    denom = np.ones(5)
+    labels = np.array([10, 10, 11, 11, 11])
+    ids, clustered_n, clustered_d = reduce_cluster_parts(numer, denom, labels)
+    np.testing.assert_array_equal(ids, [10, 11])
+    np.testing.assert_allclose(clustered_n, [2.0, 9.0])
+    np.testing.assert_allclose(clustered_d, [2.0, 3.0])
+    scored = score_paired_holdout(
+        np.broadcast_to(np.eye(2, dtype=np.complex128), (5, 2, 2)).copy() * 1.0,
+        np.broadcast_to(np.eye(2, dtype=np.complex128), (5, 2, 2)).copy() * 0.9,
+        np.broadcast_to(np.eye(2, dtype=np.complex128), (5, 2, 2)).copy() * 0.5,
+        np.ones((5, 2, 2)),
+        labels,
+        axis="spatial",
+        cluster_kind="spatial_cell",
+        n_boot=64,
+        seed=1,
+    )
+    assert scored.n_clusters == 2
+    assert scored.cluster_kind == "spatial_cell"
 
 
 def test_holdout_builder_has_no_row_loop() -> None:
@@ -242,4 +369,12 @@ def test_protocol_payload_cannot_open_phase_or_spw5() -> None:
     payload = frozen_protocol_payload()
     payload["phase_in_first_ladder"] = True
     with pytest.raises(RuntimeError, match="phase"):
+        protocol_as_mapping(payload)
+    payload = frozen_protocol_payload()
+    payload["selection_rule"] = "unpaired_candidate_interval"
+    with pytest.raises(RuntimeError, match="paired"):
+        protocol_as_mapping(payload)
+    payload = frozen_protocol_payload()
+    payload["visibility_bootstrap"] = True
+    with pytest.raises(RuntimeError, match="visibilities"):
         protocol_as_mapping(payload)
