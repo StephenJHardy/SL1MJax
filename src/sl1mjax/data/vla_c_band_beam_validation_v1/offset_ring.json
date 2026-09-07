@@ -1,0 +1,110 @@
+{
+  "decision": "no_model_selected",
+  "model_selected": false,
+  "full_jones_frozen": false,
+  "production_factory_modified": false,
+  "spw5_closed": true,
+  "applied_from": "DATA",
+  "c147_offset_used_for_d": false,
+  "convention_ladder_searched": false,
+  "row_accounting": {
+    "n_rows": 123552,
+    "n_channels": 64,
+    "training": 61776,
+    "inner_holdout": 30888,
+    "sealed_holdout": 30888
+  },
+  "scores": {
+    "inner_unit": {
+      "fraction_positive": 0.995,
+      "improves": 1,
+      "power_full": 933458677663.1846,
+      "power_diag": 933815011920.1879
+    },
+    "inner_hat": {
+      "fraction_positive": 1.0,
+      "improves": 1,
+      "power_full": 933556219191.4346,
+      "power_diag": 933815011920.1879
+    },
+    "sealed_unit": {
+      "fraction_positive": 0.0,
+      "improves": 0,
+      "power_full": 842371592143.2294,
+      "power_diag": 842085659063.4562
+    },
+    "sealed_hat": {
+      "fraction_positive": 0.0,
+      "improves": 0,
+      "power_full": 842225371954.194,
+      "power_diag": 842085659063.4562
+    },
+    "rrll_unit": {
+      "fraction_positive": 0.2175,
+      "improves": 0,
+      "power_full": 6008293080085.199,
+      "power_diag": 6008268292509.19
+    }
+  },
+  "upper_limit": {
+    "status": "computed",
+    "alpha_abs_hat": 0.638816212475848,
+    "alpha_abs_ul95": 1.0822287453375472,
+    "null_abs_95": 0.9358053573332481,
+    "template_median_abs": 0.003088707584199098,
+    "coherent_voltage_ul95": 0.0033426881335623564,
+    "n_clusters": 1404,
+    "n_perm": 400,
+    "detected": 0,
+    "notes": [
+      "Upper limit uses held-out \u03b1 = \u03a3w t* r / \u03a3w |t|\u00b2",
+      "Null flips the sign of each scan\u00d7baseline cluster's matched filter",
+      "coherent_voltage_ul95 = \u03b1_ul95 \u00d7 median |t| on RL/LR"
+    ]
+  },
+  "closure": {
+    "rr": {
+      "relative_power": 0.011685097778069658,
+      "n": 61776,
+      "ok": 1
+    },
+    "ll": {
+      "relative_power": 0.00900312429954719,
+      "n": 61776,
+      "ok": 1
+    },
+    "passed": 1
+  },
+  "smoke": {
+    "passed": 1,
+    "geometry_ok": 1,
+    "calibration_hashed": 1,
+    "predictions_finite": 1,
+    "diagonal_rr_ll_closure_ok": 1,
+    "continue_to_spw4": 1,
+    "channel": 32
+  },
+  "median_abs": {
+    "measured_rr": 5.379161592144342,
+    "measured_ll": 5.423096041380941,
+    "pred_diag_rr": 5.272739837399193,
+    "pred_diag_ll": 5.303006988415019
+  },
+  "calibration_hashes": {
+    "antpos": "8ec8fcd309cf41ab182cb9450fc4ccca9e0d0debd9e4317a52a910393cae2e8f",
+    "G1": "3b95778a9f4419e8402da8f74bb4d67695a61c242eb03bb49467d67d6f8127a7",
+    "K0": "00cd102e812c84aaa750123c4fe88b81b5ee5145d1f305c2a33f817e3f6bc96a",
+    "B0": "a8499b5faff2f9a75565d8f8d8ca8b20621486930b102333ad71425ab19312b7",
+    "Kcross": "58597ac14436d53b5ce853b9cab02a6c490c262ab1e0a80da7b18a346b61ec26",
+    "Df": "747f46cb16fbed6ac8b1666da4fc916d18e38689845065ac184c28ccda0ff9ac",
+    "Xf": "5ee5679408ce4259b386474855bbf402d6b05aebcf7a81ac0d9b83c5ff867a0f"
+  },
+  "radius_arcmin": 3.6134405474883557,
+  "q_u_is_frequency_holdout": false,
+  "q_u_note": "The already-written ring Q/U used all 64 channels and is not a frequency holdout",
+  "nuisance": {
+    "q_over_i": 0.001,
+    "u_over_i": 0.0,
+    "residual_jones": "field9_locked_not_refit"
+  }
+}

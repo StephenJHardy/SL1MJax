@@ -1,0 +1,16 @@
+{
+  "figure_id": "F19",
+  "filename": "19_spw5_sealed.png",
+  "image_sha256": "100a079c74fed3fb3c56939c2e67f9517e64a2d34a3b899c052e3a80c0572ffc",
+  "generating_function": "plot_spw5_sealed",
+  "claims": [
+    "C06"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:28.110792+00:00",
+  "caption": "SPW 5 remains sealed. Supports C06.",
+  "table": {
+    "status": "not_run"
+  },
+  "table_sha256": "f21202da1718884237ad85ceb729dc0a7f345124c283b9fe1fe2463870630cad"
+}

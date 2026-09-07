@@ -1,0 +1,19 @@
+{
+  "figure_id": "F02",
+  "filename": "02_raster_occupancy.png",
+  "image_sha256": "ba29b8a19be9f766fb7ce9dcdcb3d3ad935789dc0f133026f3cb11453ed790bf",
+  "generating_function": "plot_raster_occupancy",
+  "claims": [
+    "C01",
+    "C03"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:26.921523+00:00",
+  "caption": "Measured HOLORASTER occupancy. Unsupported cells are masked. Supports C01, C03.",
+  "table": {
+    "n_occupied": 698,
+    "n_total": 2601,
+    "max_count": 3514.0
+  },
+  "table_sha256": "93f5e73d9623ca865d34dee6e6d249faf3f761515f2928eb224ab287be518c63"
+}

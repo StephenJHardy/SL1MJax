@@ -1,0 +1,29 @@
+{
+  "figure_id": "F13",
+  "filename": "13_squint_mainlobe_20pct.png",
+  "image_sha256": "8f7fb37153518a831d3730fa962127c68b01270dd1017b56932344fa5a66ecc3",
+  "generating_function": "plot_publication_squint",
+  "claims": [
+    "C07"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:27.727610+00:00",
+  "caption": "Publication 20%-of-peak squint. Full-raster centroids are not shown. Supports C07.",
+  "table": {
+    "measured": {
+      "separation_arcmin": 0.5152630312039774,
+      "rr_l_arcmin": 0.1432090233470463,
+      "rr_m_arcmin": -0.11117740228021582,
+      "ll_l_arcmin": -0.0010700563858699083,
+      "ll_m_arcmin": 0.38347352360280906
+    },
+    "cassbeam": {
+      "separation_arcmin": 0.4114956291199375,
+      "rr_l_arcmin": 0.21336572750765215,
+      "rr_m_arcmin": 0.14677094162432322,
+      "ll_l_arcmin": -0.07827745912401778,
+      "ll_m_arcmin": -0.14352701647414165
+    }
+  },
+  "table_sha256": "0610f2e655b276f3e88dec79959904cdebf54d36bca17b0ac43be9135cd8d1fb"
+}

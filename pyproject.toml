@@ -36,6 +36,12 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.16.3",
 ]
+docs = [
+    "ipykernel>=6.29",
+    "matplotlib>=3.11.1",
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers"
@@ -44,6 +50,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E501"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

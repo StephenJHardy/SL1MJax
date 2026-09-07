@@ -1,0 +1,44 @@
+{
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "figures": [
+    "01_observation_timeline.png",
+    "02_raster_occupancy.png",
+    "03_antenna_roles.png",
+    "04_casa_jax_operator_residual.png",
+    "05_onaxis_amplitude.png",
+    "08_cassbeam_scatter_main_lobe.png",
+    "10_spatial_measured_cassbeam_residual.png",
+    "12_residual_vs_radius.png",
+    "13_squint_mainlobe_20pct.png",
+    "16_spw4_frequency.png",
+    "17_c147_offset_ring.png",
+    "18_experimental_crosshand.png",
+    "19_spw5_sealed.png"
+  ],
+  "region_residual_power": {
+    "main_lobe": {
+      "rr": 0.006355800881393682,
+      "ll": 0.007597568148713863,
+      "n_rr": 43418.0,
+      "n_ll": 43418.0
+    },
+    "mid": {
+      "rr": 0.0769820790299416,
+      "ll": 0.08914760039946078,
+      "n_rr": 59530.0,
+      "n_ll": 59530.0
+    },
+    "outer_diagnostic": {
+      "rr": 0.3231464586972649,
+      "ll": 0.3485263146721795,
+      "n_rr": 644110.0,
+      "n_ll": 644110.0
+    },
+    "all": {
+      "rr": 0.05740799797940493,
+      "ll": 0.0633918983044523,
+      "n_rr": 747058.0,
+      "n_ll": 747058.0
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "fields": [
+    {
+      "field_id": 1,
+      "name": "C147-N",
+      "l_arcmin": 2.6598430564753585e-06,
+      "m_arcmin": -3.625000165612656,
+      "radius_arcmin": 3.625000165613632
+    },
+    {
+      "field_id": 2,
+      "name": "C147-NW",
+      "l_arcmin": 2.546820234199921,
+      "m_arcmin": -2.5622145243290775,
+      "radius_arcmin": 3.6126495227205506
+    },
+    {
+      "field_id": 3,
+      "name": "C147-W",
+      "l_arcmin": 3.594561013861956,
+      "m_arcmin": 0.0022272217883873373,
+      "radius_arcmin": 3.5945617038650477
+    },
+    {
+      "field_id": 4,
+      "name": "C147-SW",
+      "l_arcmin": 2.546820234199921,
+      "m_arcmin": 2.564449974757318,
+      "radius_arcmin": 3.6142353241540532
+    },
+    {
+      "field_id": 5,
+      "name": "C147-S",
+      "l_arcmin": 2.6598430564753585e-06,
+      "m_arcmin": 3.6249987905145975,
+      "radius_arcmin": 3.624998790515573
+    },
+    {
+      "field_id": 6,
+      "name": "C147-SE",
+      "l_arcmin": -2.54681491451732,
+      "m_arcmin": 2.5644499700882006,
+      "radius_arcmin": 3.6142315722561604
+    },
+    {
+      "field_id": 7,
+      "name": "C147-E",
+      "l_arcmin": -3.59455569418284,
+      "m_arcmin": 0.0022272151943341497,
+      "radius_arcmin": 3.594556384182866
+    },
+    {
+      "field_id": 8,
+      "name": "C147-NE",
+      "l_arcmin": -2.54681491451732,
+      "m_arcmin": -2.5622145290041107,
+      "radius_arcmin": 3.612645775805818
+    }
+  ],
+  "partition": {
+    "training": [
+      2,
+      4,
+      6,
+      8
+    ],
+    "inner_holdout": [
+      3,
+      7
+    ],
+    "sealed_holdout": [
+      1,
+      5
+    ]
+  }
+}

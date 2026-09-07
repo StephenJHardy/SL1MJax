@@ -1,0 +1,18 @@
+{
+  "figure_id": "F08",
+  "filename": "08_cassbeam_scatter_main_lobe.png",
+  "image_sha256": "ff8cff1a10b5a28ac219bd164582c10eaf56fc568dac9972509872a144d1fc80",
+  "generating_function": "plot_cassbeam_scatter",
+  "claims": [
+    "C01",
+    "C02"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:27.271586+00:00",
+  "caption": "Observed versus diagonal CASSBEAM main lobe. Supports C01, C02.",
+  "table": {
+    "region": "main_lobe",
+    "n": 517
+  },
+  "table_sha256": "7c002bc83d73aa5a21e81d53f4ec39bf2606b23eb33e54155d41149f2ee751cd"
+}

@@ -1,0 +1,18 @@
+{
+  "figure_id": "F10",
+  "filename": "10_spatial_measured_cassbeam_residual.png",
+  "image_sha256": "56eb59389afea3d74df1a6356ad9a364e03a55aebca18af8df909755597a2a21",
+  "generating_function": "plot_spatial_residual_maps",
+  "claims": [
+    "C01",
+    "C02",
+    "C03"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:27.572761+00:00",
+  "caption": "Visibility-domain RR/LL maps. Unsupported cells are masked. Supports C01\u2013C03.",
+  "table": {
+    "n_supported": 698
+  },
+  "table_sha256": "8449a5431af92e2e5a60113bb503cc9a7ea313fa249d35420357e55788eb049d"
+}

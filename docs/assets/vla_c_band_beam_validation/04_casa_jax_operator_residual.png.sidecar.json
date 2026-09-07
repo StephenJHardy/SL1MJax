@@ -1,0 +1,29 @@
+{
+  "figure_id": "F04",
+  "filename": "04_casa_jax_operator_residual.png",
+  "image_sha256": "81cafc28ec4b4ed8ed3580f048dcaa1c7dfae706aab2537fa5e59ea3a713af3a",
+  "generating_function": "plot_convention_residuals",
+  "claims": [
+    "C01"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:27.028548+00:00",
+  "caption": "Software apply-contract residuals. Not physical beam evidence. Supports C01.",
+  "table": {
+    "stages": [
+      "K+B+G",
+      "K+B+G+Kcross",
+      "K+B+G+Kcross+Df",
+      "K+B+G+Kcross+Df+Xf",
+      "K+B+G+Kcross+Df+Xf+P"
+    ],
+    "median_rel_l2": [
+      0.002857593215032758,
+      0.01640301260117932,
+      0.02226890583604062,
+      0.022268922893577053,
+      0.01634986503966375
+    ]
+  },
+  "table_sha256": "168390958c8bf2048fd92a1e9fbfab23a3c9c120055a1a62ab8bfb3a6d7d795e"
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "publication_version": "vla_c_band_beam_validation_v1",
+  "files": {
+    "calibration_summary.json": "610c78e37bd8ef2d2ed492bbb0a13f980f739bb677c95e21447eed1241c0a65b",
+    "claims.json": "c43c8f9727b166a2445fc198de9d86bfbbdf64d1e05831265afca5482909dc5f",
+    "convention_gates.json": "d3b1b66cc974a7758772bcf8c44cccfa442e35ef726bd5063d9109e04a0226aa",
+    "holoraster_channel32.json": "104bf10611694d24da50ae2404a93d2353c11913207a523e8f245f6d2fba524e",
+    "holoraster_frequency.json": "6fb910770048921e48e4215168b9495dc44c5a14b1ab3c36d68b596c08e730cf",
+    "observation_summary.json": "95eee4c85d51c3ac2009acf07f3ff9add774c9d56701a486de098a6bb0e78aa6",
+    "offset_ring.json": "9f8bd86f4041c20bda9631d09f899dd9ec4612204f7ccac6b8350f9bcf6dd3d9",
+    "plot_tables/crosshand_quadrants.json": "962fa01118ba6fd4b23f7a3764b41c5d2cb1c2e2ded8634d6b43aaf5b9f1e7f3",
+    "plot_tables/frequency_series.json": "6fb910770048921e48e4215168b9495dc44c5a14b1ab3c36d68b596c08e730cf",
+    "plot_tables/holoraster_maps.npz": "45523ada71c140f605ca012cb79155734a0b50370836bf66a563466fc6bf05a2",
+    "plot_tables/holoraster_scatter.npz": "c1eb6eba0b7f1722c6f4a176cd6a3f0aa729d5a744b59927a1afe5f44b18cf94",
+    "plot_tables/offset_ring_fields.json": "4fd437118bbe64a1fcb288451b1caee1813053c882228d544638b3638e0e7da3",
+    "plot_tables/raster_occupancy.npz": "e651adf09d1d8557b75e35294f866b87491010c3112a9491c35ea33c809618ac",
+    "plot_tables/residual_geometry.json": "e05ca4c3ba226834209bf9bf0fb28a7433900aeca480bb1552e58e51f67c80bf",
+    "squint_publication.json": "6c4fbe95ea34723fd2a1818f7c7113f1240302332751df67952e58b3644b020b"
+  },
+  "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
+  "source_products": {
+    "holoraster_cassbeam_comparison": "named Bacchus product",
+    "c147_offset_ring": "named Bacchus product",
+    "holography_thol0001_lower_c": "in-repo occupancy and calibration summaries"
+  },
+  "predictions_recomputed": false,
+  "full_raster_squint_published": false,
+  "spw5_opened": false,
+  "plot_code": "vla_c_band_beam_validation_v1",
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b"
+}

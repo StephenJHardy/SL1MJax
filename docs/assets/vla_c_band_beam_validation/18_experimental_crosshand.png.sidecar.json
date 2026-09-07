@@ -1,0 +1,23 @@
+{
+  "figure_id": "F18",
+  "filename": "18_experimental_crosshand.png",
+  "image_sha256": "db414b2355c7e4830fd1911be6c0cee2ac94268e29f905bce8daa4e0da0c47db",
+  "generating_function": "plot_crosshand_null",
+  "claims": [
+    "C05"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:28.095609+00:00",
+  "caption": "Experimental RL prediction versus the observed cloud. Supports C05.",
+  "table": {
+    "quadrant_rl_correlation": {
+      "east": 0.0710555093767605,
+      "west": 0.06451089298066796,
+      "north": 0.07361501935962478,
+      "south": 0.01895108465599866,
+      "east_west": 0.06756260133296392,
+      "north_south": 0.04804942744385647
+    }
+  },
+  "table_sha256": "e83616bedbab942a7db3e7cc4e3d84254e8402fcfb665be765fe7fad66f284da"
+}

@@ -1,0 +1,19 @@
+{
+  "figure_id": "F05",
+  "filename": "05_onaxis_amplitude.png",
+  "image_sha256": "c77ab73149ec14f434e5ae120195c56fcd48da12c6e544169d2b9f23ba58e74f",
+  "generating_function": "plot_onaxis_amp",
+  "claims": [
+    "C01"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:27.125128+00:00",
+  "caption": "On-axis absolute |V| for measured HOLORASTER and CASSBEAM. Supports C01.",
+  "table": {
+    "n_onaxis_rr": 18,
+    "n_onaxis_ll": 18,
+    "median_obs_rr": 8.11170768737793,
+    "median_pred_rr": 8.048805236816406
+  },
+  "table_sha256": "fdf17b89e1c234dede01dfed4af8a0cad3334f42afec64211940a6dd2139c0d3"
+}

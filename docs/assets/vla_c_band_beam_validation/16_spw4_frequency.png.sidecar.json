@@ -1,0 +1,108 @@
+{
+  "figure_id": "F16",
+  "filename": "16_spw4_frequency.png",
+  "image_sha256": "ee935c0af2f2bbc0989b185ae429fda72102315383c293c4a44855d96553c41f",
+  "generating_function": "plot_frequency_series",
+  "claims": [
+    "C01",
+    "C02"
+  ],
+  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
+  "created_utc": "2026-09-07T01:24:27.813506+00:00",
+  "caption": "SPW-4 channel dependence. Frequency squint is omitted. Supports C01, C02.",
+  "table": {
+    "channels": [
+      {
+        "channel": 0,
+        "frequency_hz": 4500000000.0,
+        "rr_correlation": 0.9470142906002392,
+        "ll_correlation": 0.9447594495567029,
+        "rr_residual_power": 0.1039260267847459,
+        "ll_residual_power": 0.10804570334902193,
+        "rl_correlation": 0.05266346196303364,
+        "lr_correlation": 0.039806609492156524
+      },
+      {
+        "channel": 8,
+        "frequency_hz": 4516000000.0,
+        "rr_correlation": 0.9682970914742968,
+        "ll_correlation": 0.963358644581597,
+        "rr_residual_power": 0.06348929535460714,
+        "ll_residual_power": 0.07279107303549412,
+        "rl_correlation": 0.09321169287446046,
+        "lr_correlation": 0.09391563444456182
+      },
+      {
+        "channel": 16,
+        "frequency_hz": 4532000000.0,
+        "rr_correlation": 0.9696049244469201,
+        "ll_correlation": 0.9649310953422758,
+        "rr_residual_power": 0.06080732166921335,
+        "ll_residual_power": 0.06990391937712359,
+        "rl_correlation": 0.09308540906585315,
+        "lr_correlation": 0.09448009904133343
+      },
+      {
+        "channel": 24,
+        "frequency_hz": 4548000000.0,
+        "rr_correlation": 0.9710759305240363,
+        "ll_correlation": 0.958743923366705,
+        "rr_residual_power": 0.05791435898902683,
+        "ll_residual_power": 0.08166777866877879,
+        "rl_correlation": 0.09494554831113564,
+        "lr_correlation": 0.0893636163591194
+      },
+      {
+        "channel": 32,
+        "frequency_hz": 4564000000.0,
+        "rr_correlation": 0.9713541202861148,
+        "ll_correlation": 0.9681786216950763,
+        "rr_residual_power": 0.05740799797940493,
+        "ll_residual_power": 0.0633918983044523,
+        "rl_correlation": 0.10133092058292996,
+        "lr_correlation": 0.1035562336995104
+      },
+      {
+        "channel": 40,
+        "frequency_hz": 4580000000.0,
+        "rr_correlation": 0.9614100790403549,
+        "ll_correlation": 0.966590107333941,
+        "rr_residual_power": 0.07660192427869389,
+        "ll_residual_power": 0.06707576717335761,
+        "rl_correlation": 0.09709171040288805,
+        "lr_correlation": 0.08618708119509064
+      },
+      {
+        "channel": 48,
+        "frequency_hz": 4596000000.0,
+        "rr_correlation": 0.965346877844899,
+        "ll_correlation": 0.9645019354367607,
+        "rr_residual_power": 0.06937273896462047,
+        "ll_residual_power": 0.07169688227190757,
+        "rl_correlation": 0.08547423632322762,
+        "lr_correlation": 0.07670448775825725
+      },
+      {
+        "channel": 56,
+        "frequency_hz": 4612000000.0,
+        "rr_correlation": 0.964477418166828,
+        "ll_correlation": 0.9600499270354828,
+        "rr_residual_power": 0.07072359034205081,
+        "ll_residual_power": 0.08050761357726842,
+        "rl_correlation": 0.07484058353871426,
+        "lr_correlation": 0.06879515641105674
+      },
+      {
+        "channel": 63,
+        "frequency_hz": 4626000000.0,
+        "rr_correlation": 0.951700166096977,
+        "ll_correlation": 0.9503139508670173,
+        "rr_residual_power": 0.0950016948716241,
+        "ll_residual_power": 0.09873719343444497,
+        "rl_correlation": 0.05257431619606316,
+        "lr_correlation": 0.06613753279257358
+      }
+    ]
+  },
+  "table_sha256": "1804bbaec8c38961978016559afd0eee84099e7afb8b0f6ca9f61b97a9545a77"
+}

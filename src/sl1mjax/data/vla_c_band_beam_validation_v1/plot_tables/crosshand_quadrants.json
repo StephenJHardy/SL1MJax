@@ -1,0 +1,134 @@
+{
+  "east": {
+    "rl": {
+      "n": 173898,
+      "slope_real": 4.462612846783722,
+      "slope_imag": 2.389647348233516,
+      "correlation_abs": 0.0710555093767605,
+      "residual_power": 0.9984385153391376,
+      "median_abs_obs": 0.20023664816863812,
+      "median_abs_pred": 0.001405823732953632,
+      "median_abs_ratio": 142.4336803220283
+    },
+    "lr": {
+      "n": 173898,
+      "slope_real": 4.472583465614198,
+      "slope_imag": 2.504367971417657,
+      "correlation_abs": 0.07073479275832434,
+      "residual_power": 0.99848709301369,
+      "median_abs_obs": 0.20013085646133047,
+      "median_abs_pred": 0.0013814706380663897,
+      "median_abs_ratio": 144.8679768840029
+    }
+  },
+  "west": {
+    "rl": {
+      "n": 161056,
+      "slope_real": 3.5448929741906126,
+      "slope_imag": 2.9736950768640673,
+      "correlation_abs": 0.06451089298066796,
+      "residual_power": 0.9988162250546764,
+      "median_abs_obs": 0.1987227453645616,
+      "median_abs_pred": 0.0012939735441020684,
+      "median_abs_ratio": 153.57558604682444
+    },
+    "lr": {
+      "n": 161056,
+      "slope_real": 4.333703158764754,
+      "slope_imag": 0.8366338045188959,
+      "correlation_abs": 0.06240500651710592,
+      "residual_power": 0.9984672283702624,
+      "median_abs_obs": 0.19850556214541157,
+      "median_abs_pred": 0.0013108509126526463,
+      "median_abs_ratio": 151.4326001754955
+    }
+  },
+  "north": {
+    "rl": {
+      "n": 222796,
+      "slope_real": 4.068661243858182,
+      "slope_imag": 3.4952166904459396,
+      "correlation_abs": 0.07361501935962478,
+      "residual_power": 0.9986556259923443,
+      "median_abs_obs": 0.19737485366549104,
+      "median_abs_pred": 0.0012865136237748824,
+      "median_abs_ratio": 153.41839372548162
+    },
+    "lr": {
+      "n": 222796,
+      "slope_real": 3.9683202202436485,
+      "slope_imag": 0.05650844815325015,
+      "correlation_abs": 0.05378665510391412,
+      "residual_power": 0.9987259197517924,
+      "median_abs_obs": 0.19682001442400932,
+      "median_abs_pred": 0.0012846261856794446,
+      "median_abs_ratio": 153.21189667320252
+    }
+  },
+  "south": {
+    "rl": {
+      "n": 187628,
+      "slope_real": 1.3881846724697195,
+      "slope_imag": 0.2512982099904735,
+      "correlation_abs": 0.01895108465599866,
+      "residual_power": 0.9996794446274899,
+      "median_abs_obs": 0.19627707337689274,
+      "median_abs_pred": 0.0012880343774311358,
+      "median_abs_ratio": 152.3849648860685
+    },
+    "lr": {
+      "n": 187628,
+      "slope_real": 1.8410260011052362,
+      "slope_imag": 2.6274172234262503,
+      "correlation_abs": 0.043733296158122645,
+      "residual_power": 0.9995016179569848,
+      "median_abs_obs": 0.1963570141261068,
+      "median_abs_pred": 0.0012907808267010109,
+      "median_abs_ratio": 152.12266100044096
+    }
+  },
+  "east_west": {
+    "rl": {
+      "n": 334954,
+      "slope_real": 4.024660305083109,
+      "slope_imag": 2.668365500544496,
+      "correlation_abs": 0.06756260133296392,
+      "residual_power": 0.9986200368808034,
+      "median_abs_obs": 0.19948454393435056,
+      "median_abs_pred": 0.0013706353479319014,
+      "median_abs_ratio": 145.5416601033565
+    },
+    "lr": {
+      "n": 334954,
+      "slope_real": 4.404003790581344,
+      "slope_imag": 1.6808338807917467,
+      "correlation_abs": 0.06582356482561631,
+      "residual_power": 0.9984775251172842,
+      "median_abs_obs": 0.19933710817742284,
+      "median_abs_pred": 0.001363962682868605,
+      "median_abs_ratio": 146.14557324852092
+    }
+  },
+  "north_south": {
+    "rl": {
+      "n": 412104,
+      "slope_real": 2.8835324980409904,
+      "slope_imag": 2.060971347169538,
+      "correlation_abs": 0.04804942744385647,
+      "residual_power": 0.999123894949528,
+      "median_abs_obs": 0.19699575460129137,
+      "median_abs_pred": 0.0012859942981015462,
+      "median_abs_ratio": 153.18555835908998
+    },
+    "lr": {
+      "n": 412104,
+      "slope_real": 2.992843978880543,
+      "slope_imag": 1.2354052864131004,
+      "correlation_abs": 0.04387682402372033,
+      "residual_power": 0.999084421182301,
+      "median_abs_obs": 0.19674357880610832,
+      "median_abs_pred": 0.0012865881833509889,
+      "median_abs_ratio": 152.91884485809513
+    }
+  }
+}
