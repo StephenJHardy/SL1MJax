@@ -13,16 +13,21 @@ from numpy.typing import ArrayLike, NDArray
 
 from sl1mjax.beam_conventions import evla195_total_squint_rad
 from sl1mjax.holography_beam_prior import sky_frame_residual_numpy
-from sl1mjax.holography_cassbeam_correction import ARCMIN_TO_RAD, FeedFrameLookup
-from sl1mjax.holography_cassbeam_correction_audit import leave_one_mover_sensitivity
+from sl1mjax.holography_cassbeam_correction import (
+    ARCMIN_TO_RAD,
+    FeedFrameLookup,
+    mover_units_to_dict,
+)
 from sl1mjax.holography_cassbeam_holoraster_report import (
     mainlobe_power_mask,
     squint_from_voltage_maps,
 )
 from sl1mjax.holography_diagonal_correction import (
     OFFSET_CELL_QUANT_PER_RAD,
+    SPW4_HOLDOUT_MOVING_ANTENNA_NAMES,
     complex_visibility_loss,
     mover_cluster_ids,
+    mover_paired_deltas,
     packed_offset_keys,
     quantized_offset_keys,
     refuse_magnitude_loss,
@@ -625,6 +630,62 @@ def hand_loss(measured, predicted, weight, hand: str) -> float:
     return float(
         np.sum(wgt[ok, row, col] * np.abs(meas[ok, row, col] - pred[ok, row, col]) ** 2) / denom
     )
+
+
+def leave_one_mover_sensitivity(
+    samples,
+    candidate: ArrayLike,
+    baseline: ArrayLike,
+    *,
+    n_boot: int = 400,
+    seed: int = 0,
+) -> dict[str, object]:
+    """Per-mover ΔL and mover-holdout ΔL after dropping each holdout antenna."""
+
+    units = mover_paired_deltas(
+        samples.measured[samples.mover_holdout],
+        np.asarray(candidate)[samples.mover_holdout],
+        np.asarray(baseline)[samples.mover_holdout],
+        samples.weight[samples.mover_holdout],
+        samples.moving_id[samples.mover_holdout],
+        samples.antenna_names,
+        mainlobe_mask=samples.main_lobe[samples.mover_holdout],
+    )
+    names = {str(name): index for index, name in enumerate(samples.antenna_names)}
+    loo: list[dict[str, object]] = []
+    for name in SPW4_HOLDOUT_MOVING_ANTENNA_NAMES:
+        antenna = names[name]
+        keep = samples.mover_holdout & (samples.moving_id != int(antenna))
+        if not bool(np.any(keep)):
+            raise ValueError(f"leave-one-mover dropped every row for {name}")
+        scored = score_paired_holdout(
+            samples.measured[keep],
+            np.asarray(candidate)[keep],
+            np.asarray(baseline)[keep],
+            samples.weight[keep],
+            mover_cluster_ids(samples.moving_id, keep),
+            axis="moving",
+            cluster_kind="moving_antenna",
+            n_boot=n_boot,
+            seed=seed,
+        )
+        loo.append(
+            {
+                "left_out": name,
+                "delta": float(scored.delta),
+                "delta_lo": float(scored.delta_lo),
+                "delta_hi": float(scored.delta_hi),
+                "improves": bool(scored.improves()),
+                "n_clusters": int(scored.n_clusters),
+            }
+        )
+    return {
+        "movers": mover_units_to_dict(units),
+        "leave_one_out": loo,
+        "all_five_improve": bool(units.n_improving == len(SPW4_HOLDOUT_MOVING_ANTENNA_NAMES)),
+        "loo_all_improve": bool(all(bool(item["improves"]) for item in loo)),
+        "unit_gate_passes": bool(units.passes()),
+    }
 
 
 def score_model(
