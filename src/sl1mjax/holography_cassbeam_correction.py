@@ -8,18 +8,30 @@ does not fit phase and does not open SPW 5.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from sl1mjax.beam_conventions import BeamCalibrationState, require_beam_calibration_state
+from sl1mjax.holography_alignment import voltage_response_region_masks
 from sl1mjax.holography_diagonal_correction import (
     FIRST_LADDER_TERMS,
+    HOLORASTER_FIELD_ID,
+    PAIRED_DELTA_BOOTSTRAP,
+    MoverPairedDeltas,
+    PairedLossDifference,
+    complex_visibility_loss,
+    mover_cluster_ids,
+    mover_paired_deltas,
+    refuse_c147_training,
     refuse_phase_in_first_ladder,
     refuse_spw5,
     require_boresight_unity,
+    score_paired_holdout,
+    select_nested_correction,
+    spatial_cluster_ids,
 )
 from sl1mjax.polarization import apply_jones_to_coherency, circular_parallactic_jones
 
@@ -330,3 +342,421 @@ def gaussian_diagonal_lookup(
         return jones
 
     return lookup
+
+
+SQUINT_SCALE_GRID = np.linspace(0.85, 1.50, 27)
+WIDTH_SCALE_GRID = np.linspace(0.90, 1.12, 23)
+POINTING_ARCMIN_GRID = np.linspace(-1.5, 1.5, 13)
+SIDELOBE_RADIUS_GRID = np.linspace(0.85, 1.15, 13)
+SIDELOBE_AMPLITUDE_GRID = np.linspace(0.70, 1.40, 15)
+FROZEN_HYPERPARAMETERS = {
+    "cassbeam_rr_peak_arcmin": CASSBEAM_RR_PEAK_ARCMIN,
+    "cassbeam_ll_peak_arcmin": CASSBEAM_LL_PEAK_ARCMIN,
+    "nominal_first_sidelobe_arcmin": NOMINAL_FIRST_SIDELOBE_ARCMIN,
+    "sidelobe_bump_width_arcmin": SIDELOBE_BUMP_WIDTH_ARCMIN,
+    "azimuthal_core_arcmin": AZIMUTHAL_CORE_ARCMIN,
+    "squint_scale_grid": tuple(float(item) for item in SQUINT_SCALE_GRID),
+    "width_scale_grid": tuple(float(item) for item in WIDTH_SCALE_GRID),
+}
+
+
+@dataclass(frozen=True)
+class CorrectionSamples:
+    """Visibility-domain samples already reduced to one native channel."""
+
+    offset_lm_rad: NDArray[np.float64]
+    measured: NDArray[np.complex128]
+    baseline: NDArray[np.complex128]
+    weight: NDArray[np.float64]
+    source: NDArray[np.complex128]
+    moving_is_p: NDArray[np.bool_]
+    moving_id: NDArray[np.int32]
+    antenna_names: tuple[str, ...]
+    train: NDArray[np.bool_]
+    spatial_holdout: NDArray[np.bool_]
+    mover_holdout: NDArray[np.bool_]
+    main_lobe: NDArray[np.bool_]
+    mid: NDArray[np.bool_]
+    outer: NDArray[np.bool_]
+    parallactic_angle_rad: NDArray[np.float64] | None = None
+    field_id: NDArray[np.int32] | None = None
+    frequency_hz: float = 4.564e9
+    spectral_window_id: int = 4
+
+    def __post_init__(self) -> None:
+        n = _offset_pairs(self.offset_lm_rad).shape[0]
+        object.__setattr__(self, "offset_lm_rad", _offset_pairs(self.offset_lm_rad))
+        for name in (
+            "measured",
+            "baseline",
+            "weight",
+            "moving_is_p",
+            "moving_id",
+            "train",
+            "spatial_holdout",
+            "mover_holdout",
+            "main_lobe",
+            "mid",
+            "outer",
+        ):
+            value = np.asarray(getattr(self, name))
+            if value.shape[0] != n:
+                raise ValueError(f"{name} must have one entry per sample")
+            object.__setattr__(self, name, value)
+        object.__setattr__(self, "antenna_names", tuple(self.antenna_names))
+        if self.field_id is not None:
+            fields = np.asarray(self.field_id, dtype=np.int32).reshape(-1)
+            object.__setattr__(self, "field_id", fields)
+            refuse_c147_training(fields[self.development_mask()])
+            if np.any(fields[self.development_mask()] != HOLORASTER_FIELD_ID):
+                raise ValueError("development samples must be HOLORASTER field 10")
+        refuse_spw5(
+            frequency_hz=self.frequency_hz,
+            spectral_window_id=int(self.spectral_window_id),
+        )
+
+    def development_mask(self) -> NDArray[np.bool_]:
+        return np.asarray(self.train | self.spatial_holdout | self.mover_holdout, dtype=bool)
+
+
+@dataclass(frozen=True)
+class TermEvaluation:
+    term: str
+    state: CorrectionState
+    spatial: PairedLossDifference
+    moving: PairedLossDifference
+    mover_units: MoverPairedDeltas
+    decision: str
+    region_residual_power: Mapping[str, float]
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class LadderResult:
+    accepted: CorrectionState
+    stopped_at: str | None
+    identity_matches_baseline: bool
+    selection_record: tuple[TermEvaluation, ...]
+    development_refit: CorrectionState | None
+    holdout_scores_preserved: bool
+    hyperparameters: Mapping[str, object] = field(
+        default_factory=lambda: dict(FROZEN_HYPERPARAMETERS)
+    )
+    notes: tuple[str, ...] = (IDENTITY_STATE_NOTE, WARP_NOTE)
+
+
+def predict_from_state(
+    samples: CorrectionSamples,
+    lookup: FeedFrameLookup,
+    state: CorrectionState,
+) -> NDArray[np.complex128]:
+    feed = apply_feed_frame_correction(samples.offset_lm_rad, lookup, state)
+    if samples.parallactic_angle_rad is not None:
+        feed = apply_parallactic_after_correction(feed, samples.parallactic_angle_rad)
+    return predict_moving_reference_vis(
+        feed,
+        samples.source,
+        samples.moving_is_p,
+    )
+
+
+def region_residual_power(
+    measured: ArrayLike,
+    predicted: ArrayLike,
+    weight: ArrayLike,
+    masks: Mapping[str, ArrayLike],
+) -> dict[str, float]:
+    """Main/mid/outer residual power. Diagnostic; not the acceptance rule."""
+
+    out: dict[str, float] = {}
+    for name, mask in masks.items():
+        choose = np.asarray(mask, dtype=bool).reshape(-1)
+        if not bool(np.any(choose)):
+            out[name] = float("nan")
+            continue
+        out[name] = complex_visibility_loss(
+            np.asarray(measured)[choose],
+            np.asarray(predicted)[choose],
+            np.asarray(weight)[choose],
+        )
+    return out
+
+
+def evaluate_candidate(
+    samples: CorrectionSamples,
+    candidate: ArrayLike,
+    baseline: ArrayLike,
+    *,
+    term: str,
+    state: CorrectionState,
+    n_boot: int = PAIRED_DELTA_BOOTSTRAP,
+    seed: int = 0,
+) -> TermEvaluation:
+    spatial = score_paired_holdout(
+        samples.measured[samples.spatial_holdout],
+        np.asarray(candidate)[samples.spatial_holdout],
+        np.asarray(baseline)[samples.spatial_holdout],
+        samples.weight[samples.spatial_holdout],
+        spatial_cluster_ids(samples.offset_lm_rad, samples.spatial_holdout),
+        axis="spatial",
+        cluster_kind="spatial_cell",
+        n_boot=n_boot,
+        seed=seed,
+    )
+    moving = score_paired_holdout(
+        samples.measured[samples.mover_holdout],
+        np.asarray(candidate)[samples.mover_holdout],
+        np.asarray(baseline)[samples.mover_holdout],
+        samples.weight[samples.mover_holdout],
+        mover_cluster_ids(samples.moving_id, samples.mover_holdout),
+        axis="moving",
+        cluster_kind="moving_antenna",
+        n_boot=n_boot,
+        seed=seed + 1,
+    )
+    units = mover_paired_deltas(
+        samples.measured[samples.mover_holdout],
+        np.asarray(candidate)[samples.mover_holdout],
+        np.asarray(baseline)[samples.mover_holdout],
+        samples.weight[samples.mover_holdout],
+        samples.moving_id[samples.mover_holdout],
+        samples.antenna_names,
+        mainlobe_mask=samples.main_lobe[samples.mover_holdout],
+    )
+    decision = select_nested_correction(spatial, moving, units)
+    regions = region_residual_power(
+        samples.measured,
+        candidate,
+        samples.weight,
+        {
+            "main_lobe": samples.main_lobe,
+            "mid": samples.mid,
+            "outer_diagnostic": samples.outer,
+        },
+    )
+    return TermEvaluation(
+        term=term,
+        state=state,
+        spatial=spatial,
+        moving=moving,
+        mover_units=units,
+        decision=decision,
+        region_residual_power=regions,
+        notes=("region residual power is diagnostic",),
+    )
+
+
+def _train_loss(
+    samples: CorrectionSamples,
+    lookup: FeedFrameLookup,
+    state: CorrectionState,
+    row_mask: ArrayLike,
+) -> float:
+    choose = np.asarray(row_mask, dtype=bool).reshape(-1)
+    predicted = predict_from_state(samples, lookup, state)
+    return complex_visibility_loss(
+        samples.measured[choose],
+        predicted[choose],
+        samples.weight[choose],
+    )
+
+
+def _best_on_grid(
+    samples: CorrectionSamples,
+    lookup: FeedFrameLookup,
+    prefix: CorrectionState,
+    updates: Sequence[Mapping[str, float | tuple[float, ...]]],
+    row_mask: ArrayLike,
+) -> Mapping[str, float | tuple[float, ...]]:
+    best = updates[0]
+    best_loss = np.inf
+    for item in updates:
+        loss = _train_loss(samples, lookup, replace(prefix, **dict(item)), row_mask)
+        if np.isfinite(loss) and loss < best_loss:
+            best_loss = float(loss)
+            best = item
+    return best
+
+
+def _fit_azimuthal(
+    samples: CorrectionSamples,
+    prefix_vis: ArrayLike,
+    row_mask: ArrayLike,
+) -> tuple[float, float, float, float]:
+    choose = np.asarray(row_mask, dtype=bool).reshape(-1)
+    offset = samples.offset_lm_rad[choose]
+    radius = np.hypot(offset[:, 0], offset[:, 1])
+    angle = np.arctan2(offset[:, 0], offset[:, 1])
+    window = 1.0 - np.exp(-((radius / (AZIMUTHAL_CORE_ARCMIN * ARCMIN_TO_RAD)) ** 2))
+    design = np.stack(
+        [
+            window * np.cos(angle),
+            window * np.sin(angle),
+            window * np.cos(2.0 * angle),
+            window * np.sin(2.0 * angle),
+        ],
+        axis=1,
+    )
+    pred = np.asarray(prefix_vis, dtype=np.complex128)[choose]
+    meas = samples.measured[choose]
+    wgt = samples.weight[choose]
+    columns = []
+    rhs = []
+    for row, col in ((0, 0), (1, 1)):
+        prefix = pred[:, row, col]
+        ww = np.sqrt(np.maximum(wgt[:, row, col], 0.0))
+        finite = np.isfinite(prefix) & np.isfinite(meas[:, row, col]) & (ww > 0.0)
+        if not bool(np.any(finite)):
+            continue
+        basis = prefix[finite, None] * design[finite]
+        target = meas[finite, row, col] - prefix[finite]
+        scale = ww[finite]
+        columns.append(np.vstack((scale[:, None] * basis.real, scale[:, None] * basis.imag)))
+        rhs.append(np.concatenate((scale * target.real, scale * target.imag)))
+    if not columns:
+        return (0.0, 0.0, 0.0, 0.0)
+    matrix = np.vstack(columns)
+    vector = np.concatenate(rhs)
+    coef, *_ = np.linalg.lstsq(matrix, vector, rcond=None)
+    return (float(coef[0]), float(coef[1]), float(coef[2]), float(coef[3]))
+
+
+def fit_term(
+    term: str,
+    prefix: CorrectionState,
+    samples: CorrectionSamples,
+    lookup: FeedFrameLookup,
+    *,
+    row_mask: ArrayLike | None = None,
+) -> CorrectionState:
+    """Fit one nested term on the supplied rows. Does not score holdouts."""
+
+    refuse_phase_in_first_ladder(term)
+    mask = samples.train if row_mask is None else np.asarray(row_mask, dtype=bool)
+    if term == "rl_squint_scale":
+        chosen = _best_on_grid(
+            samples,
+            lookup,
+            prefix,
+            tuple({"squint_scale": float(value)} for value in SQUINT_SCALE_GRID),
+            mask,
+        )
+        return with_accepted_term(prefix, term, squint_scale=float(chosen["squint_scale"]))
+    if term == "beam_width":
+        chosen = _best_on_grid(
+            samples,
+            lookup,
+            prefix,
+            tuple({"width_scale": float(value)} for value in WIDTH_SCALE_GRID),
+            mask,
+        )
+        return with_accepted_term(prefix, term, width_scale=float(chosen["width_scale"]))
+    if term == "pointing_offset":
+        updates = tuple(
+            {
+                "pointing_l_rad": float(l_arcmin) * ARCMIN_TO_RAD,
+                "pointing_m_rad": float(m_arcmin) * ARCMIN_TO_RAD,
+            }
+            for l_arcmin in POINTING_ARCMIN_GRID
+            for m_arcmin in POINTING_ARCMIN_GRID
+        )
+        chosen = _best_on_grid(samples, lookup, prefix, updates, mask)
+        return with_accepted_term(prefix, term, **chosen)
+    if term == "first_sidelobe_radius_amplitude":
+        updates = tuple(
+            {
+                "sidelobe_radius_scale": float(radius),
+                "sidelobe_amplitude": float(amplitude),
+            }
+            for radius in SIDELOBE_RADIUS_GRID
+            for amplitude in SIDELOBE_AMPLITUDE_GRID
+        )
+        chosen = _best_on_grid(samples, lookup, prefix, updates, mask)
+        return with_accepted_term(prefix, term, **chosen)
+    if term == "low_order_azimuthal":
+        prefix_vis = predict_from_state(samples, lookup, prefix)
+        azimuthal = _fit_azimuthal(samples, prefix_vis, mask)
+        return with_accepted_term(prefix, term, azimuthal=azimuthal)
+    raise ValueError(f"unsupported first-ladder term {term!r}")
+
+
+def refit_frozen_family(
+    accepted: CorrectionState,
+    samples: CorrectionSamples,
+    lookup: FeedFrameLookup,
+) -> CorrectionState:
+    """Refit accepted coefficients on all SPW-4 development rows."""
+
+    if accepted.is_identity():
+        return accepted
+    state = IDENTITY_CORRECTION
+    development = samples.development_mask()
+    for term in accepted.accepted_terms:
+        if term == "identity":
+            continue
+        state = fit_term(term, state, samples, lookup, row_mask=development)
+    if state.accepted_terms != accepted.accepted_terms:
+        raise ValueError("development refit must preserve the frozen term prefix")
+    return state
+
+
+def run_first_ladder(
+    samples: CorrectionSamples,
+    lookup: FeedFrameLookup,
+    *,
+    n_boot: int = PAIRED_DELTA_BOOTSTRAP,
+    seed: int = 0,
+    refit_development: bool = True,
+) -> LadderResult:
+    """Add nested terms until the first failed holdout gate. SPW 5 stays closed."""
+
+    refuse_spw5(
+        frequency_hz=samples.frequency_hz,
+        spectral_window_id=samples.spectral_window_id,
+    )
+    identity_vis = identity_predictions(samples.baseline)
+    require_identity_matches_baseline(identity_vis, samples.baseline)
+    model_identity = predict_from_state(samples, lookup, IDENTITY_CORRECTION)
+    require_identity_matches_baseline(model_identity, samples.baseline)
+    accepted = IDENTITY_CORRECTION
+    baseline_vis = samples.baseline
+    record: list[TermEvaluation] = []
+    stopped: str | None = None
+    while True:
+        term = next_term(accepted)
+        if term is None:
+            break
+        candidate = fit_term(term, accepted, samples, lookup)
+        candidate_vis = predict_from_state(samples, lookup, candidate)
+        scored = evaluate_candidate(
+            samples,
+            candidate_vis,
+            baseline_vis,
+            term=term,
+            state=candidate,
+            n_boot=n_boot,
+            seed=seed,
+        )
+        record.append(scored)
+        if scored.decision != "accept_candidate":
+            stopped = term
+            break
+        accepted = candidate
+        baseline_vis = candidate_vis
+    development = (
+        refit_frozen_family(accepted, samples, lookup) if refit_development else None
+    )
+    return LadderResult(
+        accepted=accepted,
+        stopped_at=stopped,
+        identity_matches_baseline=True,
+        selection_record=tuple(record),
+        development_refit=development,
+        holdout_scores_preserved=True,
+    )
+
+
+def region_masks_from_voltage(voltage: ArrayLike) -> dict[str, NDArray[np.bool_]]:
+    """Publication main/mid/outer bins. Acceptance still uses the holdouts."""
+
+    return voltage_response_region_masks(voltage)
