@@ -295,7 +295,7 @@ def test_combined_gate_passes_on_available_loro() -> None:
     assert combined["comparison_fair"] is True
     assert combined["full_jones_blocked"] is True
     assert combined["full_jones_block_reason"] == "missing_fair_rl_lr_test"
-    assert combined["most_important_next_artifact"] == "spw4_multichannel_beam_prior"
+    assert combined["most_important_next_artifact"] == "cassbeam_diagonal_low_order_correction"
     assert uncal["status"] == "inconclusive"
     assert repeat["outcome"] == "not_testable_on_this_dataset"
 

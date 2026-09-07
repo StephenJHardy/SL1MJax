@@ -1322,7 +1322,7 @@ def classify_highres_cassbeam_direct(
         "full_jones_blocked": True,
         "full_jones_frozen": False,
         "spw5_closed": True,
-        "most_important_next_artifact": "spw4_multichannel_beam_prior",
+        "most_important_next_artifact": "cassbeam_diagonal_low_order_correction",
         "notes": (
             HIGHRES_CASSBEAM_NOTE,
             TRAINING_ONLY_CONVENTION_NOTE,

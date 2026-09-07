@@ -948,7 +948,7 @@ def combine_alignment_transfer_gates(
         "full_jones_block_reason": (
             "missing_fair_rl_lr_test" if loro_ok else "loro_copolar_floor_not_met"
         ),
-        "most_important_next_artifact": "spw4_multichannel_beam_prior",
+        "most_important_next_artifact": "cassbeam_diagonal_low_order_correction",
         "comparison_fair": bool(loro_ok),
         "notes": (
             ALIGNMENT_NOTE,

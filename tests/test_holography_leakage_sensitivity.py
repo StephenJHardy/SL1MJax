@@ -221,4 +221,4 @@ def test_injection_curve_and_classifier_keep_full_jones_unfrozen() -> None:
         assert report["full_jones_frozen"] is False
         assert report["spw5_closed"] is True
         assert report["full_jones_blocked"] is True
-        assert report["most_important_next_artifact"] == "spw4_multichannel_beam_prior"
+        assert report["most_important_next_artifact"] == "cassbeam_diagonal_low_order_correction"

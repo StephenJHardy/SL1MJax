@@ -255,7 +255,7 @@ def test_classifier_fail_closed_and_scientific_nondetection() -> None:
     assert limit["scientific_decision"] is True
     assert limit["full_jones_frozen"] is False
     assert limit["spw5_closed"] is True
-    assert limit["most_important_next_artifact"] == SPW4_MULTICHANNEL_BEAM_PRIOR
+    assert limit["most_important_next_artifact"] == "cassbeam_diagonal_low_order_correction"
 
 
 def test_prior_contains_only_supported_quantities() -> None:

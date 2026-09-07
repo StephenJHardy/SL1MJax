@@ -647,6 +647,6 @@ def test_loro_full_versus_diagonal_does_not_pool_references() -> None:
     assert combined["full_jones_frozen"] is False
     mixed = combine_loro_full_versus_diagonal({"ea26": passed, "ea07": failed})
     assert mixed["status"] == "fail"
-    assert mixed["most_important_next_artifact"] == "spw4_multichannel_beam_prior"
+    assert mixed["most_important_next_artifact"] == "cassbeam_diagonal_low_order_correction"
     assert mixed["full_jones_frozen"] is False
     assert mixed["spw5_closed"] is True

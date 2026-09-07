@@ -2207,7 +2207,7 @@ def combine_loro_full_versus_diagonal(
         "full_jones_blocked": True,
         "full_jones_frozen": False,
         "spw5_closed": status != "pass",
-        "most_important_next_artifact": "spw4_multichannel_beam_prior",
+        "most_important_next_artifact": "cassbeam_diagonal_low_order_correction",
         "per_reference": {name: dict(report) for name, report in per_reference.items()},
         "notes": (LORO_HOLDOUT_NOTE, ONE_AXIS_HOLDOUT_NOTE),
     }

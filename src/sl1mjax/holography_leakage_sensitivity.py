@@ -1014,7 +1014,7 @@ def classify_leakage_sensitivity(
         "full_jones_blocked": True,
         "full_jones_frozen": False,
         "spw5_closed": True,
-        "most_important_next_artifact": "spw4_multichannel_beam_prior",
+        "most_important_next_artifact": "cassbeam_diagonal_low_order_correction",
         "notes": (
             LEAKAGE_SENSITIVITY_NOTE,
             FEED_FRAME_INJECTION_NOTE,

@@ -162,6 +162,10 @@ SCIENTIFIC_RECOVERY_ORDER = (
     "loro_leakage_sensitivity",
     "highres_cassbeam_direct_visibility_validation",
     "spw4_multichannel_beam_prior",
+    "c147_offset_ring_highres_cassbeam",
+    "holoraster_cassbeam_comparison_report",
+    "cassbeam_diagonal_cband_reference",
+    "cassbeam_diagonal_low_order_correction",
     "field9_acquisition_state",
     "hierarchical_scan_state_residual",
     "interleaved_onaxis_beam_transfer",
@@ -174,7 +178,7 @@ SCIENTIFIC_RECOVERY_ORDER = (
     "independent_spw5_recovery",
     "spatial_or_array_average_beam",
 )
-MOST_IMPORTANT_NEXT_ARTIFACT = "spw4_multichannel_beam_prior"
+MOST_IMPORTANT_NEXT_ARTIFACT = "cassbeam_diagonal_low_order_correction"
 SCIENTIFIC_CALIBRATION_PRODUCT = "thol0001_lower_c_scientific"
 COMPATIBILITY_CALIBRATION_PRODUCT = "thol0001_lower_c"
 CASA_DF_JONES_APPLYCAL_V1 = "casa_df_jones_applycal_v1"

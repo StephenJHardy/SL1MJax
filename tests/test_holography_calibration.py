@@ -89,7 +89,7 @@ def test_jones_recovery_stays_blocked_until_every_gate_passes() -> None:
     gate = jones_recovery_gate()
     assert gate["blocked"] is True
     assert gate["next_in_order"] == "diagonal_apply_back"
-    assert gate["most_important_next_artifact"] == "spw4_multichannel_beam_prior"
+    assert gate["most_important_next_artifact"] == "cassbeam_diagonal_low_order_correction"
     assert gate["most_important_next_artifact"] == MOST_IMPORTANT_NEXT_ARTIFACT
     assert gate["pending"] == list(VALIDATION_ORDER)
     assert gate["scientific_recovery_order"][0] == "consistent_3c147_flux_gauge"
@@ -149,6 +149,10 @@ def test_mixed_field0_field9_models_block_scientific_recovery() -> None:
     assert "loro_leakage_sensitivity" in SCIENTIFIC_RECOVERY_ORDER
     assert "highres_cassbeam_direct_visibility_validation" in SCIENTIFIC_RECOVERY_ORDER
     assert "spw4_multichannel_beam_prior" in SCIENTIFIC_RECOVERY_ORDER
+    assert "c147_offset_ring_highres_cassbeam" in SCIENTIFIC_RECOVERY_ORDER
+    assert "holoraster_cassbeam_comparison_report" in SCIENTIFIC_RECOVERY_ORDER
+    assert "cassbeam_diagonal_cband_reference" in SCIENTIFIC_RECOVERY_ORDER
+    assert "cassbeam_diagonal_low_order_correction" in SCIENTIFIC_RECOVERY_ORDER
     assert "interleaved_onaxis_beam_transfer" in SCIENTIFIC_RECOVERY_ORDER
     assert SCIENTIFIC_RECOVERY_ORDER.index("field9_estimator_identifiability") < (
         SCIENTIFIC_RECOVERY_ORDER.index("field9_stabilized_residual_jones")
@@ -176,6 +180,18 @@ def test_mixed_field0_field9_models_block_scientific_recovery() -> None:
     )
     assert SCIENTIFIC_RECOVERY_ORDER.index("highres_cassbeam_direct_visibility_validation") < (
         SCIENTIFIC_RECOVERY_ORDER.index("spw4_multichannel_beam_prior")
+    )
+    assert SCIENTIFIC_RECOVERY_ORDER.index("spw4_multichannel_beam_prior") < (
+        SCIENTIFIC_RECOVERY_ORDER.index("c147_offset_ring_highres_cassbeam")
+    )
+    assert SCIENTIFIC_RECOVERY_ORDER.index("c147_offset_ring_highres_cassbeam") < (
+        SCIENTIFIC_RECOVERY_ORDER.index("holoraster_cassbeam_comparison_report")
+    )
+    assert SCIENTIFIC_RECOVERY_ORDER.index("holoraster_cassbeam_comparison_report") < (
+        SCIENTIFIC_RECOVERY_ORDER.index("cassbeam_diagonal_cband_reference")
+    )
+    assert SCIENTIFIC_RECOVERY_ORDER.index("cassbeam_diagonal_cband_reference") < (
+        SCIENTIFIC_RECOVERY_ORDER.index("cassbeam_diagonal_low_order_correction")
     )
     assert SCIENTIFIC_RECOVERY_ORDER.index(
         "field9_all_antenna_residual_jones"

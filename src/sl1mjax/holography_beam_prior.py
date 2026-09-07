@@ -642,7 +642,7 @@ def classify_beam_prior_decision(
         "blocking": decision != "cassbeam_morphology_supported",
         "full_jones_frozen": False,
         "spw5_closed": True,
-        "most_important_next_artifact": SPW4_MULTICHANNEL_BEAM_PRIOR,
+        "most_important_next_artifact": "cassbeam_diagonal_low_order_correction",
         "notes": (PRIOR_NOTE, INJECTION_NOTE, CHANNEL_COVARIANCE_NOTE, NO_HOLORASTER_IN_DI_NOTE),
     }
 

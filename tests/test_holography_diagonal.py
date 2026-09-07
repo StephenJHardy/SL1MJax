@@ -704,6 +704,9 @@ def test_mainlobe_centroid_ignores_sidelobe() -> None:
     assert "loro_leakage_sensitivity" in NEXT_RECOVERY_ORDER
     assert "highres_cassbeam_direct_visibility_validation" in NEXT_RECOVERY_ORDER
     assert "spw4_multichannel_beam_prior" in NEXT_RECOVERY_ORDER
+    assert "c147_offset_ring_highres_cassbeam" in NEXT_RECOVERY_ORDER
+    assert "holoraster_cassbeam_comparison_report" in NEXT_RECOVERY_ORDER
+    assert "cassbeam_diagonal_low_order_correction" in NEXT_RECOVERY_ORDER
     assert NEXT_RECOVERY_ORDER.index("loro_full_versus_diagonal") < NEXT_RECOVERY_ORDER.index(
         "loro_leakage_sensitivity"
     )
@@ -712,6 +715,15 @@ def test_mainlobe_centroid_ignores_sidelobe() -> None:
     )
     assert NEXT_RECOVERY_ORDER.index("highres_cassbeam_direct_visibility_validation") < (
         NEXT_RECOVERY_ORDER.index("spw4_multichannel_beam_prior")
+    )
+    assert NEXT_RECOVERY_ORDER.index("spw4_multichannel_beam_prior") < (
+        NEXT_RECOVERY_ORDER.index("c147_offset_ring_highres_cassbeam")
+    )
+    assert NEXT_RECOVERY_ORDER.index("c147_offset_ring_highres_cassbeam") < (
+        NEXT_RECOVERY_ORDER.index("holoraster_cassbeam_comparison_report")
+    )
+    assert NEXT_RECOVERY_ORDER.index("holoraster_cassbeam_comparison_report") < (
+        NEXT_RECOVERY_ORDER.index("cassbeam_diagonal_low_order_correction")
     )
     assert NEXT_RECOVERY_ORDER.index(
         "field9_all_antenna_residual_jones"
