@@ -1,19 +1,22 @@
 {
   "figure_id": "F05",
   "filename": "05_onaxis_amplitude.png",
-  "image_sha256": "c77ab73149ec14f434e5ae120195c56fcd48da12c6e544169d2b9f23ba58e74f",
+  "image_sha256": "2e428fde7c2504f4bb1dfcecd8eade07dbf405de1d81491f7a550ee3f749213c",
   "generating_function": "plot_onaxis_amp",
   "claims": [
     "C01"
   ],
-  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
-  "created_utc": "2026-09-07T01:24:27.125128+00:00",
-  "caption": "On-axis absolute |V| for measured HOLORASTER and CASSBEAM. Supports C01.",
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:47.511263+00:00",
+  "caption": "On-axis |V|/I_model. Boresight is marked at one. Supports C01.",
   "table": {
+    "source_i_jy": 8.028518676757812,
     "n_onaxis_rr": 18,
     "n_onaxis_ll": 18,
     "median_obs_rr": 8.11170768737793,
-    "median_pred_rr": 8.048805236816406
+    "median_pred_rr": 8.048805236816406,
+    "median_obs_rr_over_i": 1.010361671447754,
+    "median_pred_rr_over_i": 1.0025267601013184
   },
-  "table_sha256": "fdf17b89e1c234dede01dfed4af8a0cad3334f42afec64211940a6dd2139c0d3"
+  "table_sha256": "3a7a375f3014653b9f6ea54015793a43299442e64095c957ec2ed85c815f57a0"
 }

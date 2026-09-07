@@ -70,8 +70,42 @@ MARKDOWN = [
         "the measured AZELGEO coordinate. No coefficient is fitted. The source is "
         "at the phase centre, so the geometric fringe is identically one.\n"
         "\n"
+        "On axis, $V_{mr}\\simeq S$ with $E_m(0)=E_r(0)=1$. Flux calibration cannot "
+        "remove an off-axis beam error without spoiling that on-axis agreement. "
+        "Away from the origin, $\\Delta V(s)\\simeq S\\,[E_{\\mathrm{measured}}(s)"
+        "-E_{\\mathrm{CASSBEAM}}(s)]$. A 1 Jy residual on this 8 Jy calibrator is a "
+        "voltage-beam error of about 0.125, not a missing flux-scale factor.\n"
+        "\n"
+        "The quoted residual-power scores are not flux or amplitude errors. Their "
+        "square roots are the RMS visibility errors. The notebook also reports "
+        "median $|\\Delta V|/I$. The publication scatter uses the same $V/I_{\\mathrm{model}}$ "
+        "main-lobe mask as the claimed metric.\n"
+        "\n"
         "Maps are visibility-domain binned means, not recovered $E$ interpolants. "
-        "Unsupported cells are masked."
+        "Unsupported cells are masked. Raster-family residuals are a Memo 195 "
+        "dense/sparse occupancy proxy, not a scan-id join.\n"
+        "\n"
+        "The measured raster reaches about $\\pm 51'$ and $71'$ in the corners. "
+        "High-resolution CASSBEAM covers essentially that whole field. Outer-beam "
+        "CASSBEAM captures substantial coherent structure (complex correlation "
+        "about 0.82), but residual power of 32--35% and a median amplitude ratio "
+        "near 1.6 mean it is not yet an unqualified bright-source predictor. "
+        "The first-null region near 20--30′ is poorly predicted; coherence "
+        "partially returns in the next sidelobe. F24 shows the same radial "
+        "degradation across the 20 movers.\n"
+        "\n"
+        "The dB ratio is a diagnostic, not a multiplicative correction. When "
+        "CASSBEAM predicts only 0.05--0.15 Jy and the residual floor is about "
+        "0.2 Jy, magnitude ratios are biased upward. A correction would need "
+        "coherent complex averaging, uncertainty propagation, and transfer "
+        "across held-out antennas and cells. Phase means are exploratory and "
+        "must not be read as a general outer phase correction.\n"
+        "\n"
+        "For a common scalar beam, $E_p(s)E_q(s)^{*}=|E(s)|^{2}$, so a shared "
+        "voltage phase—and even a shared $\\pi$ lobe sign—cancels in ordinary "
+        "Stokes I. Outer-lobe magnitude is the main imaging concern. Phase "
+        "matters when antenna beams differ, for R/L differences and cross-polar "
+        "terms, and for antenna-dependent Jones beams."
     ),
     (
         "## 9. R/L squint\n"
@@ -105,9 +139,19 @@ MARKDOWN = [
     (
         "## 13. Conclusions and limitations\n"
         "\n"
-        "The lasting specification is CASSBEAM as the continuous physics model, a "
-        "validation-selected low-order diagonal correction still to be fitted, and "
-        "an explicitly uncertain experimental off-diagonal prior."
+        "Use CASSBEAM as the diagonal structural prior. Trust the main beam most "
+        "strongly. Treat the mid beam as qualified. Attach substantial model "
+        "uncertainty outside it. Keep explicit bright out-of-field source terms, "
+        "because CASSBEAM alone can misestimate their apparent flux by factors of "
+        "roughly two or more at particular outer locations. Do not infer a general "
+        "outer phase correction from the current phase means.\n"
+        "\n"
+        "The next scientific work is a validation-selected low-order diagonal "
+        "correction. Outer-field corrections should be admitted only if they "
+        "transfer across movers and spatial holdouts; otherwise bright outer "
+        "sources should get source-specific nuisance terms or peeling rather than "
+        "a globally corrected beam. Full Jones remains an experimental "
+        "non-detection. SPW 5 remains sealed."
     ),
 ]
 
@@ -142,16 +186,23 @@ for row in rows:
     print(f"{row['id']:<4} {row['status']:<10} {str(row.get('support_class','')):<28} {row['title']}")
 """,
     """residuals = residual_power_table(bundle.holoraster_channel32)
-print("region            RR residual   LL residual")
+print("Quoted % residual power is not a flux error.")
+print("region            RR power   RR RMS vis   RR med|dV|/I   LL power   LL RMS vis   LL med|dV|/I")
 for name in ("main_lobe", "mid", "outer_diagnostic", "all"):
     row = residuals[name]
-    print(f"{name:<17} {100*row['rr']:8.2f}%   {100*row['ll']:8.2f}%")
+    print(
+        f"{name:<17} {100*row['rr']:7.2f}%  {100*row['rr_rms']:9.2f}%  "
+        f"{100*row['rr_median_abs_over_i']:11.2f}%  "
+        f"{100*row['ll']:7.2f}%  {100*row['ll_rms']:9.2f}%  "
+        f"{100*row['ll_median_abs_over_i']:11.2f}%"
+    )
 print("RR slope", copolar_slope(bundle.holoraster_channel32, "rr"))
 print("LL slope", copolar_slope(bundle.holoraster_channel32, "ll"))
 print("RR corr", copolar_correlation(bundle.holoraster_channel32, "rr"))
 print("LL corr", copolar_correlation(bundle.holoraster_channel32, "ll"))
 print("n_rows", bundle.holoraster_channel32["n_rows"])
 print("frequency_hz", bundle.holoraster_channel32["frequency_hz"])
+print("source I_model Jy", bundle.residual_strata.get("source_i_jy"))
 """,
     """obs = bundle.observation
 print(obs["project"], "SB", obs["scheduling_block"], "EB", obs["execution_block"])
@@ -192,7 +243,34 @@ show("01_observation_timeline.png", "02_raster_occupancy.png", "03_antenna_roles
 """,
     """show("04_casa_jax_operator_residual.png", "05_onaxis_amplitude.png")
 """,
-    """show("08_cassbeam_scatter_main_lobe.png", "10_spatial_measured_cassbeam_residual.png", "12_residual_vs_radius.png")
+    """show(
+    "08_cassbeam_scatter_main_lobe.png",
+    "10_spatial_measured_cassbeam_residual.png",
+    "12_residual_vs_radius.png",
+    "15_residual_strata.png",
+)
+strata = bundle.residual_strata
+print("mask", strata.get("mask"))
+print("raster_family", strata.get("raster_family"))
+for key in ("mover", "reference", "pass"):
+    print(key, [(row.get("name"), row.get("n"), row.get("median_abs")) for row in strata.get(key) or ()][:8])
+""",
+    """show(
+    "20_amplitude_db.png",
+    "21_signed_complex_cuts.png",
+    "22_masked_phase.png",
+    "23_radial_coherence.png",
+    "24_antenna_coherence.png",
+    "25_bright_source_examples.png",
+)
+coh = bundle.radial_coherence
+print("phase_status", coh.get("phase_status"), "amp_floor_jy", coh.get("amp_floor_jy"))
+print("extent", coh.get("raster_extent_arcmin"))
+print("map phase >40'", coh.get("map_phase_beyond_40_arcmin"))
+for hand in ("rr", "ll"):
+    print(hand, [(row["r_mid_arcmin"], row["correlation_abs"], row["circular_phase_deg"]) for row in coh.get(hand) or ()])
+print("movers", [row["name"] for row in bundle.antenna_coherence.get("movers") or ()])
+print("examples", [row.get("label") for row in bundle.bright_source_examples.get("examples") or ()])
 """,
     """squint = publication_squint_pair(bundle.squint)
 for name, row in squint.items():
@@ -240,16 +318,17 @@ def build_notebook() -> nbformat.NotebookNode:
         nbformat.v4.new_code_cell(CODE[8]),
         nbformat.v4.new_markdown_cell(MARKDOWN[6]),
         nbformat.v4.new_code_cell(CODE[9]),
-        nbformat.v4.new_markdown_cell(MARKDOWN[7]),
         nbformat.v4.new_code_cell(CODE[10]),
-        nbformat.v4.new_markdown_cell(MARKDOWN[8]),
+        nbformat.v4.new_markdown_cell(MARKDOWN[7]),
         nbformat.v4.new_code_cell(CODE[11]),
-        nbformat.v4.new_markdown_cell(MARKDOWN[9]),
+        nbformat.v4.new_markdown_cell(MARKDOWN[8]),
         nbformat.v4.new_code_cell(CODE[12]),
-        nbformat.v4.new_markdown_cell(MARKDOWN[10]),
+        nbformat.v4.new_markdown_cell(MARKDOWN[9]),
         nbformat.v4.new_code_cell(CODE[13]),
-        nbformat.v4.new_markdown_cell(MARKDOWN[11]),
+        nbformat.v4.new_markdown_cell(MARKDOWN[10]),
         nbformat.v4.new_code_cell(CODE[14]),
+        nbformat.v4.new_markdown_cell(MARKDOWN[11]),
+        nbformat.v4.new_code_cell(CODE[15]),
     ]
     notebook = nbformat.v4.new_notebook()
     notebook["metadata"] = {

@@ -29,7 +29,6 @@
   "on_source_is_selection": false,
   "snap_pass2_to_memo_lattice": false,
   "antenna_names": [
-    "ea01",
     "ea02",
     "ea03",
     "ea04",

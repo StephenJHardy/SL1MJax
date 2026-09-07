@@ -6,8 +6,8 @@
   "claims": [
     "C07"
   ],
-  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
-  "created_utc": "2026-09-07T01:24:27.727610+00:00",
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:49.410964+00:00",
   "caption": "Publication 20%-of-peak squint. Full-raster centroids are not shown. Supports C07.",
   "table": {
     "measured": {

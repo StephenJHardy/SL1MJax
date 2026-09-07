@@ -50,13 +50,46 @@ def render_markdown(bundle, figures: list[Path]) -> str:
         "",
         "CASSBEAM is the reference diagonal C-band beam inside a stated validity",
         "domain. It is not an unqualified high-dynamic-range model of the whole",
-        "raster.",
+        "raster. Residual power is not a flux error; the RMS visibility column is",
+        r"$\sqrt{L}$. Off-axis 1 Jy residuals are voltage-beam mismatch,",
+        r"$\Delta V(s)\simeq S[E_{\mathrm{measured}}(s)-E_{\mathrm{CASSBEAM}}(s)]$.",
         "",
-        "| Region | Support class | Channel-32 residual power |",
-        "|---|---|---|",
-        f"| Main lobe | **accepted** | RR {_pct(residuals['main_lobe']['rr'])}, LL {_pct(residuals['main_lobe']['ll'])} |",
-        f"| Mid beam | **qualified** | RR {_pct(residuals['mid']['rr'])}, LL {_pct(residuals['mid']['ll'])} |",
-        f"| Outer raster | **diagnostic** | RR {_pct(residuals['outer_diagnostic']['rr'])}, LL {_pct(residuals['outer_diagnostic']['ll'])} |",
+        "| Region | Support class | Residual power | RMS visibility | Median $|\\Delta V|/I$ |",
+        "|---|---|---|---|---|",
+        (
+            f"| Main lobe | **accepted** | "
+            f"RR {_pct(residuals['main_lobe']['rr'])}, LL {_pct(residuals['main_lobe']['ll'])} | "
+            f"RR {_pct(residuals['main_lobe']['rr_rms'])}, LL {_pct(residuals['main_lobe']['ll_rms'])} | "
+            f"RR {_pct(residuals['main_lobe']['rr_median_abs_over_i'])}, "
+            f"LL {_pct(residuals['main_lobe']['ll_median_abs_over_i'])} |"
+        ),
+        (
+            f"| Mid beam | **qualified** | "
+            f"RR {_pct(residuals['mid']['rr'])}, LL {_pct(residuals['mid']['ll'])} | "
+            f"RR {_pct(residuals['mid']['rr_rms'])}, LL {_pct(residuals['mid']['ll_rms'])} | "
+            f"RR {_pct(residuals['mid']['rr_median_abs_over_i'])}, "
+            f"LL {_pct(residuals['mid']['ll_median_abs_over_i'])} |"
+        ),
+        (
+            f"| Outer raster | **diagnostic** | "
+            f"RR {_pct(residuals['outer_diagnostic']['rr'])}, "
+            f"LL {_pct(residuals['outer_diagnostic']['ll'])} | "
+            f"RR {_pct(residuals['outer_diagnostic']['rr_rms'])}, "
+            f"LL {_pct(residuals['outer_diagnostic']['ll_rms'])} | "
+            f"RR {_pct(residuals['outer_diagnostic']['rr_median_abs_over_i'])}, "
+            f"LL {_pct(residuals['outer_diagnostic']['ll_median_abs_over_i'])} |"
+        ),
+        "",
+        "The raster reaches about ±51′ and 71′ in the corners. Outer CASSBEAM is",
+        "coherent but not unqualified:",
+        f"correlation {residuals['outer_diagnostic']['rr_correlation']:.3f} / "
+        f"{residuals['outer_diagnostic']['ll_correlation']:.3f},",
+        f"median |V| ratio {residuals['outer_diagnostic']['rr_median_abs_ratio']:.2f} / "
+        f"{residuals['outer_diagnostic']['ll_median_abs_ratio']:.2f}.",
+        "A common scalar beam cancels voltage phase in Stokes I. Outer phase",
+        "maps are exploratory. The dB ratio is diagnostic only: when CASSBEAM",
+        "is 0.05–0.15 Jy and the residual floor is ~0.2 Jy, magnitude ratios",
+        "are biased upward and are not a multiplicative correction.",
         "",
         f"Complex slopes are {_slope(copolar_slope(bundle.holoraster_channel32, 'rr'))} (RR) and",
         f"{_slope(copolar_slope(bundle.holoraster_channel32, 'll'))} (LL), with correlations",
@@ -80,11 +113,27 @@ def render_markdown(bundle, figures: list[Path]) -> str:
         "",
         "![Raster occupancy](assets/vla_c_band_beam_validation/02_raster_occupancy.png)",
         "",
+        "![On-axis V/I](assets/vla_c_band_beam_validation/05_onaxis_amplitude.png)",
+        "",
         "![Main-lobe CASSBEAM scatter](assets/vla_c_band_beam_validation/08_cassbeam_scatter_main_lobe.png)",
         "",
         "![Spatial residual maps](assets/vla_c_band_beam_validation/10_spatial_measured_cassbeam_residual.png)",
         "",
         "![Residual versus radius](assets/vla_c_band_beam_validation/12_residual_vs_radius.png)",
+        "",
+        "![Residual strata](assets/vla_c_band_beam_validation/15_residual_strata.png)",
+        "",
+        "![Amplitude in dB](assets/vla_c_band_beam_validation/20_amplitude_db.png)",
+        "",
+        "![Signed complex cuts](assets/vla_c_band_beam_validation/21_signed_complex_cuts.png)",
+        "",
+        "![Masked phase](assets/vla_c_band_beam_validation/22_masked_phase.png)",
+        "",
+        "![Radial coherence](assets/vla_c_band_beam_validation/23_radial_coherence.png)",
+        "",
+        "![Per-antenna coherence](assets/vla_c_band_beam_validation/24_antenna_coherence.png)",
+        "",
+        "![Bright-source examples](assets/vla_c_band_beam_validation/25_bright_source_examples.png)",
         "",
         "![Publication squint](assets/vla_c_band_beam_validation/13_squint_mainlobe_20pct.png)",
         "",
@@ -104,10 +153,15 @@ def render_markdown(bundle, figures: list[Path]) -> str:
             "",
             "## Limitations",
             "",
+            "- Use CASSBEAM as the diagonal structural prior; trust the main beam most strongly.",
+            "- Mid beam is qualified; attach substantial model uncertainty outside it.",
+            "- Bright out-of-field sources can be misestimated by factors of two or more.",
+            "- Do not infer a general outer phase correction from the current phase means.",
+            "- Outer-field corrections must transfer across movers and spatial holdouts;",
+            "  otherwise use source-specific nuisance terms or peeling.",
             "- One published SPW-4 frequency; SPW 5 remains sealed.",
-            "- Outer-raster residual power is too large for an unqualified HDR model.",
             "- Full Jones is an experimental non-detection below the THOL0001 floor.",
-            "- The next artifact is a low-order diagonal correction aimed at the 10′ ring.",
+            "- The next artifact is a validation-selected low-order diagonal correction.",
             "",
         ]
     )

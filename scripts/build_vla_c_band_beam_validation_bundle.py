@@ -19,6 +19,20 @@ from sl1mjax.beam_validation_outputs import (
     default_bundle_root,
     write_validation_bundle,
 )
+from sl1mjax.beam_validation_statistics import (
+    PHASE_AMP_FLOOR_JY,
+    SPATIAL_MAP_BINS,
+    binned_complex_map,
+    bright_source_examples,
+    cell_average_vi,
+    channel32_source_i_jy,
+    complex_visibility_score,
+    phase_valid_mask,
+    radial_coherence,
+    raster_family_from_offset,
+    residual_group_summary,
+    scientific_voltage_masks,
+)
 from sl1mjax.holography import (
     THOL0001_EXECUTION_BLOCK,
     THOL0001_HOLORASTER_FIELD,
@@ -27,17 +41,12 @@ from sl1mjax.holography import (
     THOL0001_SCHEDULING_BLOCK,
     THOL0001_SOURCE,
 )
-from sl1mjax.holography_alignment import voltage_response_region_masks
 from sl1mjax.holography_calibration import (
     C147_OFFSET_FIELD_IDS,
     CALWT,
     FULLPOL_PARANG,
     ON_AXIS_3C147_FIELD_IDS,
     REFERENCE_ANTENNA,
-)
-from sl1mjax.holography_cassbeam_holoraster_report import (
-    SPATIAL_MAP_BINS,
-    binned_complex_map,
 )
 from sl1mjax.holography_diagonal import THOL0001_REFERENCE_ANTENNA_NAMES
 from sl1mjax.holography_highres_cassbeam import DEFAULT_CONVENTION
@@ -55,7 +64,8 @@ DEFAULT_FULL_JONES = Path(
 PACKAGE_HOLOGRAPHY = Path(__file__).resolve().parents[1] / "src" / "sl1mjax" / "data" / "holography_thol0001_lower_c"
 SCATTER_POINTS = 8000
 ONAXIS_ARCMIN = 0.15
-ANTENNA_NAMES = tuple(f"ea{index:02d}" for index in range(1, 29))
+# THOL0001 ANTENNA table is ea02–ea28. ea01 is absent from this MS.
+THOL0001_ANTENNA_NAMES = tuple(f"ea{index:02d}" for index in range(2, 29))
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -75,7 +85,11 @@ def _subsample(n: int, max_points: int = SCATTER_POINTS) -> np.ndarray:
     return np.linspace(0, n - 1, max_points, dtype=np.int64)
 
 
-def extract_holoraster_tables(npz_path: Path) -> dict[str, dict[str, np.ndarray]]:
+def extract_holoraster_tables(
+    npz_path: Path,
+    *,
+    antenna_names: tuple[str, ...] = THOL0001_ANTENNA_NAMES,
+) -> dict[str, object]:
     """Reduce the 114 MiB comparison arrays to plot tables. No new predict."""
 
     with np.load(npz_path, allow_pickle=False) as handle:
@@ -84,17 +98,20 @@ def extract_holoraster_tables(npz_path: Path) -> dict[str, dict[str, np.ndarray]
         full = handle["predicted_full"]
         weight = handle["weight"]
         offset = handle["offset"]
+        moving = handle["moving"]
+        reference = handle["reference"]
         mask = np.asarray(handle["mask"], dtype=bool)
+    intensity = channel32_source_i_jy()
+    regions = scientific_voltage_masks(measured, weight, intensity_jy=intensity)
     choose = np.flatnonzero(mask)
     index = choose[_subsample(choose.size)]
     radius = np.hypot(offset[:, 0], offset[:, 1]) * (180.0 * 60.0 / np.pi)
-    amp = 0.5 * (np.abs(_hand(measured, 0, 0)) + np.abs(_hand(measured, 1, 1)))
-    peak = float(np.nanpercentile(amp[mask], 99.0))
-    voltage = amp / peak if peak > 0.0 else amp
-    regions = voltage_response_region_masks(voltage)
     w_rr = np.asarray(weight, dtype=np.float64)
     if w_rr.ndim == 4:
+        w_ll = w_rr[:, 0, 1, 1]
         w_rr = w_rr[:, 0, 0, 0]
+    else:
+        w_ll = w_rr
     maps = {}
     for name, values in (
         ("rr_measured", _hand(measured, 0, 0)),
@@ -115,7 +132,77 @@ def extract_holoraster_tables(npz_path: Path) -> dict[str, dict[str, np.ndarray]
         np.ones(int(np.sum(mask)), dtype=np.float64),
         n_bin=SPATIAL_MAP_BINS,
     )
+    lobe = mask & regions["main_lobe"]
+    cells = {}
+    for hand, row, col in (("rr", 0, 0), ("ll", 1, 1)):
+        averaged = cell_average_vi(
+            offset,
+            _hand(measured, row, col),
+            _hand(predicted, row, col),
+            lobe,
+            intensity_jy=intensity,
+        )
+        for key, values in averaged.items():
+            cells[f"{hand}_{key}"] = np.asarray(values, dtype=np.float32)
+    family = raster_family_from_offset(offset)
+    pass_names = {1: "dense / pass-1 occupancy", 2: "sparse / pass-2 occupancy"}
+
+    def _named(rows: list[dict[str, float]], *, family_labels: bool = False) -> list[dict[str, object]]:
+        labeled: list[dict[str, object]] = []
+        for row in rows:
+            item = dict(row)
+            index = int(item["id"])
+            if family_labels:
+                item["name"] = pass_names.get(index, str(index))
+            elif 0 <= index < len(antenna_names):
+                item["name"] = antenna_names[index]
+            else:
+                item["name"] = str(index)
+            labeled.append(item)
+        return labeled
+
+    strata = {
+        "source_i_jy": intensity,
+        "mask": "V/I_model using CASA MODEL_DATA 3C147 at channel 32",
+        "raster_family": (
+            "Nearest Memo 195 dense versus sparse lattice. "
+            "This is a pass-1/pass-2 occupancy proxy, not a scan-id join."
+        ),
+        "mover": _named(
+            residual_group_summary(
+                _hand(measured, 0, 0) - _hand(predicted, 0, 0), moving, lobe
+            )
+        ),
+        "reference": _named(
+            residual_group_summary(
+                _hand(measured, 0, 0) - _hand(predicted, 0, 0), reference, lobe
+            )
+        ),
+        "pass": _named(
+            residual_group_summary(
+                _hand(measured, 0, 0) - _hand(predicted, 0, 0), family, lobe
+            ),
+            family_labels=True,
+        ),
+        "mover_ll": _named(
+            residual_group_summary(
+                _hand(measured, 1, 1) - _hand(predicted, 1, 1), moving, lobe
+            )
+        ),
+        "reference_ll": _named(
+            residual_group_summary(
+                _hand(measured, 1, 1) - _hand(predicted, 1, 1), reference, lobe
+            )
+        ),
+        "pass_ll": _named(
+            residual_group_summary(
+                _hand(measured, 1, 1) - _hand(predicted, 1, 1), family, lobe
+            ),
+            family_labels=True,
+        ),
+    }
     scatter = {
+        "source_i_jy": np.asarray(intensity, dtype=np.float64),
         "rr_obs_real": _hand(measured, 0, 0)[index].real.astype(np.float32),
         "rr_obs_imag": _hand(measured, 0, 0)[index].imag.astype(np.float32),
         "rr_pred_real": _hand(predicted, 0, 0)[index].real.astype(np.float32),
@@ -137,14 +224,88 @@ def extract_holoraster_tables(npz_path: Path) -> dict[str, dict[str, np.ndarray]
         "rr_onaxis": radius[index] <= ONAXIS_ARCMIN,
         "ll_onaxis": radius[index] <= ONAXIS_ARCMIN,
     }
+    rr_obs = _hand(measured, 0, 0)
+    rr_pred = _hand(predicted, 0, 0)
+    ll_obs = _hand(measured, 1, 1)
+    ll_pred = _hand(predicted, 1, 1)
+    l_ax = np.asarray(maps["l_arcmin"], dtype=np.float64)
+    m_ax = np.asarray(maps["m_arcmin"], dtype=np.float64)
+    ll_grid, mm_grid = np.meshgrid(l_ax, m_ax, indexing="xy")
+    map_radius = np.hypot(ll_grid, mm_grid)
+    map_outer = {
+        hand: complex_visibility_score(
+            np.asarray(maps[f"{hand}_measured"])[
+                phase_valid_mask(
+                    maps[f"{hand}_measured"],
+                    maps[f"{hand}_cassbeam"],
+                    maps["weight"],
+                )
+                & (map_radius >= 40.0)
+            ],
+            np.asarray(maps[f"{hand}_cassbeam"])[
+                phase_valid_mask(
+                    maps[f"{hand}_measured"],
+                    maps[f"{hand}_cassbeam"],
+                    maps["weight"],
+                )
+                & (map_radius >= 40.0)
+            ],
+        )
+        for hand in ("rr", "ll")
+    }
+    coherence = {
+        "source_i_jy": intensity,
+        "amp_floor_jy": PHASE_AMP_FLOOR_JY,
+        "domain": "moving-reference visibilities, not recovered E",
+        "phase_status": "exploratory",
+        "raster_extent_arcmin": {
+            "l_abs_max": float(np.nanmax(np.abs(offset[mask, 0])) * (180.0 * 60.0 / np.pi)),
+            "m_abs_max": float(np.nanmax(np.abs(offset[mask, 1])) * (180.0 * 60.0 / np.pi)),
+            "corner_max": float(np.nanmax(radius[mask])),
+        },
+        "rr": radial_coherence(offset, rr_obs, rr_pred, w_rr, mask),
+        "ll": radial_coherence(offset, ll_obs, ll_pred, w_ll, mask),
+        "map_phase_beyond_40_arcmin": map_outer,
+    }
+    movers = []
+    for antenna in np.unique(np.asarray(moving)[mask]):
+        choose = mask & (np.asarray(moving) == int(antenna))
+        index_id = int(antenna)
+        movers.append(
+            {
+                "id": index_id,
+                "name": (
+                    antenna_names[index_id]
+                    if 0 <= index_id < len(antenna_names)
+                    else str(index_id)
+                ),
+                "rr": radial_coherence(offset, rr_obs, rr_pred, w_rr, choose),
+                "ll": radial_coherence(offset, ll_obs, ll_pred, w_ll, choose),
+            }
+        )
+    movers.sort(key=lambda item: item["name"])
+    examples = {
+        "note": (
+            "Array-average binned visibilities at example radii. "
+            "A common scalar beam cancels voltage phase in Stokes I: "
+            "E_p(s) E_q(s)* = |E(s)|^2."
+        ),
+        "source_i_jy": intensity,
+        "examples": bright_source_examples(maps, source_i_jy=intensity),
+    }
     return {
         "scatter": scatter,
         "maps": maps,
+        "cells": cells,
         "occupancy": {
             "l_arcmin": occupancy["l_arcmin"],
             "m_arcmin": occupancy["m_arcmin"],
             "count": occupancy["weight"],
         },
+        "strata": strata,
+        "radial_coherence": coherence,
+        "antenna_coherence": {"movers": movers, "phase_status": "exploratory"},
+        "bright_source_examples": examples,
     }
 
 
@@ -225,7 +386,7 @@ def _observation_summary(occupancy: dict[str, Any]) -> dict[str, Any]:
         "pointing_offset_frame": "AZELGEO",
         "on_source_is_selection": False,
         "snap_pass2_to_memo_lattice": False,
-        "antenna_names": list(ANTENNA_NAMES),
+        "antenna_names": list(THOL0001_ANTENNA_NAMES),
         "reference_antenna_names": list(THOL0001_REFERENCE_ANTENNA_NAMES),
         "reference_antenna": REFERENCE_ANTENNA,
         "occupancy": {
@@ -332,7 +493,10 @@ def build_from_named_products(
         applyback = _load(full_jones_dir / "three_c286_applyback.json")
     if full_jones_dir is not None and (full_jones_dir / "goldens.json").is_file():
         goldens = _load(full_jones_dir / "goldens.json")
-    tables = extract_holoraster_tables(holoraster_dir / "channel32_comparison.npz")
+    tables = extract_holoraster_tables(
+        holoraster_dir / "channel32_comparison.npz",
+        antenna_names=THOL0001_ANTENNA_NAMES,
+    )
     fields = {
         "fields": [
             {
@@ -365,14 +529,20 @@ def build_from_named_products(
         squint=squint,
         offset_ring=_slim_offset_ring(report, smoke, geometry),
         residual_geometry=channel32["residual_geometry"],
+        residual_strata=tables["strata"],
+        radial_coherence=tables["radial_coherence"],
+        antenna_coherence=tables["antenna_coherence"],
+        bright_source_examples=tables["bright_source_examples"],
         frequency_series=frequency,
         offset_ring_fields=fields,
         crosshand_quadrants=quadrants,
         scatter=tables["scatter"],
         maps=tables["maps"],
+        cells=tables["cells"],
         occupancy=tables["occupancy"],
         provenance={
             "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
+            "revision": "outer_complex_magnitude_and_phase",
             "source_products": {
                 "holoraster_cassbeam_comparison": "named Bacchus product",
                 "c147_offset_ring": "named Bacchus product",

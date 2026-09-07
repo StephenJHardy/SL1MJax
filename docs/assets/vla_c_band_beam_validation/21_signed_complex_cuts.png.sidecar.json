@@ -1,0 +1,18 @@
+{
+  "figure_id": "F21",
+  "filename": "21_signed_complex_cuts.png",
+  "image_sha256": "7103ee678b4bf41b14f09bb52bca8ebb855a090bb2c13f87beb09efb779d09c6",
+  "generating_function": "plot_signed_complex_cuts",
+  "claims": [
+    "C03"
+  ],
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:48.739761+00:00",
+  "caption": "Signed Re/Im voltage cuts. Top: symmetric-log so distant lobes remain visible. Bottom: linear outer-only inset (|offset| \u2265 15\u2032). Solid/dashed are measured/CASSBEAM real; lighter/dotted are imaginary. Supports C03.",
+  "table": {
+    "source_i_jy": 8.028518676757812,
+    "outer_min_arcmin": 15.0,
+    "symlog_linthresh": 0.05
+  },
+  "table_sha256": "9568f29100ab9888484bd36d015da9b41104af0a3310a157918c6faae8eb8ec3"
+}

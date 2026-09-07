@@ -1,24 +1,30 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "publication_version": "vla_c_band_beam_validation_v1",
   "files": {
     "calibration_summary.json": "610c78e37bd8ef2d2ed492bbb0a13f980f739bb677c95e21447eed1241c0a65b",
-    "claims.json": "c43c8f9727b166a2445fc198de9d86bfbbdf64d1e05831265afca5482909dc5f",
+    "claims.json": "d6118153497570038719ac76966d652afff64978c3bf74abfca1db6e305ea866",
     "convention_gates.json": "d3b1b66cc974a7758772bcf8c44cccfa442e35ef726bd5063d9109e04a0226aa",
     "holoraster_channel32.json": "104bf10611694d24da50ae2404a93d2353c11913207a523e8f245f6d2fba524e",
     "holoraster_frequency.json": "6fb910770048921e48e4215168b9495dc44c5a14b1ab3c36d68b596c08e730cf",
-    "observation_summary.json": "95eee4c85d51c3ac2009acf07f3ff9add774c9d56701a486de098a6bb0e78aa6",
+    "observation_summary.json": "eccbdc485314e7eff020b4fcf109ebcd5fb590b04aaecf476e11b123575fb1fa",
     "offset_ring.json": "9f8bd86f4041c20bda9631d09f899dd9ec4612204f7ccac6b8350f9bcf6dd3d9",
+    "plot_tables/antenna_coherence.json": "301d7f0fafd02f1e5aaa5057b444c02acb6e40ed8f16549a009422f56c9d29dc",
+    "plot_tables/bright_source_examples.json": "e69d61f968bf8309ba278d6bb275dc1fb2befe6e2a8f7a7534d6cd4a2e015c92",
     "plot_tables/crosshand_quadrants.json": "962fa01118ba6fd4b23f7a3764b41c5d2cb1c2e2ded8634d6b43aaf5b9f1e7f3",
     "plot_tables/frequency_series.json": "6fb910770048921e48e4215168b9495dc44c5a14b1ab3c36d68b596c08e730cf",
+    "plot_tables/holoraster_cells.npz": "ae8d48ca8e819a50798d4d542377044a92656055d7163d0fab4029c18433052a",
     "plot_tables/holoraster_maps.npz": "45523ada71c140f605ca012cb79155734a0b50370836bf66a563466fc6bf05a2",
-    "plot_tables/holoraster_scatter.npz": "c1eb6eba0b7f1722c6f4a176cd6a3f0aa729d5a744b59927a1afe5f44b18cf94",
+    "plot_tables/holoraster_scatter.npz": "4b4059c6b3aaf9e35d0566aa6645fee86c98113549f127764f0c344107746b61",
     "plot_tables/offset_ring_fields.json": "4fd437118bbe64a1fcb288451b1caee1813053c882228d544638b3638e0e7da3",
+    "plot_tables/radial_coherence.json": "ea7390a38f51f17c513b08fa403eac5622b17355b7a9bf0c325526d1a5079ed2",
     "plot_tables/raster_occupancy.npz": "e651adf09d1d8557b75e35294f866b87491010c3112a9491c35ea33c809618ac",
     "plot_tables/residual_geometry.json": "e05ca4c3ba226834209bf9bf0fb28a7433900aeca480bb1552e58e51f67c80bf",
+    "plot_tables/residual_strata.json": "2178d3034332f0e54c450b0361829db7b73c6a7d84c53d75144265582187ce30",
     "squint_publication.json": "6c4fbe95ea34723fd2a1818f7c7113f1240302332751df67952e58b3644b020b"
   },
   "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
+  "revision": "outer_complex_magnitude_and_phase",
   "source_products": {
     "holoraster_cassbeam_comparison": "named Bacchus product",
     "c147_offset_ring": "named Bacchus product",
@@ -28,5 +34,5 @@
   "full_raster_squint_published": false,
   "spw5_opened": false,
   "plot_code": "vla_c_band_beam_validation_v1",
-  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b"
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775"
 }

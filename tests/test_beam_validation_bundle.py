@@ -16,8 +16,11 @@ from sl1mjax.beam_validation_outputs import (
 from sl1mjax.beam_validation_plots import write_all_figures
 from sl1mjax.beam_validation_statistics import (
     build_claims,
+    complex_visibility_score,
+    phase_valid_mask,
     publication_squint_pair,
     residual_power_table,
+    scientific_voltage_masks,
 )
 
 
@@ -32,6 +35,7 @@ def _hand_stats(
         "residual_power": residual_power,
         "median_abs_obs": 1.0,
         "median_abs_pred": 0.2,
+        "median_abs_ratio": 1.6 if residual_power > 0.1 else 1.05,
     }
 
 
@@ -64,6 +68,30 @@ def manufactured_products() -> dict[str, object]:
             "lr": _hand_stats(residual_power=0.993, correlation=0.06),
         },
         "regions": {
+            "main_lobe": {
+                "median_abs_rr_over_i": 0.0483,
+                "median_abs_ll_over_i": 0.0504,
+                "median_abs_rr_jy": 0.388,
+                "median_abs_ll_jy": 0.405,
+            },
+            "mid": {
+                "median_abs_rr_over_i": 0.0668,
+                "median_abs_ll_over_i": 0.0769,
+                "median_abs_rr_jy": 0.536,
+                "median_abs_ll_jy": 0.617,
+            },
+            "outer_diagnostic": {
+                "median_abs_rr_over_i": 0.0354,
+                "median_abs_ll_over_i": 0.0357,
+                "median_abs_rr_jy": 0.284,
+                "median_abs_ll_jy": 0.286,
+            },
+            "all": {
+                "median_abs_rr_over_i": 0.0377,
+                "median_abs_ll_over_i": 0.0381,
+                "median_abs_rr_jy": 0.302,
+                "median_abs_ll_jy": 0.306,
+            },
             "hand_residual_power": {
                 "main_lobe": {
                     "rr": _hand_stats(residual_power=0.0064),
@@ -154,6 +182,37 @@ def manufactured_products() -> dict[str, object]:
         "outer_mask": np.zeros(n, dtype=bool),
         "rr_onaxis": np.ones(n, dtype=bool),
         "ll_onaxis": np.ones(n, dtype=bool),
+        "source_i_jy": np.asarray(8.028518676757812, dtype=np.float64),
+    }
+    cells = {
+        "rr_pred_abs": np.array([0.9, 0.7], dtype=np.float32),
+        "rr_obs_abs": np.array([0.92, 0.68], dtype=np.float32),
+        "rr_err_abs": np.array([0.04, 0.05], dtype=np.float32),
+        "rr_pred_real": np.array([0.88, 0.66], dtype=np.float32),
+        "rr_obs_real": np.array([0.90, 0.64], dtype=np.float32),
+        "rr_err_real": np.array([0.03, 0.04], dtype=np.float32),
+        "ll_pred_abs": np.array([0.89, 0.71], dtype=np.float32),
+        "ll_obs_abs": np.array([0.91, 0.69], dtype=np.float32),
+        "ll_err_abs": np.array([0.04, 0.05], dtype=np.float32),
+        "ll_pred_real": np.array([0.87, 0.65], dtype=np.float32),
+        "ll_obs_real": np.array([0.89, 0.63], dtype=np.float32),
+        "ll_err_real": np.array([0.03, 0.04], dtype=np.float32),
+        "rr_n": np.array([8.0, 6.0], dtype=np.float32),
+        "ll_n": np.array([8.0, 6.0], dtype=np.float32),
+    }
+    residual_strata = {
+        "source_i_jy": 8.028518676757812,
+        "mask": "V/I_model using CASA MODEL_DATA 3C147 at channel 32",
+        "raster_family": (
+            "Nearest Memo 195 dense versus sparse lattice. "
+            "This is a pass-1/pass-2 occupancy proxy, not a scan-id join."
+        ),
+        "mover": [{"id": 0, "name": "ea01", "n": 12, "median_abs": 0.31}],
+        "reference": [{"id": 1, "name": "ea02", "n": 12, "median_abs": 0.22}],
+        "pass": [{"id": 1, "name": "dense / pass-1 occupancy", "n": 8, "median_abs": 0.28}],
+        "mover_ll": [{"id": 0, "name": "ea01", "n": 12, "median_abs": 0.33}],
+        "reference_ll": [{"id": 1, "name": "ea02", "n": 12, "median_abs": 0.21}],
+        "pass_ll": [{"id": 1, "name": "dense / pass-1 occupancy", "n": 8, "median_abs": 0.29}],
     }
     grid = np.linspace(-20.0, 20.0, 8)
     maps = {
@@ -198,6 +257,141 @@ def manufactured_products() -> dict[str, object]:
             "production_factory_modified": False,
         },
         "residual_geometry": residual,
+        "residual_strata": residual_strata,
+        "radial_coherence": {
+            "source_i_jy": 8.028518676757812,
+            "amp_floor_jy": 0.05,
+            "phase_status": "exploratory",
+            "raster_extent_arcmin": {"l_abs_max": 51.0, "m_abs_max": 51.0, "corner_max": 71.0},
+            "rr": [
+                {
+                    "r_lo_arcmin": 0.0,
+                    "r_hi_arcmin": 10.0,
+                    "r_mid_arcmin": 5.0,
+                    "n": 20,
+                    "correlation_abs": 0.99,
+                    "slope_real": 1.02,
+                    "slope_imag": 0.0,
+                    "residual_power": 0.01,
+                    "circular_phase_deg": -1.0,
+                    "circular_phase_std_deg": 2.0,
+                    "median_phase_deg": -1.0,
+                    "n_phase": 18,
+                },
+                {
+                    "r_lo_arcmin": 40.0,
+                    "r_hi_arcmin": 50.0,
+                    "r_mid_arcmin": 45.0,
+                    "n": 20,
+                    "correlation_abs": 0.82,
+                    "slope_real": 0.94,
+                    "slope_imag": 0.04,
+                    "residual_power": 0.32,
+                    "circular_phase_deg": -10.0,
+                    "circular_phase_std_deg": 8.0,
+                    "median_phase_deg": -10.0,
+                    "n_phase": 12,
+                },
+            ],
+            "ll": [
+                {
+                    "r_lo_arcmin": 0.0,
+                    "r_hi_arcmin": 10.0,
+                    "r_mid_arcmin": 5.0,
+                    "n": 20,
+                    "correlation_abs": 0.98,
+                    "slope_real": 1.01,
+                    "slope_imag": 0.0,
+                    "residual_power": 0.012,
+                    "circular_phase_deg": -1.5,
+                    "circular_phase_std_deg": 2.0,
+                    "median_phase_deg": -1.5,
+                    "n_phase": 18,
+                },
+                {
+                    "r_lo_arcmin": 40.0,
+                    "r_hi_arcmin": 50.0,
+                    "r_mid_arcmin": 45.0,
+                    "n": 20,
+                    "correlation_abs": 0.81,
+                    "slope_real": 0.91,
+                    "slope_imag": 0.04,
+                    "residual_power": 0.35,
+                    "circular_phase_deg": -12.0,
+                    "circular_phase_std_deg": 9.0,
+                    "median_phase_deg": -12.0,
+                    "n_phase": 12,
+                },
+            ],
+            "map_phase_beyond_40_arcmin": {
+                "rr": {"circular_phase_deg": -10.0, "n": 8},
+                "ll": {"circular_phase_deg": -12.0, "n": 8},
+            },
+        },
+        "antenna_coherence": {
+            "phase_status": "exploratory",
+            "movers": [
+                {
+                    "id": 0,
+                    "name": "ea04",
+                    "rr": [
+                        {
+                            "r_mid_arcmin": 5.0,
+                            "correlation_abs": 0.99,
+                            "circular_phase_deg": -1.0,
+                            "slope_real": 1.0,
+                            "slope_imag": 0.0,
+                        },
+                        {
+                            "r_mid_arcmin": 45.0,
+                            "correlation_abs": 0.80,
+                            "circular_phase_deg": -11.0,
+                            "slope_real": 0.9,
+                            "slope_imag": 0.04,
+                        },
+                    ],
+                    "ll": [],
+                }
+            ],
+        },
+        "bright_source_examples": {
+            "note": "Array-average binned visibilities at example radii.",
+            "source_i_jy": 8.028518676757812,
+            "examples": [
+                {
+                    "label": "boresight",
+                    "l_arcmin": 0.0,
+                    "m_arcmin": 0.0,
+                    "radius_arcmin": 0.0,
+                    "rr_meas_re": 8.1,
+                    "rr_meas_im": 0.1,
+                    "rr_pred_re": 8.0,
+                    "rr_pred_im": 0.0,
+                    "ll_meas_re": 8.0,
+                    "ll_meas_im": 0.0,
+                    "ll_pred_re": 8.0,
+                    "ll_pred_im": 0.0,
+                    "rr_stokes_i_factor_meas": 1.02,
+                    "rr_stokes_i_factor_pred": 1.0,
+                },
+                {
+                    "label": "40′",
+                    "l_arcmin": 40.0,
+                    "m_arcmin": 0.0,
+                    "radius_arcmin": 40.0,
+                    "rr_meas_re": 0.4,
+                    "rr_meas_im": -0.05,
+                    "rr_pred_re": 0.25,
+                    "rr_pred_im": 0.0,
+                    "ll_meas_re": 0.38,
+                    "ll_meas_im": -0.04,
+                    "ll_pred_re": 0.24,
+                    "ll_pred_im": 0.0,
+                    "rr_stokes_i_factor_meas": 0.0025,
+                    "rr_stokes_i_factor_pred": 0.001,
+                },
+            ],
+        },
         "frequency_series": frequency,
         "offset_ring_fields": {
             "fields": [
@@ -221,6 +415,7 @@ def manufactured_products() -> dict[str, object]:
         "crosshand_quadrants": quadrants,
         "scatter": scatter,
         "maps": maps,
+        "cells": cells,
         "occupancy": occupancy,
     }
 
@@ -248,6 +443,9 @@ def test_bundle_round_trip_and_claims(tmp_path: Path) -> None:
     assert bundle.manifest["publication_version"] == PUBLICATION_VERSION
     residuals = residual_power_table(bundle.holoraster_channel32)
     assert residuals["main_lobe"]["rr"] < 0.01
+    assert residuals["main_lobe"]["rr_rms"] == pytest.approx(0.0064**0.5)
+    assert residuals["main_lobe"]["rr_median_abs_over_i"] == pytest.approx(0.0483)
+    assert residuals["outer_diagnostic"]["rr_correlation"] == pytest.approx(0.97)
     claims = build_claims(bundle)
     by_id = {item["id"]: item for item in claims["claims"]}
     assert by_id["C01"]["status"] == "pass"
@@ -286,7 +484,16 @@ def test_shared_plots_write_sidecars(tmp_path: Path) -> None:
     bundle = load_bundle(root)
     written = write_all_figures(bundle, tmp_path / "figures")
     pngs = [path for path in written if path.suffix == ".png"]
-    assert len(pngs) >= 12
+    assert len(pngs) >= 18
+    names = {path.name for path in pngs}
+    assert "05_onaxis_amplitude.png" in names
+    assert "08_cassbeam_scatter_main_lobe.png" in names
+    assert "15_residual_strata.png" in names
+    assert "20_amplitude_db.png" in names
+    assert "22_masked_phase.png" in names
+    assert "23_radial_coherence.png" in names
+    assert "24_antenna_coherence.png" in names
+    assert "25_bright_source_examples.png" in names
     for image in pngs:
         sidecar = Path(str(image) + ".sidecar.json")
         assert sidecar.is_file()
@@ -294,6 +501,41 @@ def test_shared_plots_write_sidecars(tmp_path: Path) -> None:
         assert payload["figure_id"].startswith("F")
         assert payload["table_sha256"]
         assert payload["claims"]
+    scatter_sidecar = json.loads(
+        (tmp_path / "figures" / "08_cassbeam_scatter_main_lobe.png.sidecar.json").read_text()
+    )
+    assert scatter_sidecar["table"]["mask"] == "V/I_model >= 0.5"
+    cuts_sidecar = json.loads(
+        (tmp_path / "figures" / "21_signed_complex_cuts.png.sidecar.json").read_text()
+    )
+    assert cuts_sidecar["table"]["outer_min_arcmin"] == 15.0
+    examples_sidecar = json.loads(
+        (tmp_path / "figures" / "25_bright_source_examples.png.sidecar.json").read_text()
+    )
+    assert "exact radius" in examples_sidecar["caption"]
+
+
+def test_complex_visibility_score_and_phase_mask() -> None:
+    pred = np.array([1.0, 0.8, 0.02], dtype=np.complex128)
+    obs = pred * np.exp(1j * np.deg2rad(-10.0))
+    obs[2] = 0.01
+    score = complex_visibility_score(obs[:2], pred[:2], np.ones(2))
+    assert score["correlation_abs"] == pytest.approx(1.0)
+    assert score["circular_phase_deg"] == pytest.approx(-10.0, abs=0.2)
+    mask = phase_valid_mask(obs, pred, np.ones(3), amp_floor_jy=0.05)
+    assert mask.tolist() == [True, True, False]
+
+
+def test_scientific_voltage_masks_use_model_intensity() -> None:
+    measured = np.zeros((3, 1, 2, 2), dtype=np.complex128)
+    measured[0, 0, 0, 0] = measured[0, 0, 1, 1] = 8.0
+    measured[1, 0, 0, 0] = measured[1, 0, 1, 1] = 3.0
+    measured[2, 0, 0, 0] = measured[2, 0, 1, 1] = 0.5
+    weight = np.ones((3, 1, 2, 2), dtype=np.float64)
+    masks = scientific_voltage_masks(measured, weight, intensity_jy=8.0)
+    assert masks["main_lobe"].tolist() == [True, False, False]
+    assert masks["mid"].tolist() == [False, True, False]
+    assert masks["outer_diagnostic"].tolist() == [False, False, True]
 
 
 def test_checksum_mismatch_is_rejected(tmp_path: Path) -> None:

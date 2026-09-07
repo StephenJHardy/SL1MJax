@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 PUBLICATION_VERSION = "vla_c_band_beam_validation_v1"
 BUNDLE_DIRNAME = PUBLICATION_VERSION
 PLOT_TABLE_DIRNAME = "plot_tables"
@@ -35,8 +35,13 @@ REQUIRED_JSON = (
 REQUIRED_PLOT_TABLES = (
     "holoraster_scatter.npz",
     "holoraster_maps.npz",
+    "holoraster_cells.npz",
     "raster_occupancy.npz",
     "residual_geometry.json",
+    "residual_strata.json",
+    "radial_coherence.json",
+    "antenna_coherence.json",
+    "bright_source_examples.json",
     "frequency_series.json",
     "offset_ring_fields.json",
     "crosshand_quadrants.json",
@@ -178,6 +183,10 @@ class ValidationBundle:
     squint: dict[str, Any]
     offset_ring: dict[str, Any]
     residual_geometry: dict[str, Any]
+    residual_strata: dict[str, Any]
+    radial_coherence: dict[str, Any]
+    antenna_coherence: dict[str, Any]
+    bright_source_examples: dict[str, Any]
     frequency_series: dict[str, Any]
     offset_ring_fields: dict[str, Any]
     crosshand_quadrants: dict[str, Any]
@@ -214,6 +223,10 @@ def load_bundle(root: Path | None = None) -> ValidationBundle:
         if banned is not None:
             raise ValueError(f"{name} requires a banned load path under {banned}")
     residual = load_json(tables / "residual_geometry.json")
+    strata = load_json(tables / "residual_strata.json")
+    radial = load_json(tables / "radial_coherence.json")
+    antenna = load_json(tables / "antenna_coherence.json")
+    examples = load_json(tables / "bright_source_examples.json")
     frequency = load_json(tables / "frequency_series.json")
     fields = load_json(tables / "offset_ring_fields.json")
     quadrants = load_json(tables / "crosshand_quadrants.json")
@@ -229,6 +242,10 @@ def load_bundle(root: Path | None = None) -> ValidationBundle:
         squint=payload["squint_publication.json"],
         offset_ring=payload["offset_ring.json"],
         residual_geometry=residual,
+        residual_strata=strata,
+        radial_coherence=radial,
+        antenna_coherence=antenna,
+        bright_source_examples=examples,
         frequency_series=frequency,
         offset_ring_fields=fields,
         crosshand_quadrants=quadrants,
@@ -262,11 +279,16 @@ def write_validation_bundle(
     squint: Mapping[str, Any],
     offset_ring: Mapping[str, Any],
     residual_geometry: Mapping[str, Any],
+    residual_strata: Mapping[str, Any],
+    radial_coherence: Mapping[str, Any],
+    antenna_coherence: Mapping[str, Any],
+    bright_source_examples: Mapping[str, Any],
     frequency_series: Mapping[str, Any],
     offset_ring_fields: Mapping[str, Any],
     crosshand_quadrants: Mapping[str, Any],
     scatter: Mapping[str, ArrayLike],
     maps: Mapping[str, ArrayLike],
+    cells: Mapping[str, ArrayLike],
     occupancy: Mapping[str, ArrayLike],
     provenance: Mapping[str, Any] | None = None,
 ) -> Path:
@@ -312,8 +334,25 @@ def write_validation_bundle(
         sanitize_provenance_paths(dict(crosshand_quadrants)),
         tables / "crosshand_quadrants.json",
     )
+    write_json(
+        sanitize_provenance_paths(dict(residual_strata)),
+        tables / "residual_strata.json",
+    )
+    write_json(
+        sanitize_provenance_paths(dict(radial_coherence)),
+        tables / "radial_coherence.json",
+    )
+    write_json(
+        sanitize_provenance_paths(dict(antenna_coherence)),
+        tables / "antenna_coherence.json",
+    )
+    write_json(
+        sanitize_provenance_paths(dict(bright_source_examples)),
+        tables / "bright_source_examples.json",
+    )
     write_plot_npz(tables / "holoraster_scatter.npz", scatter)
     write_plot_npz(tables / "holoraster_maps.npz", maps)
+    write_plot_npz(tables / "holoraster_cells.npz", cells)
     write_plot_npz(tables / "raster_occupancy.npz", occupancy)
     placeholder = {
         "schema_version": SCHEMA_VERSION,
@@ -335,6 +374,10 @@ def write_validation_bundle(
         squint=load_json(destination / "squint_publication.json"),
         offset_ring=load_json(destination / "offset_ring.json"),
         residual_geometry=load_json(tables / "residual_geometry.json"),
+        residual_strata=load_json(tables / "residual_strata.json"),
+        radial_coherence=load_json(tables / "radial_coherence.json"),
+        antenna_coherence=load_json(tables / "antenna_coherence.json"),
+        bright_source_examples=load_json(tables / "bright_source_examples.json"),
         frequency_series=load_json(tables / "frequency_series.json"),
         offset_ring_fields=load_json(tables / "offset_ring_fields.json"),
         crosshand_quadrants=load_json(tables / "crosshand_quadrants.json"),

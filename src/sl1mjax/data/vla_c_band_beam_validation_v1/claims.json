@@ -9,7 +9,6 @@
   "rr_correlation": 0.9713541202861148,
   "ll_correlation": 0.9681786216950763,
   "diagonal_support": {
-    "artifact": "cassbeam_diagonal_cband_reference",
     "main_lobe": "accepted",
     "mid_beam": "qualified",
     "outer_raster": "diagnostic",
@@ -32,10 +31,7 @@
         "residual_power_ll": 0.3485263146721795,
         "matches_class": true
       }
-    },
-    "full_jones": "experimental_non_detection",
-    "spw5_role": "sealed_diagonal_frequency_transfer",
-    "convention_search_reopened": false
+    }
   },
   "claims": [
     {
@@ -46,13 +42,19 @@
       "metric": {
         "rr_residual_power": 0.006355800881393682,
         "ll_residual_power": 0.007597568148713863,
+        "rr_rms": 0.07972327691078486,
+        "ll_rms": 0.08716403013120644,
+        "rr_median_abs_over_i": 0.04827455658769214,
+        "ll_median_abs_over_i": 0.05038965621318649,
         "threshold": 0.01
       },
-      "evidence": "HOLORASTER channel-32 residual power RR 0.64%, LL 0.76%",
+      "evidence": "HOLORASTER channel-32 residual power RR 0.64%, LL 0.76% (RMS visibility 7.97% / 8.72%; median |\u0394V|/I 4.83% / 5.04%)",
       "figures": [
+        "F05",
         "F08",
         "F10",
-        "F12"
+        "F12",
+        "F15"
       ],
       "input_hashes": {
         "holoraster_channel32": null,
@@ -92,12 +94,20 @@
       "support_class": "diagnostic",
       "metric": {
         "rr_residual_power": 0.3231464586972649,
-        "ll_residual_power": 0.3485263146721795
+        "ll_residual_power": 0.3485263146721795,
+        "rr_correlation": 0.8252411546388793,
+        "ll_correlation": 0.8117547629909511,
+        "rr_median_abs_ratio": 1.60536456483251,
+        "ll_median_abs_ratio": 1.6022743954089849
       },
-      "evidence": "HOLORASTER outer residual power RR 32.31%, LL 34.85%",
+      "evidence": "HOLORASTER outer residual power RR 32.31%, LL 34.85%; complex correlation 0.825 / 0.812; median |V| ratio 1.61 / 1.60. Outer phase is exploratory and is not a claim metric.",
       "figures": [
         "F10",
-        "F12"
+        "F12",
+        "F20",
+        "F21",
+        "F22",
+        "F23"
       ],
       "input_hashes": {
         "holoraster_channel32": null,

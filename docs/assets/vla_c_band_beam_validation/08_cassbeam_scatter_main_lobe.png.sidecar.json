@@ -1,18 +1,20 @@
 {
   "figure_id": "F08",
   "filename": "08_cassbeam_scatter_main_lobe.png",
-  "image_sha256": "ff8cff1a10b5a28ac219bd164582c10eaf56fc568dac9972509872a144d1fc80",
+  "image_sha256": "d57339e2e3f1ddcdf41a4111701d9b5519d11737e0142eed1bd458b9ae6ea9cb",
   "generating_function": "plot_cassbeam_scatter",
   "claims": [
     "C01",
     "C02"
   ],
-  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
-  "created_utc": "2026-09-07T01:24:27.271586+00:00",
-  "caption": "Observed versus diagonal CASSBEAM main lobe. Supports C01, C02.",
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:47.660893+00:00",
+  "caption": "Main-lobe V/I_model using the scientific voltage mask. Grey points are raw visibilities; blue points are spatial-cell means with within-cell standard deviation. Boresight is (1, 1). Supports C01, C02.",
   "table": {
     "region": "main_lobe",
-    "n": 517
+    "n": 464,
+    "source_i_jy": 8.028518676757812,
+    "mask": "V/I_model >= 0.5"
   },
-  "table_sha256": "7c002bc83d73aa5a21e81d53f4ec39bf2606b23eb33e54155d41149f2ee751cd"
+  "table_sha256": "24bc997265140832f33f41388647174a05c04d4106b513db731226021b9ab805"
 }

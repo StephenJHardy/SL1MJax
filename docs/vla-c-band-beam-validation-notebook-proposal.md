@@ -44,6 +44,36 @@ Do not freeze a scientific conclusion merely because the notebook renders.
 The notebook displays gate state from the science outputs. It does not promote
 an unfrozen beam or turn a warning into a pass.
 
+## Current scientific position
+
+The first notebook release should describe the completed SPW-4 work. It should
+not wait for SPW 5 or imply that SPW 5 has been examined.
+
+The current conclusions are:
+
+- CASSBEAM is the reference diagonal C-band beam within a stated validity
+  domain. At SPW 4 channel 32, direct HOLORASTER prediction gives about
+  0.64% RR and 0.76% LL residual power in the main lobe. Residual power rises
+  to about 8% in the middle beam and 30--35% in the outer raster.
+- The C147 offset ring independently supports the diagonal model at a radius
+  of about 3.62 arcmin. The geometric fringe for an offset phase centre is a
+  required part of that comparison.
+- The CASSBEAM full-Jones beam remains an experimental physics prior. Neither
+  the raster nor the sealed offset-ring comparison detects a transferable
+  CASSBEAM-shaped RL/LR signal. This is a non-detection at the sensitivity and
+  systematic floor of THOL0001, not a rejection of the physical model.
+- No full-Jones model is selected or frozen. The production factory is
+  unchanged.
+- SPW 5 remains sealed. It is reserved for a predeclared frequency-replication
+  test after the SPW-4 diagonal specification or correction has been frozen.
+
+Some reported statistics still require a cheap corrected rescore before they
+enter the publication bundle. In particular, squint must use the established
+20%-of-peak main-lobe estimator. Any C147 offset-ring frequency holdout, Q/U
+nuisance result, smooth leakage-scale comparison, and upper limit must come
+from code that closes the corresponding review findings. The bundle builder
+must reject superseded results rather than copying the newest file by path.
+
 ## Intended outcome
 
 The final publication should let a technically informed reader answer these
@@ -56,10 +86,10 @@ questions:
 - Which calibration and polarisation conventions were used?
 - How closely does the JAX calibration application reproduce CASA?
 - How was the empirical voltage beam recovered?
-- Does CASSBEAM predict held-out holography data?
+- Does CASSBEAM predict direct HOLORASTER and independent offset-ring data?
 - Does it reproduce measured co-polar shape, phase, and R/L squint?
 - How much variation exists between antennas and reference antennas?
-- Does the result transfer from 4.564 to 4.692 GHz?
+- What is established at 4.564 GHz, and what remains sealed at 4.692 GHz?
 - What evidence would be required to accept the off-diagonal Jones terms?
 - Which claims are accepted, provisional, failed, or not yet run?
 
@@ -76,26 +106,30 @@ The notebook should be useful as:
 
 ### Initial publication
 
-The first accepted notebook covers the lower-C THOL0001 execution and the
-diagonal voltage beam:
+The first accepted notebook covers SPW 4 of the lower-C THOL0001 execution and
+the diagonal voltage beam:
 
-- 3C147 holography at 4.564 and 4.692 GHz;
+- 3C147 holography at 4.564 GHz;
 - measured AZELGEO raster coordinates;
 - antenna-specific R and L co-polar voltage responses;
 - reference-antenna and repeated-sample uncertainty;
 - Airy, Perley, CASSBEAM, and empirical diagonal comparisons;
 - R/L squint magnitude and direction;
 - held-out visibility prediction;
-- calibration and coordinate convention validation.
+- calibration and coordinate convention validation;
+- direct measured-versus-CASSBEAM HOLORASTER plots;
+- the completed C147 offset-ring prediction;
+- the experimental full-Jones prediction and its RL/LR non-detection.
 
 ### Later extension
 
 The same publication may later add:
 
-- off-diagonal full-Jones holography;
-- RL/LR validation and the leakage floor;
+- an independently recovered and tested 4.692 GHz plane;
+- a frozen low-dimensional correction to the diagonal CASSBEAM beam;
+- accepted off-diagonal full-Jones holography if new evidence supports it;
+- a stronger RL/LR sensitivity experiment;
 - upper-C frequency and execution transfer;
-- the unused C147 offset-ring prediction;
 - transfer to 3C391 and 24A-063;
 - antenna-specific beam models;
 - a frozen empirical or CASSBEAM-derived production beam.
@@ -122,23 +156,40 @@ The notebook is not intended to:
 
 ## Current prerequisite state
 
-The notebook should only be finalized after the following inputs exist:
+Most prerequisites for an SPW-4 publication now exist:
 
-- a closed lower-C pointing-ingestion gate;
-- a consistent 3C147 flux and structure model across fields 0, 9, and 10;
-- versioned diagonal and full-polarisation calibration manifests;
-- a passing CASA/JAX injected-basis operator oracle;
-- a passing real-visibility calibration golden;
-- calibrated HOLORASTER visibilities produced from `DATA` rather than the
-  untouched raster `CORRECTED_DATA` column;
-- diagonal per-reference recovery at 4.564 and 4.692 GHz;
-- a completed reference-treatment report;
-- declared empirical uncertainty and validity masks;
-- held-out visibility scores for every beam being compared.
+- the lower-C pointing-ingestion gate is closed;
+- the field-0, field-9, and HOLORASTER flux gauge is consistent;
+- the diagonal and full-polarisation calibration manifests are versioned;
+- the CASA/JAX injected-basis oracle and real-visibility golden pass;
+- scientific HOLORASTER calibration starts from `DATA` and applies the locked
+  chain once;
+- absolute and relative diagonal recovery exists at 4.564 GHz;
+- per-reference, gauge, repeatability, and visibility diagnostics exist;
+- the C147 offset-ring and direct HOLORASTER CASSBEAM reports exist;
+- the full-Jones non-detection and experimental status are recorded.
 
-The current `first_beam_recovery` result is an unfrozen diagnostic. It is a
-development input, not yet an accepted publication result. The full-Jones beam
-remains blocked by the Df/Df+QU, 3C286, D-smoothness, and cross-hand-floor gates.
+Before building the release bundle, close the remaining publication-quality
+issues:
+
+- recompute squint with the same 20%-of-peak main-lobe mask, flags, weights,
+  coordinates, and grouping for measurements and CASSBEAM;
+- ensure any advertised channel holdout was excluded from every nuisance and
+  beam-parameter fit;
+- fit or marginalize 3C147 Q/U using the cross-hand likelihood and a declared
+  range, rather than selecting it from RR/LL alone;
+- record the visibility-domain 3C147 source model used by the offset-ring
+  comparison and quantify the point-model approximation;
+- replace the provisional complex-amplitude upper-limit construction with a
+  documented one-sided interval for $|\alpha|$, using appropriate correlated
+  resampling units;
+- make POINTING ingestion fail closed and bind every resumable product to its
+  input and code hashes.
+
+The 4.692 GHz result is not a prerequisite for version 1. It remains a later
+sealed replication. Full Jones is not blocked by software application
+semantics; it is scientifically unvalidated because its predicted cross-hand
+signal has not generalized on held-out measurements.
 
 ## Publication artifact architecture
 
@@ -362,9 +413,12 @@ Include:
 
 - the current scientific status of the diagonal and full-Jones beams;
 - a concise table of accepted and blocked claims;
-- the principal held-out comparison;
+- the direct HOLORASTER comparison and independent C147 offset-ring result;
 - the principal co-polar and squint result;
-- a clear statement of the supported frequency and coordinate domain.
+- a clear statement of the supported frequency and coordinate domain;
+- separate main-lobe, middle-beam, and outer-raster conclusions;
+- a statement that the cross-hand result is a sensitivity-limited
+  non-detection, not a validation or rejection of CASSBEAM full Jones.
 
 This section should make sense when viewed without executing any code.
 
@@ -404,7 +458,8 @@ Show:
 - calibrator and raster scans;
 - moving and reference antenna sets;
 - native spectral coverage;
-- the locations of 4.564 and 4.692 GHz;
+- the published locations of 4.564 and 4.692 GHz, while making clear that only
+  4.564 GHz enters version 1;
 - dense and sparse raster occupancy;
 - measured off-lattice pass-2 coordinates;
 - pointing transition masks.
@@ -517,6 +572,8 @@ Compare:
 
 Required comparisons include:
 
+- observed versus predicted RR and LL complex visibilities, with one-to-one
+  lines and fitted complex slopes;
 - measured versus predicted complex voltage;
 - amplitude residual maps;
 - phase residual maps;
@@ -527,6 +584,12 @@ Required comparisons include:
 - results by reference antenna;
 - results by raster pass;
 - results by frequency.
+
+Report the applicability domain rather than one global acceptance label. The
+initial SPW-4 result should distinguish the strongly supported main lobe, the
+qualified middle beam, and the substantially less accurate outer raster. Show
+the residual ring near 10 arcmin explicitly because it is the likely target
+for a later low-dimensional correction.
 
 Do not present interpolated colour maps without also displaying measured
 support. An interpolation used only for display must be labelled and must not
@@ -550,6 +613,11 @@ Show:
 Use the same estimator, threshold, flags, grouping, and coordinate samples for
 the empirical and CASSBEAM results.
 
+The publication estimator is the 20%-of-peak main-lobe power centroid, or a
+later estimator that passes the same manufactured and sampled-coordinate
+tests. Do not publish the unrestricted full-raster centroid. Plot measured and
+CASSBEAM estimates as separate series, including their sampled-estimator bias.
+
 ### 10. Held-out visibility validation
 
 This section supplies the principal scientific evidence.
@@ -563,7 +631,8 @@ Use declared splits such as:
 - leave-one-moving-antenna-out after an array model exists;
 - interleaved spatial cells after a spatial model exists;
 - 4.692 GHz frequency transfer after a frequency model exists;
-- C147 offset-ring prediction without fitting those fields.
+- the completed C147 offset-ring prediction, whose fields were excluded from
+  calibration and beam fitting.
 
 For each split, show:
 
@@ -579,9 +648,20 @@ Do not treat individual visibilities as independent bootstrap samples. Use
 antenna, reference, scan, repeat, or spatial-cell groups appropriate to the
 claim.
 
+The C147 ring has separate training, inner E--W, and sealed N--S field sets.
+Show the inner improvement and its failure to transfer to the sealed pair. Do
+not pool that result into a global success. Any frequency holdout shown here
+must have been excluded from Q/U selection, leakage-scale fitting, smoothing,
+and threshold selection.
+
 ### 11. Frequency transfer
 
-Recover 4.692 GHz independently before fitting a frequency model.
+This section is `not_run` in version 1. SPW 5 at 4.692 GHz remains sealed while
+the SPW-4 diagonal specification and any low-dimensional correction are being
+defined.
+
+When the section is opened, recover 4.692 GHz independently before fitting a
+frequency model.
 
 First compare the two independent measured planes after the declared angular
 scaling. Then test any frequency model on held-out data.
@@ -599,19 +679,24 @@ frequency model being scored.
 
 ### 12. Full-Jones extension
 
-Keep this section present but explicitly blocked until its gates pass.
-
-When opened, add:
+Include the current evidence, but label the CASSBEAM full-Jones prediction
+`experimental`. The section should show:
 
 - the Df/Df+QU uncertainty floor;
 - 3C286 Q/U, EVPA, and V apply-back;
 - D smoothness and antenna support;
 - empirical RL/LR noise floor;
-- recovered off-diagonal Jones amplitude and phase;
-- held-out RL/LR prediction;
+- the direct HOLORASTER RL/LR prediction and diagonal null;
+- the completed C147 offset-ring result;
+- cross-hand correlation by channel and spatial quadrant;
+- the mismatch between the predicted CASSBEAM signal scale and the observed
+  residual cloud;
 - RR/LL non-regression;
-- parallactic-angle and frequency transfer;
-- supported off-diagonal spatial domain.
+- the provisional upper-limit status and its methodology limitation.
+
+At present the result is a non-detection. The notebook may publish that result
+without passing the full-Jones acceptance gate. It must not publish a measured
+off-diagonal map, accepted convention, or production beam.
 
 The full-Jones section must not reuse a diagonal success as evidence for
 leakage correctness.
@@ -622,14 +707,15 @@ End with the claim registry and a compact statement of what is supported.
 
 State limitations such as:
 
-- two initial frequencies;
+- one published SPW-4 frequency range, with SPW 5 still sealed;
 - finite raster resolution;
 - sparse cross-pass coordinate overlap;
 - antenna and epoch coverage;
 - calibrator structure uncertainty;
 - reference and gain-transfer uncertainty;
 - measured spatial support;
-- blocked or untested full-Jones terms;
+- a full-Jones prediction below the usable THOL0001 cross-hand floor;
+- region-dependent diagonal accuracy;
 - status of upper-C and independent-science transfer.
 
 Include failed and inconclusive results. They define the applicability domain
@@ -658,9 +744,10 @@ manifest.
 | F13 | R/L squint vectors | Compare empirical, sampled CASSBEAM, and Memo |
 | F14 | Held-out paired residual differences | Establish predictive performance |
 | F15 | Residuals by antenna/reference/pass | Detect concentrated failures |
-| F16 | Independent frequency comparison | Test 4.564 to 4.692 GHz behaviour |
-| F17 | C147 offset-ring prediction | Test an unused pointing set |
-| F18 | Full-Jones cross-hand validation | Reserved until the full-Jones gate opens |
+| F16 | SPW-4 channel dependence | Show copolar agreement and edge degradation |
+| F17 | C147 offset-ring prediction | Show independent diagonal support and failed RL/LR transfer |
+| F18 | Experimental full-Jones cross hands | Show measured RL/LR, CASSBEAM prediction, and diagonal null |
+| F19 | Independent SPW-5 comparison | Reserved for later 4.692 GHz replication |
 
 Not every figure must appear in the executive summary. All accepted claim
 figures should appear in the notebook and rendered documentation.
@@ -853,7 +940,7 @@ Require non-regression or an explained limitation in:
 - main lobe and outer support;
 - moving antennas;
 - reference antennas;
-- both frequencies.
+- every frequency included in the current publication scope.
 
 ### Model selection and sealed data
 
@@ -863,6 +950,13 @@ normalization, or beam parameter is validation data, not a final test.
 Keep at least one transfer axis sealed until the analysis rules are fixed. The
 upper-C execution and independent science observations are natural sealed
 tests.
+
+For a complex template coefficient, construct an interval for $|\alpha|$
+directly. Do not form a radial 95% upper limit by taking the largest endpoint
+of separate real and imaginary confidence intervals. State whether the result
+is a profile-likelihood, bootstrap, permutation, or Bayesian bound. Preserve
+dependence shared by scans and antennas; a scan--baseline label alone must not
+be assumed independent without justification.
 
 ## Scientific claim gates
 
@@ -902,12 +996,13 @@ Require:
 - calibrated absolute and normalized recovery are distinguished;
 - reference treatment passes;
 - empirical support and uncertainty are visible;
-- both Memo frequencies are recovered independently;
+- SPW 4 is identified as the version-1 frequency domain;
 - held-out RR/LL predictions are reported;
 - squint estimator bias is measured on sampled CASSBEAM;
-- conclusions are stable across declared antenna and pass strata.
+- conclusions are stable across declared antenna and pass strata;
+- main-lobe, middle-beam, and outer-raster accuracy are reported separately.
 
-### Gate N4: CASSBEAM acceptance claim
+### Gate N4: diagonal CASSBEAM acceptance claim
 
 Require:
 
@@ -916,11 +1011,15 @@ Require:
 - held-out prediction is the primary evidence;
 - amplitude, phase, width, null, and squint diagnostics are reported;
 - disagreements are localized and retained in the applicability statement;
-- acceptance thresholds were fixed before opening sealed transfer data.
+- acceptance thresholds were fixed before opening sealed transfer data;
+- acceptance is limited to the measured region and frequency instead of being
+  stated as a whole-band, whole-raster claim.
 
-### Gate N5: full-Jones publication
+### Gate N5: full-Jones status publication
 
-Require:
+The notebook may publish a failed or inconclusive full-Jones experiment if it
+shows the experimental prediction, diagonal null, sensitivity floor, and
+limitations. Promotion to an accepted full-Jones beam still requires:
 
 - all polarisation calibration gates pass;
 - off-diagonal support is explicit;
@@ -928,6 +1027,9 @@ Require:
 - RR/LL do not materially regress;
 - handedness and parallactic transfer are demonstrated;
 - the claim registry changes from `blocked` only through a versioned run.
+
+The current SPW-4 result does not meet this promotion gate. Its publication
+status is `experimental_non_detection`.
 
 ### Gate N6: rendered release
 
@@ -1029,10 +1131,17 @@ Define:
 Gate: reviewers can map every planned conclusion to a science output and a
 validation gate.
 
+For version 1, the narrative contract must include the region-qualified SPW-4
+diagonal result, the completed C147 offset-ring result, the direct HOLORASTER
+comparison, the experimental full-Jones non-detection, and the sealed SPW-5
+status.
+
 ### Phase 1: build the compact bundle
 
 Implement the bundle builder and schema validation. Populate it from the
-accepted lower-C diagonal products.
+accepted SPW-4 diagonal products and the corrected publication-quality
+rescoring products. Include sufficient plot tables for the full-Jones
+non-detection without treating that beam as accepted.
 
 Gate: bundle checksums pass and no notebook input points at Bacchus.
 
@@ -1105,7 +1214,8 @@ Before accepting the notebook, confirm:
 - [ ] Held-out visibility prediction is the primary endpoint.
 - [ ] Per-antenna and per-reference failures remain visible.
 - [ ] Frequency transfer does not train on its own holdout.
-- [ ] C147 offset fields remain unused until prediction.
+- [ ] C147 offset fields are documented as unused in calibration and beam
+      fitting before their prediction test.
 - [ ] Upper-C remains sealed until its protocol is fixed.
 - [ ] Full Jones remains blocked until its separate gates pass.
 - [ ] Every prose conclusion maps to a claim identifier.
@@ -1115,14 +1225,21 @@ Before accepting the notebook, confirm:
 
 ## Final recommendation
 
-Build the notebook after the diagonal validation protocol stabilizes, but
-define the output schema and claim registry now. This lets current science
-scripts emit publication-ready outputs instead of requiring later forensic
-reconstruction.
+Begin the SPW-4 notebook after the listed publication-quality rescoring issues
+are closed. Do not wait for SPW 5 or an accepted full-Jones beam. Define the
+output schema and claim registry first, then build the compact bundle from
+explicitly named and checksummed products. This avoids later forensic
+reconstruction and prevents superseded diagnostics from entering the release.
 
 Keep the heavy computation in tested production programs. Keep statistics and
 plots in shared library functions. Use the notebook to explain and display a
 fixed validation bundle.
+
+Version 1 should make a useful positive claim and a useful negative claim. The
+positive claim is that CASSBEAM provides an accurate SPW-4 diagonal main-lobe
+model with a measured degradation outside that domain. The negative claim is
+that THOL0001 does not detect a transferable CASSBEAM-shaped off-diagonal
+signal at its usable cross-hand floor. Both belong in the lasting record.
 
 This arrangement gives the desired result: a visually complete document that
 is immediately readable, scientifically auditable, and rerunnable from compact

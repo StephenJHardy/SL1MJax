@@ -14,9 +14,14 @@ from numpy.typing import NDArray
 
 from sl1mjax.beam_validation_outputs import ValidationBundle, sha256_file, write_json
 from sl1mjax.beam_validation_statistics import (
+    amplitude_db,
+    channel32_source_i_jy,
     frequency_copolar_series,
+    map_axis_cut,
+    phase_valid_mask,
     publication_squint_pair,
     residual_power_table,
+    wrapped_phase_residual,
 )
 
 FIGURE_IDS = (
@@ -28,6 +33,13 @@ FIGURE_IDS = (
     "F08",
     "F10",
     "F12",
+    "F15",
+    "F20",
+    "F21",
+    "F22",
+    "F23",
+    "F24",
+    "F25",
     "F13",
     "F16",
     "F17",
@@ -268,13 +280,17 @@ def plot_onaxis_amp(
     for axis, hand in zip(axes, ("rr", "ll"), strict=True):
         obs = np.asarray(scatter[f"{hand}_obs_abs"], dtype=np.float64)
         pred = np.asarray(scatter[f"{hand}_pred_abs"], dtype=np.float64)
+        scale = float(np.asarray(scatter.get("source_i_jy", 1.0)).reshape(-1)[0])
         onaxis = np.asarray(scatter[f"{hand}_onaxis"], dtype=bool)
-        axis.hist(obs[onaxis], bins=24, alpha=0.55, label="measured")
-        axis.hist(pred[onaxis], bins=24, alpha=0.55, label="CASSBEAM")
-        axis.set_title(f"{hand.upper()} on-axis |V|")
-        axis.set_xlabel("Jy")
+        axis.hist(obs[onaxis] / scale, bins=24, alpha=0.55, label="measured")
+        axis.hist(pred[onaxis] / scale, bins=24, alpha=0.55, label="CASSBEAM")
+        axis.axvline(1.0, color="k", ls="--", lw=0.8, label="boresight")
+        axis.set_title(f"{hand.upper()} on-axis |V|/I")
+        axis.set_xlabel("V / I_model")
         axis.legend(fontsize=8)
+    scale = float(np.asarray(scatter.get("source_i_jy", 1.0)).reshape(-1)[0])
     table = {
+        "source_i_jy": scale,
         "n_onaxis_rr": int(np.sum(scatter["rr_onaxis"])),
         "n_onaxis_ll": int(np.sum(scatter["ll_onaxis"])),
         "median_obs_rr": float(
@@ -282,6 +298,12 @@ def plot_onaxis_amp(
         ),
         "median_pred_rr": float(
             np.median(scatter["rr_pred_abs"][np.asarray(scatter["rr_onaxis"])])
+        ),
+        "median_obs_rr_over_i": float(
+            np.median(scatter["rr_obs_abs"][np.asarray(scatter["rr_onaxis"])]) / scale
+        ),
+        "median_pred_rr_over_i": float(
+            np.median(scatter["rr_pred_abs"][np.asarray(scatter["rr_onaxis"])]) / scale
         ),
     }
     return _save(
@@ -293,7 +315,9 @@ def plot_onaxis_amp(
         claims=("C01",),
         table=table,
         bundle_sha256=bundle_sha256,
-        caption="On-axis absolute |V| for measured HOLORASTER and CASSBEAM. Supports C01.",
+        caption=(
+            "On-axis |V|/I_model. Boresight is marked at one. Supports C01."
+        ),
     )
 
 
@@ -301,35 +325,68 @@ def plot_cassbeam_scatter(
     scatter: Mapping[str, NDArray],
     output_dir: Path,
     *,
+    cells: Mapping[str, NDArray] | None = None,
     bundle_sha256: str | None = None,
     region: str = "main_lobe",
 ) -> list[Path]:
     plt = _pyplot()
-    fig, axes = plt.subplots(2, 2, figsize=(8.2, 8.0))
+    fig, axes = plt.subplots(2, 2, figsize=(8.6, 8.0))
     mask_key = f"{region}_mask"
-    choose = np.asarray(scatter[mask_key], dtype=bool) if mask_key in scatter else np.ones(
-        scatter["rr_obs_real"].shape, dtype=bool
+    choose = (
+        np.asarray(scatter[mask_key], dtype=bool)
+        if mask_key in scatter
+        else np.ones(scatter["rr_obs_real"].shape, dtype=bool)
     )
+    scale = float(np.asarray(scatter.get("source_i_jy", 1.0)).reshape(-1)[0])
     panels = (
-        (axes[0, 0], "rr", "real", "RR Re (Jy)"),
-        (axes[0, 1], "rr", "imag", "RR Im (Jy)"),
-        (axes[1, 0], "ll", "real", "LL Re (Jy)"),
-        (axes[1, 1], "ll", "imag", "LL Im (Jy)"),
+        (axes[0, 0], "rr", "abs", "|RR| / I"),
+        (axes[0, 1], "ll", "abs", "|LL| / I"),
+        (axes[1, 0], "rr", "real", "Re(RR) / I"),
+        (axes[1, 1], "ll", "real", "Re(LL) / I"),
     )
-    table: dict[str, object] = {"region": region, "n": int(np.sum(choose))}
+    table: dict[str, object] = {
+        "region": region,
+        "n": int(np.sum(choose)),
+        "source_i_jy": scale,
+        "mask": "V/I_model >= 0.5",
+    }
     for axis, hand, part, label in panels:
-        obs = np.asarray(scatter[f"{hand}_obs_{part}"], dtype=np.float64)[choose]
-        pred = np.asarray(scatter[f"{hand}_pred_{part}"], dtype=np.float64)[choose]
-        axis.scatter(pred, obs, s=4, alpha=0.25, linewidths=0)
+        obs = np.asarray(scatter[f"{hand}_obs_{part}"], dtype=np.float64)[choose] / scale
+        pred = np.asarray(scatter[f"{hand}_pred_{part}"], dtype=np.float64)[choose] / scale
+        axis.scatter(pred, obs, s=3, alpha=0.12, linewidths=0, color="0.6")
+        if cells is not None and f"{hand}_pred_{part}" in cells:
+            cell_pred = np.asarray(cells[f"{hand}_pred_{part}"], dtype=np.float64)
+            cell_obs = np.asarray(cells[f"{hand}_obs_{part}"], dtype=np.float64)
+            cell_err = np.asarray(cells[f"{hand}_err_{part}"], dtype=np.float64)
+            if cell_pred.size:
+                axis.errorbar(
+                    cell_pred,
+                    cell_obs,
+                    yerr=cell_err,
+                    fmt="o",
+                    ms=4,
+                    alpha=0.9,
+                    color="C0",
+                    ecolor="C0",
+                    elinewidth=0.7,
+                    label="cell mean ± std",
+                )
         finite = np.isfinite(obs) & np.isfinite(pred)
         if bool(np.any(finite)):
             lo = float(min(np.min(pred[finite]), np.min(obs[finite])))
             hi = float(max(np.max(pred[finite]), np.max(obs[finite])))
             axis.plot([lo, hi], [lo, hi], "k-", lw=0.8)
+        if part == "abs":
+            axis.scatter([1.0], [1.0], marker="+", s=80, color="k", zorder=5)
+            axis.axhline(1.0, color="k", ls=":", lw=0.5)
+            axis.axvline(1.0, color="k", ls=":", lw=0.5)
         axis.set_xlabel(f"CASSBEAM {label}")
         axis.set_ylabel(f"observed {label}")
         axis.set_aspect("equal", adjustable="box")
         axis.set_title(f"{hand.upper()} {part} ({region.replace('_', ' ')})")
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    if handles:
+        axes[0, 0].legend(handles, labels, fontsize=7, loc="upper left")
     return _save(
         fig,
         output_dir,
@@ -339,7 +396,12 @@ def plot_cassbeam_scatter(
         claims=("C01", "C02"),
         table=table,
         bundle_sha256=bundle_sha256,
-        caption=f"Observed versus diagonal CASSBEAM {region.replace('_', ' ')}. Supports C01, C02.",
+        caption=(
+            "Main-lobe V/I_model using the scientific voltage mask. "
+            "Grey points are raw visibilities; blue points are spatial-cell "
+            "means with within-cell standard deviation. Boresight is (1, 1). "
+            "Supports C01, C02."
+        ),
     )
 
 
@@ -383,7 +445,10 @@ def plot_spatial_residual_maps(
         claims=("C01", "C02", "C03"),
         table=table,
         bundle_sha256=bundle_sha256,
-        caption="Visibility-domain RR/LL maps. Unsupported cells are masked. Supports C01–C03.",
+        caption=(
+            "Visibility-domain RR/LL |V| on a linear Jy scale. "
+            "Sidelobes are compressed; see F20 for dB. Supports C01–C03."
+        ),
     )
 
 
@@ -425,6 +490,435 @@ def plot_residual_radius(
         caption=(
             "Median copolar residual versus radius and azimuth. "
             "The 10′ ring is marked. Supports C02, C03."
+        ),
+    )
+
+
+def plot_residual_strata(
+    strata: Mapping[str, Any],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    fig, axes = plt.subplots(1, 3, figsize=(10.2, 4.0))
+    scale = float(strata.get("source_i_jy") or 1.0)
+    panels = (
+        ("mover", "Moving antenna"),
+        ("reference", "Reference antenna"),
+        ("pass", "Raster family"),
+    )
+    table: dict[str, object] = {
+        "source_i_jy": scale,
+        "mask": strata.get("mask"),
+        "raster_family": strata.get("raster_family"),
+    }
+    for axis, (key, title) in zip(axes, panels, strict=True):
+        rr_rows = list(strata.get(key) or ())
+        ll_rows = list(strata.get(f"{key}_ll") or ())
+        names = [str(row.get("name") or row.get("id")) for row in rr_rows]
+        if not names:
+            names = [str(row.get("name") or row.get("id")) for row in ll_rows]
+        by_ll = {str(row.get("name") or row.get("id")): row for row in ll_rows}
+        rr = [float(row["median_abs"]) / scale for row in rr_rows]
+        ll = [float((by_ll.get(name) or {}).get("median_abs", np.nan)) / scale for name in names]
+        if not names:
+            axis.set_title(title)
+            continue
+        index = np.arange(len(names))
+        width = 0.4
+        axis.bar(index - width / 2, rr, width=width, label="RR")
+        axis.bar(index + width / 2, ll, width=width, label="LL")
+        axis.set_xticks(index, names, rotation=90, fontsize=7)
+        axis.set_ylabel("median |ΔV| / I")
+        axis.set_title(title)
+        axis.legend(fontsize=7)
+        table[key] = rr_rows
+        table[f"{key}_ll"] = ll_rows
+    return _save(
+        fig,
+        output_dir,
+        "15_residual_strata.png",
+        figure_id="F15",
+        function="plot_residual_strata",
+        claims=("C01",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Main-lobe median |ΔV|/I by mover, reference, and raster family. "
+            "Raster family is nearest Memo 195 dense versus sparse occupancy, "
+            "not a scan-id join. Supports C01."
+        ),
+    )
+
+
+def plot_amplitude_db_maps(
+    maps: Mapping[str, NDArray],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+    source_i_jy: float | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    fig, axes = plt.subplots(2, 3, figsize=(11.6, 7.2))
+    l_ax = np.asarray(maps["l_arcmin"], dtype=np.float64)
+    m_ax = np.asarray(maps["m_arcmin"], dtype=np.float64)
+    weight = np.asarray(maps["weight"], dtype=np.float64)
+    support = weight > 0.0
+    extent = (float(l_ax[0]), float(l_ax[-1]), float(m_ax[0]), float(m_ax[-1]))
+    peak = float(source_i_jy if source_i_jy is not None else channel32_source_i_jy())
+    table = {"peak_jy": peak, "db_floor": -40.0}
+    for row, hand in enumerate(("rr", "ll")):
+        meas = np.asarray(maps[f"{hand}_measured"])
+        pred = np.asarray(maps[f"{hand}_cassbeam"])
+        panels = (
+            (amplitude_db(meas, peak), "viridis", f"{hand.upper()} measured (dB)", (-40.0, 0.0)),
+            (amplitude_db(pred, peak), "viridis", f"{hand.upper()} CASSBEAM (dB)", (-40.0, 0.0)),
+            (
+                20.0
+                * np.log10(np.maximum(np.abs(meas) / np.maximum(np.abs(pred), 1.0e-3), 1.0e-2)),
+                "coolwarm",
+                f"{hand.upper()} 20 log10(|V|/|C|)",
+                (-8.0, 8.0),
+            ),
+        )
+        for axis, (grid, cmap, title, limits) in zip(axes[row], panels, strict=True):
+            display = np.ma.masked_where(~support, grid)
+            image = axis.imshow(
+                display,
+                origin="lower",
+                extent=extent,
+                cmap=cmap,
+                aspect="equal",
+                vmin=limits[0],
+                vmax=limits[1],
+            )
+            axis.set_title(title)
+            axis.set_xlabel("l (arcmin)")
+            axis.set_ylabel("m (arcmin)")
+            fig.colorbar(image, ax=axis, fraction=0.046, pad=0.04)
+    return _save(
+        fig,
+        output_dir,
+        "20_amplitude_db.png",
+        figure_id="F20",
+        function="plot_amplitude_db_maps",
+        claims=("C03",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Normalized |V|/I in dB from 0 to −40. The ratio panel is "
+            "20 log10(|measured|/|CASSBEAM|). Where CASSBEAM is 0.05–0.15 Jy "
+            "and the residual floor is ~0.2 Jy, ratios are biased upward and "
+            "are not a multiplicative correction. Supports C03."
+        ),
+    )
+
+
+def _draw_signed_cut(
+    axis,
+    maps: Mapping[str, NDArray],
+    kind: str,
+    scale: float,
+    *,
+    min_abs_arcmin: float = 0.0,
+) -> None:
+    for hand, color in (("rr", "C0"), ("ll", "C1")):
+        obs = map_axis_cut(maps[f"{hand}_measured"], maps["l_arcmin"], maps["m_arcmin"], kind=kind)
+        pred = map_axis_cut(maps[f"{hand}_cassbeam"], maps["l_arcmin"], maps["m_arcmin"], kind=kind)
+        x = np.asarray(obs["x_arcmin"], dtype=np.float64)
+        keep = np.abs(x) >= float(min_abs_arcmin)
+        x = x[keep]
+        axis.plot(
+            x,
+            np.asarray(obs["value"]).real[keep] / scale,
+            color=color,
+            lw=1.1,
+            label=f"{hand.upper()} Re meas",
+        )
+        axis.plot(
+            x,
+            np.asarray(pred["value"]).real[keep] / scale,
+            color=color,
+            ls="--",
+            lw=1.0,
+            label=f"{hand.upper()} Re CASS",
+        )
+        axis.plot(
+            x,
+            np.asarray(obs["value"]).imag[keep] / scale,
+            color=color,
+            lw=0.7,
+            alpha=0.55,
+        )
+        axis.plot(
+            x,
+            np.asarray(pred["value"]).imag[keep] / scale,
+            color=color,
+            ls=":",
+            lw=0.8,
+            alpha=0.7,
+        )
+    axis.axhline(0.0, color="k", lw=0.5)
+    axis.set_xlabel("offset (arcmin)")
+    axis.set_ylabel("V / I")
+
+
+def plot_signed_complex_cuts(
+    maps: Mapping[str, NDArray],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+    source_i_jy: float | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    fig, axes = plt.subplots(4, 2, figsize=(10.8, 10.6))
+    scale = float(source_i_jy if source_i_jy is not None else channel32_source_i_jy())
+    cuts = (("m0", "m=0"), ("l0", "l=0"), ("diag", "diagonal"), ("antidiag", "anti-diagonal"))
+    table: dict[str, object] = {
+        "source_i_jy": scale,
+        "outer_min_arcmin": 15.0,
+        "symlog_linthresh": 0.05,
+    }
+    for axis, (kind, title) in zip(axes[:2].ravel(), cuts, strict=True):
+        _draw_signed_cut(axis, maps, kind, scale)
+        axis.set_yscale("symlog", linthresh=0.05)
+        axis.set_title(f"{title} (symlog)")
+    for axis, (kind, title) in zip(axes[2:].ravel(), cuts, strict=True):
+        _draw_signed_cut(axis, maps, kind, scale, min_abs_arcmin=15.0)
+        axis.set_ylim(-0.12, 0.12)
+        axis.set_title(f"{title} (|offset| ≥ 15′)")
+    axes[0, 0].legend(fontsize=6, ncol=2)
+    return _save(
+        fig,
+        output_dir,
+        "21_signed_complex_cuts.png",
+        figure_id="F21",
+        function="plot_signed_complex_cuts",
+        claims=("C03",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Signed Re/Im voltage cuts. Top: symmetric-log so distant lobes "
+            "remain visible. Bottom: linear outer-only inset (|offset| ≥ 15′). "
+            "Solid/dashed are measured/CASSBEAM real; lighter/dotted are "
+            "imaginary. Supports C03."
+        ),
+    )
+
+
+def plot_masked_phase_maps(
+    maps: Mapping[str, NDArray],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    fig, axes = plt.subplots(2, 3, figsize=(11.6, 7.2))
+    l_ax = np.asarray(maps["l_arcmin"], dtype=np.float64)
+    m_ax = np.asarray(maps["m_arcmin"], dtype=np.float64)
+    weight = np.asarray(maps["weight"], dtype=np.float64)
+    extent = (float(l_ax[0]), float(l_ax[-1]), float(m_ax[0]), float(m_ax[-1]))
+    table: dict[str, object] = {"amp_floor_jy": 0.05, "phase_status": "exploratory"}
+    for row, hand in enumerate(("rr", "ll")):
+        meas = np.asarray(maps[f"{hand}_measured"])
+        pred = np.asarray(maps[f"{hand}_cassbeam"])
+        valid = phase_valid_mask(meas, pred, weight)
+        residual = wrapped_phase_residual(meas, pred)
+        table[f"{hand}_n_phase"] = int(np.sum(valid))
+        if bool(np.any(valid)):
+            table[f"{hand}_median_phase_deg"] = float(np.degrees(np.median(residual[valid])))
+        panels = (
+            (np.angle(meas), f"{hand.upper()} measured phase"),
+            (np.angle(pred), f"{hand.upper()} CASSBEAM phase"),
+            (residual, f"{hand.upper()} arg(E_m E_c*)"),
+        )
+        for axis, (grid, title) in zip(axes[row], panels, strict=True):
+            display = np.ma.masked_where(~valid, np.degrees(grid))
+            image = axis.imshow(
+                display,
+                origin="lower",
+                extent=extent,
+                cmap="twilight",
+                aspect="equal",
+                vmin=-180.0,
+                vmax=180.0,
+            )
+            axis.set_title(title)
+            axis.set_xlabel("l (arcmin)")
+            axis.set_ylabel("m (arcmin)")
+            fig.colorbar(image, ax=axis, fraction=0.046, pad=0.04, label="deg")
+    return _save(
+        fig,
+        output_dir,
+        "22_masked_phase.png",
+        figure_id="F22",
+        function="plot_masked_phase_maps",
+        claims=("C03",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Masked phase maps. Cells below 0.05 Jy or poorly occupied are grey. "
+            "Phase is exploratory and is not a C03 metric."
+        ),
+    )
+
+
+def plot_radial_coherence(
+    coherence: Mapping[str, Any],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    fig, axes = plt.subplots(1, 3, figsize=(10.8, 3.5))
+    table = {
+        "phase_status": coherence.get("phase_status"),
+        "amp_floor_jy": coherence.get("amp_floor_jy"),
+        "extent": coherence.get("raster_extent_arcmin"),
+    }
+    for hand, color in (("rr", "C0"), ("ll", "C1")):
+        rows = list(coherence.get(hand) or ())
+        mid = [float(row["r_mid_arcmin"]) for row in rows]
+        axes[0].plot(
+            mid,
+            [float(row["correlation_abs"]) for row in rows],
+            "o-",
+            color=color,
+            label=hand.upper(),
+        )
+        axes[1].plot(
+            mid,
+            [float(np.degrees(np.arctan2(row["slope_imag"], row["slope_real"]))) for row in rows],
+            "o-",
+            color=color,
+            label=hand.upper(),
+        )
+        axes[2].errorbar(
+            mid,
+            [float(row["circular_phase_deg"]) for row in rows],
+            yerr=[float(row.get("circular_phase_std_deg") or 0.0) for row in rows],
+            fmt="o-",
+            color=color,
+            label=hand.upper(),
+        )
+        table[hand] = rows
+    axes[0].set_ylabel("complex correlation")
+    axes[1].set_ylabel("arg(slope) (deg)")
+    axes[2].set_ylabel("circular phase residual (deg)")
+    for axis in axes:
+        axis.set_xlabel("radius (arcmin)")
+        axis.legend(fontsize=7)
+        axis.axvline(40.0, color="k", ls=":", lw=0.6)
+    return _save(
+        fig,
+        output_dir,
+        "23_radial_coherence.png",
+        figure_id="F23",
+        function="plot_radial_coherence",
+        claims=("C03",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Visibility-domain coherence versus radius. Phase uses the 0.05 Jy "
+            "amplitude floor. Exploratory. Supports C03."
+        ),
+    )
+
+
+def plot_antenna_coherence(
+    antenna: Mapping[str, Any],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.2))
+    movers = list(antenna.get("movers") or ())
+    table = {"n_movers": len(movers), "phase_status": antenna.get("phase_status")}
+    for mover in movers:
+        rr = list(mover.get("rr") or ())
+        mid = [float(row["r_mid_arcmin"]) for row in rr]
+        axes[0].plot(mid, [float(row["correlation_abs"]) for row in rr], color="0.7", lw=0.7)
+        axes[1].plot(mid, [float(row["circular_phase_deg"]) for row in rr], color="0.7", lw=0.7)
+    if movers:
+        stack_c = np.array(
+            [[float(row["correlation_abs"]) for row in mover.get("rr") or ()] for mover in movers],
+            dtype=np.float64,
+        )
+        stack_p = np.array(
+            [
+                [float(row["circular_phase_deg"]) for row in mover.get("rr") or ()]
+                for mover in movers
+            ],
+            dtype=np.float64,
+        )
+        mid = [float(row["r_mid_arcmin"]) for row in movers[0].get("rr") or ()]
+        axes[0].plot(mid, np.nanmedian(stack_c, axis=0), "k-", lw=1.6, label="RR median")
+        axes[1].plot(mid, np.nanmedian(stack_p, axis=0), "k-", lw=1.6, label="RR median")
+    axes[0].set_ylabel("RR complex correlation")
+    axes[1].set_ylabel("RR circular phase residual (deg)")
+    for axis in axes:
+        axis.set_xlabel("radius (arcmin)")
+        axis.legend(fontsize=7)
+    return _save(
+        fig,
+        output_dir,
+        "24_antenna_coherence.png",
+        figure_id="F24",
+        function="plot_antenna_coherence",
+        claims=("C03",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Per-moving-antenna RR radial coherence. Grey lines are dishes; "
+            "black is the median. Exploratory. Supports C03."
+        ),
+    )
+
+
+def plot_bright_source_examples(
+    examples: Mapping[str, Any],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    plt = _pyplot()
+    rows = list(examples.get("examples") or ())
+    fig, axes = plt.subplots(1, max(len(rows), 1), figsize=(2.4 * max(len(rows), 1) + 1.2, 3.6))
+    if len(rows) <= 1:
+        axes = [axes]
+    table = {"note": examples.get("note"), "examples": rows}
+    for axis, row in zip(axes, rows, strict=False):
+        meas = complex(float(row["rr_meas_re"]), float(row["rr_meas_im"]))
+        pred = complex(float(row["rr_pred_re"]), float(row["rr_pred_im"]))
+        axis.plot([0.0, pred.real], [0.0, pred.imag], "C1-o", label="CASSBEAM")
+        axis.plot([0.0, meas.real], [0.0, meas.imag], "C0-o", label="measured")
+        axis.set_aspect("equal", adjustable="datalim")
+        axis.axhline(0.0, color="k", lw=0.4)
+        axis.axvline(0.0, color="k", lw=0.4)
+        radius = float(row["radius_arcmin"])
+        ell = float(row["l_arcmin"])
+        emm = float(row["m_arcmin"])
+        axis.set_title(f"{radius:.2f}′  (l,m)=({ell:.2f},{emm:.2f})")
+        axis.set_xlabel("Re V (Jy)")
+        axis.set_ylabel("Im V (Jy)")
+    if rows:
+        axes[0].legend(fontsize=7)
+    fig.suptitle("Array-average RR voltage at example offsets", fontsize=10)
+    return _save(
+        fig,
+        output_dir,
+        "25_bright_source_examples.png",
+        figure_id="F25",
+        function="plot_bright_source_examples",
+        claims=("C03",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Array-average RR voltage at the nearest occupied cell to each "
+            "nominal radius. Titles show the exact radius and (l, m). A common "
+            "scalar beam cancels voltage phase in Stokes I. Supports C03."
         ),
     )
 
@@ -663,13 +1157,14 @@ def plot_spw5_sealed(output_dir: Path, *, bundle_sha256: str | None = None) -> l
 
 
 def write_all_figures(bundle: ValidationBundle, output_dir: Path) -> list[Path]:
-    """Write every version-1 figure and sidecar from the bundle."""
+    """Write every publication figure and sidecar from the bundle."""
 
     from sl1mjax.beam_validation_statistics import offset_ring_diagonal_closure
 
     bundle_sha = str(bundle.manifest.get("bundle_sha256") or "")
     scatter = bundle.plot_table("holoraster_scatter.npz")
     maps = bundle.plot_table("holoraster_maps.npz")
+    cells = bundle.plot_table("holoraster_cells.npz")
     occupancy = bundle.plot_table("raster_occupancy.npz")
     written: list[Path] = []
     written.extend(
@@ -682,11 +1177,43 @@ def write_all_figures(bundle: ValidationBundle, output_dir: Path) -> list[Path]:
     )
     written.extend(plot_onaxis_amp(scatter, output_dir, bundle_sha256=bundle_sha))
     written.extend(
-        plot_cassbeam_scatter(scatter, output_dir, bundle_sha256=bundle_sha, region="main_lobe")
+        plot_cassbeam_scatter(
+            scatter,
+            output_dir,
+            cells=cells,
+            bundle_sha256=bundle_sha,
+            region="main_lobe",
+        )
     )
     written.extend(plot_spatial_residual_maps(maps, output_dir, bundle_sha256=bundle_sha))
     written.extend(
         plot_residual_radius(bundle.residual_geometry, output_dir, bundle_sha256=bundle_sha)
+    )
+    written.extend(
+        plot_residual_strata(bundle.residual_strata, output_dir, bundle_sha256=bundle_sha)
+    )
+    source_i = float(
+        bundle.radial_coherence.get("source_i_jy")
+        or bundle.residual_strata.get("source_i_jy")
+        or channel32_source_i_jy()
+    )
+    written.extend(
+        plot_amplitude_db_maps(maps, output_dir, bundle_sha256=bundle_sha, source_i_jy=source_i)
+    )
+    written.extend(
+        plot_signed_complex_cuts(maps, output_dir, bundle_sha256=bundle_sha, source_i_jy=source_i)
+    )
+    written.extend(plot_masked_phase_maps(maps, output_dir, bundle_sha256=bundle_sha))
+    written.extend(
+        plot_radial_coherence(bundle.radial_coherence, output_dir, bundle_sha256=bundle_sha)
+    )
+    written.extend(
+        plot_antenna_coherence(bundle.antenna_coherence, output_dir, bundle_sha256=bundle_sha)
+    )
+    written.extend(
+        plot_bright_source_examples(
+            bundle.bright_source_examples, output_dir, bundle_sha256=bundle_sha
+        )
     )
     written.extend(plot_publication_squint(bundle.squint, output_dir, bundle_sha256=bundle_sha))
     written.extend(

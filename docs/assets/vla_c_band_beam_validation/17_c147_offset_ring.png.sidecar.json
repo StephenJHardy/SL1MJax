@@ -7,8 +7,8 @@
     "C04",
     "C05"
   ],
-  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
-  "created_utc": "2026-09-07T01:24:27.952762+00:00",
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:49.680874+00:00",
   "caption": "Independent C147-* ring geometry and diagonal closure. Supports C04.",
   "table": {
     "fields": [

@@ -1,17 +1,16 @@
 {
   "figure_id": "F03",
   "filename": "03_antenna_roles.png",
-  "image_sha256": "927e8c5e84690b07a506fbc5595ba86980b39b0a30a8622f643ab29a51fcb37e",
+  "image_sha256": "c839f0e83dc4037de4012fbc5a10a53fa0b870fcedd6142409b1ef3591b41611",
   "generating_function": "plot_antenna_roles",
   "claims": [
     "C01"
   ],
-  "bundle_sha256": "0571f4a7b38d69e4c9d9b8400f4ff53af2b744944af3780107f4d59e923b680b",
-  "created_utc": "2026-09-07T01:24:26.983841+00:00",
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:47.315715+00:00",
   "caption": "Holography reference set versus moving antennas. Supports C01.",
   "table": {
     "antenna_names": [
-      "ea01",
       "ea02",
       "ea03",
       "ea04",
@@ -49,7 +48,7 @@
       "ea24",
       "ea26"
     ],
-    "n_moving": 21
+    "n_moving": 20
   },
-  "table_sha256": "78465109266a8b8329e848e0e4b6a4b1330383528d70e4c7dcdc0253f4f010f0"
+  "table_sha256": "0ebe603c1e094a23190c286588b0c03d506c299ad83cfd8edfb2c3a9a2656222"
 }

@@ -1,0 +1,17 @@
+{
+  "figure_id": "F20",
+  "filename": "20_amplitude_db.png",
+  "image_sha256": "bf177e9d17cff1fc54232be7d57b3798e0972d716fe2ccee7602798d4026d0c2",
+  "generating_function": "plot_amplitude_db_maps",
+  "claims": [
+    "C03"
+  ],
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:48.366877+00:00",
+  "caption": "Normalized |V|/I in dB from 0 to \u221240. The ratio panel is 20 log10(|measured|/|CASSBEAM|). Where CASSBEAM is 0.05\u20130.15 Jy and the residual floor is ~0.2 Jy, ratios are biased upward and are not a multiplicative correction. Supports C03.",
+  "table": {
+    "peak_jy": 8.028518676757812,
+    "db_floor": -40.0
+  },
+  "table_sha256": "b7a57934f455c7767427f76e2bc3e0cc6b65b155e4d7608b4ab550c9f0be0641"
+}

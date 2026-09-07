@@ -1,0 +1,378 @@
+{
+  "figure_id": "F15",
+  "filename": "15_residual_strata.png",
+  "image_sha256": "1fbaaafe949fda8d30ba606a3bb4f027de968873f7d2343ee1cb6bbbd7185983",
+  "generating_function": "plot_residual_strata",
+  "claims": [
+    "C01"
+  ],
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:48.106346+00:00",
+  "caption": "Main-lobe median |\u0394V|/I by mover, reference, and raster family. Raster family is nearest Memo 195 dense versus sparse occupancy, not a scan-id join. Supports C01.",
+  "table": {
+    "source_i_jy": 8.028518676757812,
+    "mask": "V/I_model using CASA MODEL_DATA 3C147 at channel 32",
+    "raster_family": "Nearest Memo 195 dense versus sparse lattice. This is a pass-1/pass-2 occupancy proxy, not a scan-id join.",
+    "mover": [
+      {
+        "id": 4,
+        "n": 2144,
+        "median_abs": 0.5225706904878613,
+        "name": "ea06"
+      },
+      {
+        "id": 13,
+        "n": 2203,
+        "median_abs": 0.43492696659793345,
+        "name": "ea15"
+      },
+      {
+        "id": 25,
+        "n": 2169,
+        "median_abs": 0.40720462342038083,
+        "name": "ea27"
+      },
+      {
+        "id": 3,
+        "n": 2181,
+        "median_abs": 0.406858081211476,
+        "name": "ea05"
+      },
+      {
+        "id": 11,
+        "n": 2141,
+        "median_abs": 0.405116485319654,
+        "name": "ea13"
+      },
+      {
+        "id": 23,
+        "n": 2145,
+        "median_abs": 0.39923929130213326,
+        "name": "ea25"
+      },
+      {
+        "id": 9,
+        "n": 2151,
+        "median_abs": 0.3980985206820187,
+        "name": "ea11"
+      },
+      {
+        "id": 19,
+        "n": 2213,
+        "median_abs": 0.39191130167003446,
+        "name": "ea21"
+      },
+      {
+        "id": 26,
+        "n": 2221,
+        "median_abs": 0.3909984418774987,
+        "name": "ea28"
+      },
+      {
+        "id": 18,
+        "n": 2179,
+        "median_abs": 0.38778591488954034,
+        "name": "ea20"
+      },
+      {
+        "id": 16,
+        "n": 2186,
+        "median_abs": 0.3837505670925656,
+        "name": "ea18"
+      },
+      {
+        "id": 21,
+        "n": 2142,
+        "median_abs": 0.3826339603431582,
+        "name": "ea23"
+      },
+      {
+        "id": 6,
+        "n": 2196,
+        "median_abs": 0.3816474198701242,
+        "name": "ea08"
+      },
+      {
+        "id": 2,
+        "n": 2173,
+        "median_abs": 0.37561980590362964,
+        "name": "ea04"
+      },
+      {
+        "id": 7,
+        "n": 2200,
+        "median_abs": 0.3604994528714524,
+        "name": "ea09"
+      },
+      {
+        "id": 15,
+        "n": 2188,
+        "median_abs": 0.3596429779768323,
+        "name": "ea17"
+      },
+      {
+        "id": 17,
+        "n": 2146,
+        "median_abs": 0.3564670503431795,
+        "name": "ea19"
+      },
+      {
+        "id": 20,
+        "n": 2163,
+        "median_abs": 0.35008699480880046,
+        "name": "ea22"
+      },
+      {
+        "id": 14,
+        "n": 2136,
+        "median_abs": 0.3440183902770224,
+        "name": "ea16"
+      },
+      {
+        "id": 8,
+        "n": 2098,
+        "median_abs": 0.3373006254280768,
+        "name": "ea10"
+      }
+    ],
+    "mover_ll": [
+      {
+        "id": 19,
+        "n": 2213,
+        "median_abs": 0.4658276301536351,
+        "name": "ea21"
+      },
+      {
+        "id": 25,
+        "n": 2169,
+        "median_abs": 0.4531407389517873,
+        "name": "ea27"
+      },
+      {
+        "id": 16,
+        "n": 2186,
+        "median_abs": 0.4512535142405908,
+        "name": "ea18"
+      },
+      {
+        "id": 6,
+        "n": 2196,
+        "median_abs": 0.44615266300752854,
+        "name": "ea08"
+      },
+      {
+        "id": 3,
+        "n": 2181,
+        "median_abs": 0.44609824339482756,
+        "name": "ea05"
+      },
+      {
+        "id": 13,
+        "n": 2203,
+        "median_abs": 0.42598216710172476,
+        "name": "ea15"
+      },
+      {
+        "id": 23,
+        "n": 2145,
+        "median_abs": 0.4247967441599629,
+        "name": "ea25"
+      },
+      {
+        "id": 11,
+        "n": 2141,
+        "median_abs": 0.4216514103741735,
+        "name": "ea13"
+      },
+      {
+        "id": 15,
+        "n": 2188,
+        "median_abs": 0.40651708003892917,
+        "name": "ea17"
+      },
+      {
+        "id": 20,
+        "n": 2163,
+        "median_abs": 0.40167030473020515,
+        "name": "ea22"
+      },
+      {
+        "id": 8,
+        "n": 2098,
+        "median_abs": 0.4008386942472948,
+        "name": "ea10"
+      },
+      {
+        "id": 14,
+        "n": 2136,
+        "median_abs": 0.39392928161040097,
+        "name": "ea16"
+      },
+      {
+        "id": 18,
+        "n": 2179,
+        "median_abs": 0.39104178946026374,
+        "name": "ea20"
+      },
+      {
+        "id": 2,
+        "n": 2173,
+        "median_abs": 0.39054983407430555,
+        "name": "ea04"
+      },
+      {
+        "id": 17,
+        "n": 2146,
+        "median_abs": 0.3832499966858245,
+        "name": "ea19"
+      },
+      {
+        "id": 21,
+        "n": 2142,
+        "median_abs": 0.38072891811054443,
+        "name": "ea23"
+      },
+      {
+        "id": 9,
+        "n": 2151,
+        "median_abs": 0.3754914783199587,
+        "name": "ea11"
+      },
+      {
+        "id": 7,
+        "n": 2200,
+        "median_abs": 0.3607654598057295,
+        "name": "ea09"
+      },
+      {
+        "id": 4,
+        "n": 2144,
+        "median_abs": 0.35815133413376643,
+        "name": "ea06"
+      },
+      {
+        "id": 26,
+        "n": 2221,
+        "median_abs": 0.34147591318200676,
+        "name": "ea28"
+      }
+    ],
+    "reference": [
+      {
+        "id": 10,
+        "n": 6205,
+        "median_abs": 0.4047977611834499,
+        "name": "ea12"
+      },
+      {
+        "id": 1,
+        "n": 6195,
+        "median_abs": 0.39502386058860695,
+        "name": "ea03"
+      },
+      {
+        "id": 5,
+        "n": 6170,
+        "median_abs": 0.38631174232527266,
+        "name": "ea07"
+      },
+      {
+        "id": 22,
+        "n": 6200,
+        "median_abs": 0.3826905228912197,
+        "name": "ea24"
+      },
+      {
+        "id": 0,
+        "n": 6203,
+        "median_abs": 0.38161300273049376,
+        "name": "ea02"
+      },
+      {
+        "id": 12,
+        "n": 6191,
+        "median_abs": 0.3807498352265524,
+        "name": "ea14"
+      },
+      {
+        "id": 24,
+        "n": 6211,
+        "median_abs": 0.3803441024412791,
+        "name": "ea26"
+      }
+    ],
+    "reference_ll": [
+      {
+        "id": 10,
+        "n": 6205,
+        "median_abs": 0.4138828557546334,
+        "name": "ea12"
+      },
+      {
+        "id": 1,
+        "n": 6195,
+        "median_abs": 0.4067576156559509,
+        "name": "ea03"
+      },
+      {
+        "id": 5,
+        "n": 6170,
+        "median_abs": 0.4062056866920056,
+        "name": "ea07"
+      },
+      {
+        "id": 12,
+        "n": 6191,
+        "median_abs": 0.4057332280629329,
+        "name": "ea14"
+      },
+      {
+        "id": 24,
+        "n": 6211,
+        "median_abs": 0.4047962541716969,
+        "name": "ea26"
+      },
+      {
+        "id": 22,
+        "n": 6200,
+        "median_abs": 0.399667137996646,
+        "name": "ea24"
+      },
+      {
+        "id": 0,
+        "n": 6203,
+        "median_abs": 0.39622005713453706,
+        "name": "ea02"
+      }
+    ],
+    "pass": [
+      {
+        "id": 2,
+        "n": 4438,
+        "median_abs": 0.482616805479728,
+        "name": "sparse / pass-2 occupancy"
+      },
+      {
+        "id": 1,
+        "n": 38937,
+        "median_abs": 0.37851565696641104,
+        "name": "dense / pass-1 occupancy"
+      }
+    ],
+    "pass_ll": [
+      {
+        "id": 1,
+        "n": 38937,
+        "median_abs": 0.40890276257806946,
+        "name": "dense / pass-1 occupancy"
+      },
+      {
+        "id": 2,
+        "n": 4438,
+        "median_abs": 0.3754215251393874,
+        "name": "sparse / pass-2 occupancy"
+      }
+    ]
+  },
+  "table_sha256": "20ded80871d6bce7e491f53035946b3f6ed1d80bfdf4b8036ea28f71196631a6"
+}

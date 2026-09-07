@@ -1,0 +1,21 @@
+{
+  "figure_id": "F22",
+  "filename": "22_masked_phase.png",
+  "image_sha256": "f257aac6d987f64805488c0aa25483b2f3950c74cc90cf1461b949e7d6019b5b",
+  "generating_function": "plot_masked_phase_maps",
+  "claims": [
+    "C03"
+  ],
+  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
+  "created_utc": "2026-09-07T05:05:48.971135+00:00",
+  "caption": "Masked phase maps. Cells below 0.05 Jy or poorly occupied are grey. Phase is exploratory and is not a C03 metric.",
+  "table": {
+    "amp_floor_jy": 0.05,
+    "phase_status": "exploratory",
+    "rr_n_phase": 560,
+    "rr_median_phase_deg": 0.32589653020547105,
+    "ll_n_phase": 549,
+    "ll_median_phase_deg": 0.3452766024963842
+  },
+  "table_sha256": "37343cc39b9455f7dada127b4ba416f3a1542a73885451a8e269badbaa986cd5"
+}
