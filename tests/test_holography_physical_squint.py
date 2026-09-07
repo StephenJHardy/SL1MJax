@@ -158,3 +158,53 @@ def test_kernels_have_no_row_loop() -> None:
     assert "for row" not in inspect.getsource(physical_query_coordinates)
     assert "for row" not in inspect.getsource(apply_physical_feed_frame)
     assert "for row" not in inspect.getsource(physical_path_stages)
+
+
+def test_invert_moving_jones_recovers_a_known_beam() -> None:
+    from sl1mjax.holography_beam_prior import predict_vis_numpy, sky_frame_residual_numpy
+    from sl1mjax.holography_physical_squint_experiment import (
+        invert_moving_sky_jones,
+        sky_jones_to_feed_frame,
+    )
+    from sl1mjax.polarization import circular_parallactic_jones
+
+    n = 6
+    chi = np.linspace(-0.3, 0.4, n)
+    para = circular_parallactic_jones(chi)
+    feed = np.zeros((n, 2, 2), dtype=np.complex128)
+    feed[:, 0, 0] = 0.8 + 0.05j * np.arange(n)
+    feed[:, 1, 1] = 0.7 - 0.03j * np.arange(n)
+    conjugate = np.conjugate(np.swapaxes(para, -1, -2))
+    sky = conjugate @ feed @ para
+    residual = np.zeros((n, 2, 2), dtype=np.complex128)
+    residual[:, 0, 0] = 1.05 + 0.02j
+    residual[:, 1, 1] = 0.97 - 0.01j
+    r_m = sky_frame_residual_numpy(residual, chi)
+    r_r = sky_frame_residual_numpy(np.eye(2), -0.5 * chi)
+    source = np.zeros((n, 2, 2), dtype=np.complex128)
+    source[:, 0, 0] = 8.0 + 0.2 * np.arange(n)
+    source[:, 1, 1] = 7.5 - 0.1 * np.arange(n)
+    moving_is_p = np.array([True, False, True, False, True, False])
+    vis = predict_vis_numpy(r_m, sky, source, r_r, moving_is_p)[:, 0]
+    recovered = invert_moving_sky_jones(vis, source, r_m, r_r, moving_is_p)
+    np.testing.assert_allclose(recovered, sky, rtol=0.0, atol=1.0e-12)
+    np.testing.assert_allclose(
+        sky_jones_to_feed_frame(recovered, chi), feed, rtol=0.0, atol=1.0e-12
+    )
+
+
+def test_common_support_requires_both_hands() -> None:
+    from sl1mjax.holography_physical_squint_experiment import common_support_maps
+
+    offset = np.array(
+        [[0.0, 0.0], [1.0e-4, 0.0], [1.0e-4, 0.0], [2.0e-4, 0.0], [3.0e-4, 0.0]],
+        dtype=np.float64,
+    )
+    rr = np.array([1.0, 0.8, 0.7, 0.4, 0.2])
+    ll = np.array([0.9, 0.75, 0.7, 0.35, 0.15])
+    w = np.ones(5)
+    rr_ok = np.array([True, True, True, True, False])
+    ll_ok = np.array([True, True, True, False, True])
+    maps = common_support_maps(offset, rr, ll, w, w, rr_ok, ll_ok)
+    assert maps["n_cells"] == 2
+    assert "for row" not in inspect.getsource(common_support_maps)
