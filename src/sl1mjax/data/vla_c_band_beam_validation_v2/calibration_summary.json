@@ -1,0 +1,30 @@
+{
+  "reference_antenna": "ea02",
+  "calwt": false,
+  "diagonal_parang": false,
+  "fullpol_parang": true,
+  "apply_holoraster_from": "CORRECTED_DATA",
+  "apply_c147_offset_from": "DATA",
+  "apply_fields_fullpol": "0,9,10,11",
+  "c147_offset_applied_in_memory": true,
+  "source_model": {
+    "name": "3C147",
+    "kind": "point",
+    "standard": "Perley-Butler 2017"
+  },
+  "table_hashes": {
+    "antpos": "8ec8fcd309cf41ab182cb9450fc4ccca9e0d0debd9e4317a52a910393cae2e8f",
+    "G1": "3b95778a9f4419e8402da8f74bb4d67695a61c242eb03bb49467d67d6f8127a7",
+    "K0": "00cd102e812c84aaa750123c4fe88b81b5ee5145d1f305c2a33f817e3f6bc96a",
+    "B0": "a8499b5faff2f9a75565d8f8d8ca8b20621486930b102333ad71425ab19312b7",
+    "Kcross": "58597ac14436d53b5ce853b9cab02a6c490c262ab1e0a80da7b18a346b61ec26",
+    "Df": "747f46cb16fbed6ac8b1666da4fc916d18e38689845065ac184c28ccda0ff9ac",
+    "Xf": "5ee5679408ce4259b386474855bbf402d6b05aebcf7a81ac0d9b83c5ff867a0f"
+  },
+  "three_c286": {
+    "casaguide_two_chi_deg": 66.0,
+    "iau_evpa_deg": 33.0,
+    "residual_x_deg": -0.3824005126953125,
+    "v_over_i": -0.004271958488970995
+  }
+}

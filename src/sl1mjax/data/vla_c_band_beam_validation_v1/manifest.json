@@ -1,16 +1,19 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "publication_version": "vla_c_band_beam_validation_v1",
   "files": {
     "calibration_summary.json": "610c78e37bd8ef2d2ed492bbb0a13f980f739bb677c95e21447eed1241c0a65b",
-    "claims.json": "d6118153497570038719ac76966d652afff64978c3bf74abfca1db6e305ea866",
+    "claims.json": "db75a88bdf36cd1e9b7681723cfcaa8f1ca8e1f124d1c349c0134c1508d63f6c",
     "convention_gates.json": "d3b1b66cc974a7758772bcf8c44cccfa442e35ef726bd5063d9109e04a0226aa",
+    "coordinate_feed_comparison.json": "fe883954750731ad5be1e8a96f059a79bcfb03aaa64d162280047718c7144592",
     "holoraster_channel32.json": "104bf10611694d24da50ae2404a93d2353c11913207a523e8f245f6d2fba524e",
     "holoraster_frequency.json": "6fb910770048921e48e4215168b9495dc44c5a14b1ab3c36d68b596c08e730cf",
     "observation_summary.json": "eccbdc485314e7eff020b4fcf109ebcd5fb590b04aaecf476e11b123575fb1fa",
     "offset_ring.json": "9f8bd86f4041c20bda9631d09f899dd9ec4612204f7ccac6b8350f9bcf6dd3d9",
     "plot_tables/antenna_coherence.json": "301d7f0fafd02f1e5aaa5057b444c02acb6e40ed8f16549a009422f56c9d29dc",
     "plot_tables/bright_source_examples.json": "e69d61f968bf8309ba278d6bb275dc1fb2befe6e2a8f7a7534d6cd4a2e015c92",
+    "plot_tables/coordinate_feed_maps.npz": "ae2553557cd548ead6799e5d8faf93fa6557067c17b6c32f2bcf86be28962c1f",
+    "plot_tables/coordinate_feed_scatter.npz": "131cdc6b8b12b068d348a70eea909ae42e12f00e0d8e247008f905c97b07c78b",
     "plot_tables/crosshand_quadrants.json": "962fa01118ba6fd4b23f7a3764b41c5d2cb1c2e2ded8634d6b43aaf5b9f1e7f3",
     "plot_tables/frequency_series.json": "6fb910770048921e48e4215168b9495dc44c5a14b1ab3c36d68b596c08e730cf",
     "plot_tables/holoraster_cells.npz": "ae8d48ca8e819a50798d4d542377044a92656055d7163d0fab4029c18433052a",
@@ -24,15 +27,19 @@
     "squint_publication.json": "6c4fbe95ea34723fd2a1818f7c7113f1240302332751df67952e58b3644b020b"
   },
   "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
-  "revision": "outer_complex_magnitude_and_phase",
+  "revision": "evla_c_source_lm_impact",
   "source_products": {
     "holoraster_cassbeam_comparison": "named Bacchus product",
     "c147_offset_ring": "named Bacchus product",
     "holography_thol0001_lower_c": "in-repo occupancy and calibration summaries"
   },
-  "predictions_recomputed": false,
+  "predictions_recomputed": {
+    "historical_generic_commanded": false,
+    "coordinate_feed_comparison": true
+  },
   "full_raster_squint_published": false,
   "spw5_opened": false,
   "plot_code": "vla_c_band_beam_validation_v1",
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775"
+  "previous_bundle_sha256": "fb131cd6fd5ed532f17d0ed521a04491be45d402261fa8a3984f39a82f5efdf1",
+  "bundle_sha256": "2536a9f53e632b35f97ea94b16872b6f6c44afd34d9823226c4819f621ecab98"
 }

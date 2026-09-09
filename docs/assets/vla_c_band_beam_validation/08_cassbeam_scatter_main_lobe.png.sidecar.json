@@ -1,20 +1,39 @@
 {
   "figure_id": "F08",
   "filename": "08_cassbeam_scatter_main_lobe.png",
-  "image_sha256": "d57339e2e3f1ddcdf41a4111701d9b5519d11737e0142eed1bd458b9ae6ea9cb",
+  "image_sha256": "4cc792966b50f31a4db28466712c1527cd019f5e87a53ff7f1a4503487710018",
   "generating_function": "plot_cassbeam_scatter",
   "claims": [
     "C01",
     "C02"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:47.660893+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:06.106606+00:00",
   "caption": "Main-lobe V/I_model using the scientific voltage mask. Grey points are raw visibilities; blue points are spatial-cell means with within-cell standard deviation. Boresight is (1, 1). Supports C01, C02.",
   "table": {
     "region": "main_lobe",
-    "n": 464,
+    "n": 469,
     "source_i_jy": 8.028518676757812,
     "mask": "V/I_model >= 0.5"
   },
-  "table_sha256": "24bc997265140832f33f41388647174a05c04d4106b513db731226021b9ab805"
+  "table_sha256": "f153003a3365feb697867af42b42c3be95589dc6e5dfa6862a16f79cdc66d51a",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "main_lobe",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 469,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2",
+  "support_mask": "V/I_model >= 0.5"
 }

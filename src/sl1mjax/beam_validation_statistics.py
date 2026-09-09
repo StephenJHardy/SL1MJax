@@ -34,34 +34,69 @@ REGION_SUPPORT_CLASS = {
 }
 
 
+def _threshold_support_class(name: str, matches: bool, intended: str) -> str:
+    if matches:
+        return intended
+    if name == "main_lobe":
+        return "rejected"
+    if name == "mid":
+        return "unqualified"
+    return intended
+
+
 def classify_diagonal_region_support(
     hand_residual_power: Mapping[str, Mapping[str, Mapping[str, float]]],
 ) -> dict[str, object]:
     """Region-qualified diagonal support. Not a single whole-raster label."""
 
     regions: dict[str, object] = {}
-    for name, support in REGION_SUPPORT_CLASS.items():
+    for name, intended in REGION_SUPPORT_CLASS.items():
         hands = hand_residual_power.get(name) or {}
         rr = float((hands.get("rr") or {}).get("residual_power", float("nan")))
         ll = float((hands.get("ll") or {}).get("residual_power", float("nan")))
         if name == "main_lobe":
-            matches = bool(rr <= MAIN_LOBE_ACCEPTED_MAX and ll <= MAIN_LOBE_ACCEPTED_MAX)
+            matches = bool(
+                np.isfinite(rr)
+                and np.isfinite(ll)
+                and rr <= MAIN_LOBE_ACCEPTED_MAX
+                and ll <= MAIN_LOBE_ACCEPTED_MAX
+            )
         elif name == "mid":
-            matches = bool(rr <= MID_BEAM_QUALIFIED_MAX and ll <= MID_BEAM_QUALIFIED_MAX)
+            matches = bool(
+                np.isfinite(rr)
+                and np.isfinite(ll)
+                and rr <= MID_BEAM_QUALIFIED_MAX
+                and ll <= MID_BEAM_QUALIFIED_MAX
+            )
         else:
             matches = True
+        actual = _threshold_support_class(name, matches, intended)
         regions[name] = {
-            "class": support,
+            "class": actual,
+            "intended_class": intended,
             "residual_power_rr": rr,
             "residual_power_ll": ll,
             "matches_class": matches,
         }
     return {
-        "main_lobe": "accepted",
-        "mid_beam": "qualified",
-        "outer_raster": "diagnostic",
+        "main_lobe": str(regions["main_lobe"]["class"]),
+        "mid_beam": str(regions["mid"]["class"]),
+        "outer_raster": str(regions["outer_diagnostic"]["class"]),
         "regions": regions,
     }
+
+
+def visibility_hand_weight(weight: ArrayLike, row: int, col: int) -> NDArray[np.float64]:
+    """Per-sample weight for one visibility hand. Does not reuse RR for LL."""
+
+    wgt = np.asarray(weight, dtype=np.float64)
+    if wgt.ndim == 4:
+        return wgt[:, 0, row, col]
+    if wgt.ndim == 3:
+        return wgt[:, row, col]
+    if wgt.ndim == 1:
+        return wgt
+    raise ValueError("weight must be (sample,), (sample, 2, 2), or (sample, 1, 2, 2)")
 
 
 def hand_metric(hands: Mapping[str, Mapping[str, Any]], hand: str, name: str) -> float:
@@ -175,6 +210,15 @@ def frequency_copolar_series(frequency: Mapping[str, Any]) -> list[dict[str, Any
                 "lr_correlation": hand_metric(
                     item.get("experimental_full_jones") or {}, "lr", "correlation_abs"
                 ),
+                "rl_residual_power": hand_metric(
+                    item.get("experimental_full_jones") or {}, "rl", "residual_power"
+                ),
+                "lr_residual_power": hand_metric(
+                    item.get("experimental_full_jones") or {}, "lr", "residual_power"
+                ),
+                "region": str(item.get("region") or "main_lobe"),
+                "n_main_lobe": int(item.get("n_main_lobe") or 0),
+                "n_development": int(item.get("n_development") or 0),
             }
         )
     return rows
@@ -206,6 +250,54 @@ def build_claims(bundle: ValidationBundle) -> dict[str, Any]:
     squint = publication_squint_pair(bundle.squint)
     ring = offset_ring_diagonal_closure(bundle.offset_ring)
     cross = crosshand_non_detection(channel32)
+    coordinate_feed = bundle.coordinate_feed_comparison
+    coordinate_contract = coordinate_feed.get("coordinate_contract") or {}
+    paired = coordinate_feed.get("paired_scores") or {}
+    feed_effect = paired.get("evla_c_source_lm_vs_generic_source_lm") or {}
+    feed_spatial = feed_effect.get("spatial") or {}
+    feed_moving = feed_effect.get("moving") or {}
+    feed_effect_passes = bool(feed_spatial.get("improves") and feed_moving.get("improves"))
+    classification = dict(channel32.get("classification") or {})
+    outcome = str(classification.get("outcome") or "")
+    if outcome == "supported_on_spw4_development":
+        c05_status = "warn"
+        c05_title = "EVLA-C full Jones is supported only on SPW-4 development partitions"
+        c05_class = "supported_on_spw4_development"
+        c05_evidence = (
+            "Paired RL/LR intervals improved on both spatial and mover partitions "
+            "with no main-lobe copolar regression. This is not a production freeze."
+        )
+    elif outcome == "disfavoured_on_tested_support":
+        c05_status = "warn"
+        c05_title = "EVLA-C full Jones is disfavoured on the tested SPW-4 support"
+        c05_class = "disfavoured_on_tested_support"
+        c05_evidence = (
+            "Unit-model injections were recoverable, but the real-data paired "
+            "RL/LR intervals lie above zero on both development partitions."
+        )
+    elif outcome == "inconclusive_sensitivity":
+        c05_status = "warn"
+        c05_title = "EVLA-C full Jones is inconclusive on these SPW-4 observations"
+        c05_class = "inconclusive_sensitivity"
+        c05_evidence = (
+            "The experiment cannot distinguish the unit full-Jones prediction "
+            "from the diagonal at the predeclared sensitivity."
+        )
+    elif outcome == "blocked_implementation_or_contract":
+        c05_status = "blocked"
+        c05_title = "EVLA-C full Jones is blocked by a numerical or contract failure"
+        c05_class = "blocked_implementation_or_contract"
+        c05_evidence = str(classification.get("reason") or "numerical or provenance failure")
+    else:
+        c05_status = "blocked"
+        c05_title = "Historical generic CASSBEAM full Jones is an experimental non-detection"
+        c05_class = "experimental_non_detection"
+        c05_evidence = (
+            f"RL/LR correlation {cross['rl_correlation']:.3f} / "
+            f"{cross['lr_correlation']:.3f}; residual power "
+            f"{cross['rl_residual_power']:.3f} / {cross['lr_residual_power']:.3f}; "
+            "this v1 panel has not been promoted as EVLA-C evidence"
+        )
     files = dict(bundle.manifest.get("files") or {})
     hashes = {
         "holoraster_channel32": files.get("holoraster_channel32.json"),
@@ -218,7 +310,7 @@ def build_claims(bundle: ValidationBundle) -> dict[str, Any]:
             "id": "C01",
             "title": "CASSBEAM is the SPW-4 diagonal C-band reference in the main lobe",
             "status": "pass" if support["main_lobe"] == "accepted" else "fail",
-            "support_class": "accepted",
+            "support_class": support["main_lobe"],
             "metric": {
                 "rr_residual_power": residuals["main_lobe"]["rr"],
                 "ll_residual_power": residuals["main_lobe"]["ll"],
@@ -246,7 +338,7 @@ def build_claims(bundle: ValidationBundle) -> dict[str, Any]:
             "id": "C02",
             "title": "Middle-beam CASSBEAM is useful but imperfect",
             "status": "warn" if support["mid_beam"] == "qualified" else "fail",
-            "support_class": "qualified",
+            "support_class": support["mid_beam"],
             "metric": {
                 "rr_residual_power": residuals["mid"]["rr"],
                 "ll_residual_power": residuals["mid"]["ll"],
@@ -312,24 +404,24 @@ def build_claims(bundle: ValidationBundle) -> dict[str, Any]:
         },
         {
             "id": "C05",
-            "title": "CASSBEAM full Jones is an experimental non-detection",
-            "status": "blocked",
-            "support_class": "experimental_non_detection",
+            "title": c05_title,
+            "status": c05_status,
+            "support_class": c05_class,
             "metric": {
                 "rl_correlation": cross["rl_correlation"],
                 "lr_correlation": cross["lr_correlation"],
                 "rl_residual_power": cross["rl_residual_power"],
                 "lr_residual_power": cross["lr_residual_power"],
+                "outcome": outcome or None,
             },
-            "evidence": (
-                f"RL/LR correlation {cross['rl_correlation']:.3f} / "
-                f"{cross['lr_correlation']:.3f}; residual power "
-                f"{cross['rl_residual_power']:.3f} / {cross['lr_residual_power']:.3f}; "
-                "predicted signal below the observed cloud"
-            ),
+            "evidence": c05_evidence,
             "figures": ["F18"],
             "input_hashes": hashes,
             "validation_split": "HOLORASTER RL/LR versus experimental full Jones",
+            "limitations": (
+                "SPW-4 development partitions only; residual Jones is the "
+                "channel-32 field-9 plane applied to all publication channels",
+            ),
         },
         {
             "id": "C06",
@@ -368,11 +460,62 @@ def build_claims(bundle: ValidationBundle) -> dict[str, Any]:
             "input_hashes": hashes,
             "validation_split": "HOLORASTER channel 32, 20%-of-peak main-lobe mask",
         },
+        {
+            "id": "C08",
+            "title": "HOLORASTER beam queries use source-in-feed coordinates",
+            "status": "pass"
+            if float(coordinate_feed.get("commanded_source_max_abs_error_rad", float("inf")))
+            <= 1.0e-12
+            else "fail",
+            "support_class": "coordinate_contract",
+            "metric": {
+                "max_abs_source_plus_commanded_rad": coordinate_feed.get(
+                    "commanded_source_max_abs_error_rad"
+                ),
+                "axis_map": coordinate_contract.get("axis_map"),
+            },
+            "evidence": (
+                "POINTING_OFFSET is the commanded AZELGEO displacement; a source at "
+                "the phase centre is queried at its negative in the feed frame"
+            ),
+            "figures": ["F26", "F28", "F29"],
+            "input_hashes": hashes,
+            "validation_split": "Geometry contract; no visibility model selected",
+        },
+        {
+            "id": "C09",
+            "title": "EVLA-C feed parameters improve SPW-4 development holdouts",
+            "status": "pass" if feed_effect_passes else "fail",
+            "support_class": "development_only",
+            "metric": {
+                "spatial_delta": feed_spatial.get("delta"),
+                "spatial_delta_lo": feed_spatial.get("delta_lo"),
+                "spatial_delta_hi": feed_spatial.get("delta_hi"),
+                "mover_delta": feed_moving.get("delta"),
+                "mover_delta_lo": feed_moving.get("delta_lo"),
+                "mover_delta_hi": feed_moving.get("delta_hi"),
+                "evla_c_squint_arcmin": (
+                    coordinate_feed.get("evla_plane_centroids") or {}
+                ).get("separation_arcmin"),
+            },
+            "evidence": (
+                "Against generic VLA at the same source-in-beam coordinates, "
+                f"spatial ΔL {float(feed_spatial.get('delta', float('nan'))):+.4f} "
+                f"and mover ΔL {float(feed_moving.get('delta', float('nan'))):+.4f}; "
+                "both paired 95% intervals are below zero"
+            ),
+            "figures": ["F26", "F27", "F28", "F29"],
+            "input_hashes": hashes,
+            "validation_split": "Frozen SPW-4 spatial and mover development holdouts",
+            "limitations": (
+                "One frequency only; production beam is not frozen and SPW 5 remains sealed",
+            ),
+        },
     )
     return {
-        "version": CLAIM_VERSION,
-        "diagonal_reference": "cassbeam_diagonal_cband_reference",
-        "full_jones": "experimental_non_detection",
+        "version": str(bundle.manifest.get("publication_version") or CLAIM_VERSION),
+        "diagonal_reference": "evla_c_source_lm_spw4_development",
+        "full_jones": outcome or "not_retested_after_coordinate_feed_update",
         "spw5": "sealed_diagonal_frequency_transfer",
         "convention_search": False,
         "rr_slope": _complex_text(copolar_slope(channel32, "rr")),

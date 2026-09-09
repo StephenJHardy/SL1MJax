@@ -5,30 +5,35 @@ import inspect
 import numpy as np
 import pytest
 
+from sl1mjax.casa_awp2_oracle import geometric_visibility_phase
 from sl1mjax.coordinates import radec_to_lmn
 from sl1mjax.holography import source_relative_lm_rad
-from sl1mjax.holography_beam_prior import ComplexMoments, accumulate_hand_moments
-from sl1mjax.casa_awp2_oracle import geometric_visibility_phase
+from sl1mjax.holography_beam_prior import (
+    ComplexMoments,
+    accumulate_hand_moments,
+    bootstrap_complex_from_moments,
+)
 from sl1mjax.holography_c147_offset_ring import (
-    C147_OFFSET_RING,
-    apply_channel_holdout,
-    apply_geometric_fringe,
-    geometric_fringe_phase,
-    diagnose_directional_disagreement,
-    ns_ew_masks,
-    predict_offset_field_visibilities,
-    template_geometry_transforms,
     FieldSkyRecord,
     SourceSkyRecord,
     antenna_power_share,
+    apply_channel_holdout,
+    apply_geometric_fringe,
     channel32_smoke_gates,
     classify_c147_offset_ring,
     clustered_null_upper_limit,
-    diagonal_rr_ll_closure,
     declare_field_partitions,
+    diagnose_directional_disagreement,
+    diagonal_rr_ll_closure,
     field_partition_masks,
+    filter_moments_by_channel,
+    four_hand_residual_power,
+    geometric_fringe_phase,
+    hand_residual_power,
     locked_convention,
+    ns_ew_masks,
     predict_dual_antenna_numpy,
+    predict_offset_field_visibilities,
     reconstruct_field_offsets,
     refuse_convention_search,
     refuse_placeholder_upper_limit,
@@ -36,6 +41,7 @@ from sl1mjax.holography_c147_offset_ring import (
     select_3c147_sky_direction,
     select_training_qu,
     source_relative_offsets,
+    template_geometry_transforms,
     upper_limit_to_dict,
 )
 from sl1mjax.holography_highres_cassbeam import DEFAULT_CONVENTION, convention_ladder
@@ -401,3 +407,60 @@ def test_scale_and_antenna_leverage_helpers() -> None:
         clustered_null_upper_limit(moments, template_median_abs=0.04, n_perm=40)
     )
     assert payload["status"] == "computed"
+
+
+def test_channel_holdout_is_removed_before_the_scale_fit() -> None:
+    moments = (
+        ComplexMoments(tt=4.0, tr=0.4 + 0.0j, rr=1.0, n=2, cluster_id=0, channel=0),
+        ComplexMoments(tt=4.0, tr=2.0 + 0.0j, rr=1.0, n=2, cluster_id=1, channel=55),
+    )
+    keep = np.zeros(64, dtype=bool)
+    keep[:48] = True
+    train = filter_moments_by_channel(moments, keep)
+    assert [item.channel for item in train] == [0]
+    assert train[0].alpha == pytest.approx(0.1)
+    hold = filter_moments_by_channel(moments, ~keep)
+    assert [item.channel for item in hold] == [55]
+
+
+def test_qu_nuisance_uses_four_hand_loss_not_rr_ll() -> None:
+    measured = np.zeros((6, 2, 2), dtype=np.complex128)
+    measured[:, 0, 0] = 8.0
+    measured[:, 1, 1] = 8.0
+    measured[:, 0, 1] = 0.08
+    measured[:, 1, 0] = 0.08
+    unpolarized = np.zeros_like(measured)
+    unpolarized[:, 0, 0] = 8.0
+    unpolarized[:, 1, 1] = 8.0
+    polarized = unpolarized.copy()
+    polarized[:, 0, 1] = 0.08
+    polarized[:, 1, 0] = 0.08
+    weight = np.ones((6, 2, 2), dtype=np.float64)
+    rr_ll = hand_residual_power(
+        measured,
+        unpolarized,
+        weight,
+        hands=(("rr", 0, 0), ("ll", 1, 1)),
+    )
+    four_unpol = four_hand_residual_power(measured, unpolarized, weight)
+    four_pol = four_hand_residual_power(measured, polarized, weight)
+    assert float(rr_ll["total"]) == pytest.approx(0.0)
+    assert float(four_unpol["total"]) > float(four_pol["total"])
+    assert select_training_qu(
+        {(0.0, 0.0): float(four_unpol["total"]), (0.001, 0.0): float(four_pol["total"])}
+    ) == (0.001, 0.0)
+
+
+def test_complex_alpha_upper_limit_is_radial_not_cartesian() -> None:
+    moments = _moments(0.70 + 0.70j)
+    boot = bootstrap_complex_from_moments(moments, n_boot=200, seed=4)
+    cartesian = max(
+        abs(boot["real_ci95"][0]),
+        abs(boot["real_ci95"][1]),
+        abs(boot["imag_ci95"][0]),
+        abs(boot["imag_ci95"][1]),
+    )
+    assert float(boot["abs_ul95"]) == pytest.approx(np.abs(0.70 + 0.70j), rel=0.35)
+    assert float(boot["abs_ul95"]) > cartesian * 0.9 or float(boot["abs"]) > cartesian * 0.9
+    limit = clustered_null_upper_limit(moments, template_median_abs=0.04, n_perm=80, seed=6)
+    assert limit.alpha_abs_ul95 >= float(np.abs(0.70 + 0.70j)) * 0.8

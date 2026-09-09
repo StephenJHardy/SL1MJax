@@ -343,6 +343,7 @@ def test_phase4_audit_detects_under_resolved_plans() -> None:
         ),
     )
     assert _assignment(shallow, table.components[0].component_id).depth == 0
+    assert shallow.provenance["n_predictor_call"] == 0
     audit = audit_integration_plan(
         table,
         shallow,
@@ -722,6 +723,34 @@ def test_phase4_audit_flags_unresolved_max_depth_even_when_oracle_matches() -> N
     )
     assert audit.findings[0].audit_depth == 4
     assert audit.under_resolved
+
+
+def test_zero_max_depth_does_not_evaluate_the_beam() -> None:
+    class _Counting(ManufacturedVoltageBeam):
+        def __init__(self) -> None:
+            super().__init__(intercept=_IDENTITY, grad_l=_NONTRIVIAL)
+            self.calls = 0
+
+        def evaluate(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            return super().evaluate(*args, **kwargs)
+
+    probe = stratified_integration_probe(
+        phase_centre_rad=_PHASE, antenna_position_m=_ANTENNA_POSITION_M
+    )
+    table = _square_table(0.0, 0.0, np.deg2rad(60.0 / 3600.0), 1.4)
+    beam = _Counting()
+    report = plan_integration(
+        table,
+        probe,
+        beam,
+        antenna_position_m=_ANTENNA_POSITION_M,
+        calibration_state="casa_parang_true",
+        tolerance=IntegrationTolerance(max_depth=0),
+    )
+    assert beam.calls == 0
+    assert report.provenance["n_predictor_call"] == 0
+    assert all(item.depth == 0 for item in report.assignments)
 
 
 def test_phase4_feature_screen_uses_every_parallactic_bin() -> None:

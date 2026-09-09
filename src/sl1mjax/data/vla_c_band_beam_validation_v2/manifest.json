@@ -1,0 +1,74 @@
+{
+  "schema_version": 4,
+  "publication_version": "vla_c_band_beam_validation_v2",
+  "files": {
+    "calibration_summary.json": "610c78e37bd8ef2d2ed492bbb0a13f980f739bb677c95e21447eed1241c0a65b",
+    "claims.json": "7a18306ec92972824b8882e2744a8d4cbff96f44ba99e42080867e430ad005cd",
+    "convention_gates.json": "d3b1b66cc974a7758772bcf8c44cccfa442e35ef726bd5063d9109e04a0226aa",
+    "coordinate_feed_comparison.json": "fe883954750731ad5be1e8a96f059a79bcfb03aaa64d162280047718c7144592",
+    "holoraster_channel32.json": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+    "holoraster_frequency.json": "83eab651af974636a54cd3d48afff51e0ef11e0ae4fd1ccb79520d6160a8d411",
+    "observation_summary.json": "eccbdc485314e7eff020b4fcf109ebcd5fb590b04aaecf476e11b123575fb1fa",
+    "offset_ring.json": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+    "plot_tables/antenna_coherence.json": "a6ca6807b6e86f52ac23b09bcb2f7dc9ba7e3e33f227b3fed91dfc4a59abe69b",
+    "plot_tables/bright_source_examples.json": "6bd44a02029f280a541831fb037916a29b22828423a9cf26ae79fc5b2bb4a86c",
+    "plot_tables/coordinate_feed_maps.npz": "ae2553557cd548ead6799e5d8faf93fa6557067c17b6c32f2bcf86be28962c1f",
+    "plot_tables/coordinate_feed_scatter.npz": "131cdc6b8b12b068d348a70eea909ae42e12f00e0d8e247008f905c97b07c78b",
+    "plot_tables/crosshand_quadrants.json": "becbe73384030d79806d4bf843e98c209f8c6bd4cc7ec80a266f6019cb3564b8",
+    "plot_tables/frequency_series.json": "83eab651af974636a54cd3d48afff51e0ef11e0ae4fd1ccb79520d6160a8d411",
+    "plot_tables/holoraster_cells.npz": "d087c47bbf2cb4ce97f98031857736e4d53976eed8546e157bf6fdf728619f8b",
+    "plot_tables/holoraster_maps.npz": "4c1a54b7c1ad498c3524e02ee7aa48df265a90114b1a05d1b8a0d3936a9781f5",
+    "plot_tables/holoraster_scatter.npz": "c4c99d5d10ecd27697c2ad2408042422bb3ca7a65373d8bdb179161344a170ba",
+    "plot_tables/offset_ring_fields.json": "7ac53f41fc1e97ddfaec37133db4c738d26e5398b915d22cd195021fea3ca0fe",
+    "plot_tables/radial_coherence.json": "d4627fc76e221bea26b2e8a1eff6b0fe87e0c0a5f1a8fa15ea45cfaebafb65b8",
+    "plot_tables/raster_occupancy.npz": "e651adf09d1d8557b75e35294f866b87491010c3112a9491c35ea33c809618ac",
+    "plot_tables/residual_geometry.json": "9688f6cf00355034f8783631d570f5e5cc83c64ce6b40f1da8dbc95e03e10307",
+    "plot_tables/residual_strata.json": "58a248a60c25b2ccde98e601f078653a0ff1a0c2d7bedc7dcd6c32ddbcd4a7fa",
+    "squint_publication.json": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3"
+  },
+  "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
+  "revision": "evla_c_full_jones_validation_refresh_v1",
+  "previous_bundle_sha256": "2536a9f53e632b35f97ea94b16872b6f6c44afd34d9823226c4819f621ecab98",
+  "predictions_recomputed": {
+    "historical_generic_commanded": false,
+    "evla_c_source_diagonal": true,
+    "evla_c_source_full_jones": true
+  },
+  "full_raster_squint_published": false,
+  "spw5_opened": false,
+  "plot_code": "vla_c_band_beam_validation_v2",
+  "supersession": {
+    "publication_version": "vla_c_band_beam_validation_v2",
+    "production_accepted": false,
+    "entries": [
+      {
+        "item": "generic commanded HOLORASTER comparison",
+        "status": "historical",
+        "reason": "Used generic VLA feed at commanded AZELGEO offsets"
+      },
+      {
+        "item": "channel-32 EVLA-C diagonal vs generic at source_lm_feed",
+        "status": "development_evidence",
+        "reason": "One-frequency feed comparison; not a production freeze"
+      },
+      {
+        "item": "historical generic full-Jones non-detection",
+        "status": "historical",
+        "reason": "Not a test of EVLA-C at source-in-beam coordinates"
+      },
+      {
+        "item": "SPW 5",
+        "status": "sealed",
+        "reason": "Reserved until an SPW-4 model is frozen"
+      },
+      {
+        "item": "width 1.04 / empirical squint orientation",
+        "status": "not_inherited",
+        "reason": "Unit physical EVLA-C model only in this refresh"
+      }
+    ]
+  },
+  "f01_f04_reused": true,
+  "development_only": true,
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9"
+}

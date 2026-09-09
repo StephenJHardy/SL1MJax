@@ -14,12 +14,19 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from sl1mjax.beam_conventions import BeamCalibrationState, require_beam_calibration_state
+from sl1mjax.beam_conventions import BeamCalibrationState
 from sl1mjax.holography_alignment import voltage_response_region_masks
+from sl1mjax.holography_beam_prior import (
+    apply_parallactic_to_beams,
+    predict_from_moving_beams,
+    squeeze_sample_jones,
+    unique_feed_frame_jones,
+)
 from sl1mjax.holography_diagonal_correction import (
     FIRST_LADDER_TERMS,
     HOLORASTER_FIELD_ID,
     PAIRED_DELTA_BOOTSTRAP,
+    SPW4_TRAINING_FREQUENCY_HZ,
     MoverPairedDeltas,
     PairedLossDifference,
     complex_visibility_loss,
@@ -33,7 +40,7 @@ from sl1mjax.holography_diagonal_correction import (
     select_nested_correction,
     spatial_cluster_ids,
 )
-from sl1mjax.polarization import apply_jones_to_coherency, circular_parallactic_jones
+from sl1mjax.polarization import apply_jones_to_coherency
 
 FeedFrameLookup = Callable[[ArrayLike], NDArray[np.complex128]]
 
@@ -52,6 +59,31 @@ WARP_NOTE = (
     "Prefer coordinate warps and smooth multiplicative envelopes over "
     "additive maps. Phase is not a first-ladder parameter."
 )
+_TERM_FIELDS = {
+    "identity": (),
+    "rl_squint_scale": ("squint_scale",),
+    "beam_width": ("width_scale",),
+    "pointing_offset": ("pointing_l_rad", "pointing_m_rad"),
+    "first_sidelobe_radius_amplitude": ("sidelobe_radius_scale", "sidelobe_amplitude"),
+    "low_order_azimuthal": ("azimuthal",),
+}
+_IDENTITY_VALUES = {
+    "squint_scale": 1.0,
+    "width_scale": 1.0,
+    "pointing_l_rad": 0.0,
+    "pointing_m_rad": 0.0,
+    "sidelobe_radius_scale": 1.0,
+    "sidelobe_amplitude": 1.0,
+    "azimuthal": (0.0, 0.0, 0.0, 0.0),
+}
+ENVELOPE_POSITIVE_FLOOR = 1.0e-6
+
+
+def _value_is_identity(name: str, value: object) -> bool:
+    identity = _IDENTITY_VALUES[name]
+    if name == "azimuthal":
+        return tuple(float(item) for item in value) == identity  # type: ignore[arg-type]
+    return abs(float(value) - float(identity)) <= 1.0e-15  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)
@@ -73,9 +105,23 @@ class CorrectionState:
         object.__setattr__(self, "azimuthal", tuple(float(item) for item in self.azimuthal))
         if len(self.azimuthal) != 4:
             raise ValueError("azimuthal envelope is (cosφ, sinφ, cos2φ, sin2φ)")
-        object.__setattr__(self, "accepted_terms", tuple(self.accepted_terms))
-        for term in self.accepted_terms:
+        terms = tuple(self.accepted_terms)
+        object.__setattr__(self, "accepted_terms", terms)
+        if not terms or terms[0] != "identity":
+            raise ValueError("accepted_terms must start with identity")
+        for term in terms:
             refuse_phase_in_first_ladder(term)
+        expected = FIRST_LADDER_TERMS[: len(terms)]
+        if terms != expected:
+            raise ValueError("accepted_terms must be a prefix of the first ladder")
+        allowed: set[str] = set()
+        for term in terms:
+            allowed.update(_TERM_FIELDS[term])
+        for name in _IDENTITY_VALUES:
+            if name in allowed:
+                continue
+            if not _value_is_identity(name, getattr(self, name)):
+                raise ValueError(f"{name} can change only after that ladder term is accepted")
 
     def is_identity(self) -> bool:
         return self.accepted_terms == ("identity",)
@@ -166,7 +212,17 @@ def multiplicative_envelope(
         + b_s * np.sin(2.0 * angle)
     )
     envelope = sidelobe * azimuth
+    if np.any(envelope <= 0.0):
+        raise ValueError("amplitude-only envelope must stay strictly positive")
     return envelope, envelope
+
+
+def require_positive_envelope(offset_lm_rad: ArrayLike, state: CorrectionState) -> None:
+    """Refuse a sign-changing envelope on the supplied raster offsets."""
+
+    env_r, env_l = multiplicative_envelope(offset_lm_rad, state)
+    if np.any(env_r <= 0.0) or np.any(env_l <= 0.0) or not np.all(np.isfinite(env_r * env_l)):
+        raise ValueError("amplitude-only envelope must stay strictly positive")
 
 
 def renormalize_to_cassbeam_origin(
@@ -203,6 +259,7 @@ def apply_feed_frame_correction(
     if looked_r.shape[0] != offset.shape[0] or looked_l.shape[0] != offset.shape[0]:
         raise ValueError("feed-frame lookup must return one Jones matrix per sample")
     env_r, env_l = multiplicative_envelope(offset, state)
+    require_positive_envelope(offset, state)
     jones = np.zeros((offset.shape[0], 2, 2), dtype=np.complex128)
     jones[:, 0, 0] = looked_r[:, 0, 0] * env_r
     jones[:, 1, 1] = looked_l[:, 1, 1] * env_l
@@ -229,20 +286,13 @@ def apply_parallactic_after_correction(
 ) -> NDArray[np.complex128]:
     """Rotate an already-corrected feed-frame Jones into the sky frame."""
 
-    state = require_beam_calibration_state(calibration_state)
     jones = np.asarray(feed_jones, dtype=np.complex128)
     chi = np.asarray(parallactic_angle_rad, dtype=np.float64).reshape(-1)
     if chi.size == 1:
         chi = np.full(jones.shape[0], float(chi[0]), dtype=np.float64)
     if chi.size != jones.shape[0]:
         raise ValueError("parallactic_angle_rad must match the Jones sample axis")
-    para = circular_parallactic_jones(chi)
-    if state is BeamCalibrationState.CASA_PARANG_TRUE:
-        conjugate = np.conjugate(np.swapaxes(para, -1, -2))
-        return conjugate @ jones @ para
-    if state is BeamCalibrationState.UNCALIBRATED:
-        return jones @ para
-    raise ValueError(f"unsupported beam calibration state {state!r}")
+    return apply_parallactic_to_beams(jones, chi, calibration_state)
 
 
 def predict_moving_reference_vis(
@@ -290,6 +340,37 @@ def require_identity_matches_baseline(
         raise ValueError("identity candidate must reproduce the frozen baseline numerically")
 
 
+def require_aligned_frozen_prediction(
+    offset_lm_rad: ArrayLike,
+    moving_id: ArrayLike,
+    reference_id: ArrayLike,
+    predicted: ArrayLike,
+    frozen_offset_lm_rad: ArrayLike,
+    frozen_moving_id: ArrayLike,
+    frozen_reference_id: ArrayLike,
+    frozen_predicted: ArrayLike,
+    *,
+    atol: float = 1.0e-12,
+) -> None:
+    """Compare to the frozen HOLORASTER arrays in row order. Do not key-match."""
+
+    offset = _offset_pairs(offset_lm_rad)
+    frozen_offset = _offset_pairs(frozen_offset_lm_rad)
+    moving = np.asarray(moving_id, dtype=np.int32).reshape(-1)
+    reference = np.asarray(reference_id, dtype=np.int32).reshape(-1)
+    frozen_moving = np.asarray(frozen_moving_id, dtype=np.int32).reshape(-1)
+    frozen_reference = np.asarray(frozen_reference_id, dtype=np.int32).reshape(-1)
+    if offset.shape != frozen_offset.shape or moving.shape != frozen_moving.shape:
+        raise ValueError("frozen HOLORASTER rows are not the same set")
+    if not np.array_equal(moving, frozen_moving) or not np.array_equal(
+        reference, frozen_reference
+    ):
+        raise ValueError("frozen HOLORASTER antenna order drifted")
+    if not np.allclose(offset, frozen_offset, rtol=0.0, atol=1.0e-15, equal_nan=True):
+        raise ValueError("frozen HOLORASTER offsets drifted")
+    require_identity_matches_baseline(predicted, frozen_predicted, atol=atol)
+
+
 def identity_predictions(baseline: ArrayLike) -> NDArray[np.complex128]:
     """Return the frozen baseline. Identity does not re-evaluate CASSBEAM."""
 
@@ -305,6 +386,18 @@ def next_term(state: CorrectionState) -> str | None:
     return None
 
 
+def accepted_prefix(term: str, **updates: float | tuple[float, ...]) -> CorrectionState:
+    """Identity plus every ladder term through ``term``."""
+
+    state = IDENTITY_CORRECTION
+    for name in FIRST_LADDER_TERMS[1:]:
+        kwargs = dict(updates) if name == term else {}
+        state = with_accepted_term(state, name, **kwargs)
+        if name == term:
+            return state
+    raise ValueError(f"unknown first-ladder term {term!r}")
+
+
 def with_accepted_term(
     state: CorrectionState,
     term: str,
@@ -317,6 +410,95 @@ def with_accepted_term(
     if term != expected:
         raise ValueError(f"next nested term is {expected}, not {term}")
     return replace(state, accepted_terms=state.accepted_terms + (term,), **updates)
+
+
+def identity_residual_jones(antenna_ids: ArrayLike) -> dict[int, NDArray[np.complex128]]:
+    """Identity residual Jones for every supplied antenna id."""
+
+    eye = np.eye(2, dtype=np.complex128)
+    return {
+        int(antenna): eye.copy()
+        for antenna in np.unique(np.asarray(antenna_ids, dtype=np.int32).reshape(-1))
+    }
+
+
+def _one_channel_vis(values: ArrayLike, name: str, dtype: type) -> NDArray:
+    array = np.asarray(values, dtype=dtype)
+    if array.ndim == 4:
+        if array.shape[1] != 1:
+            raise ValueError(f"{name} must contain exactly one channel")
+        array = array[:, 0]
+    if array.ndim != 3 or array.shape[-2:] != (2, 2):
+        raise ValueError(f"{name} must have shape (sample, 2, 2) or (sample, 1, 2, 2)")
+    return array
+
+
+def _boolean_mask(values: ArrayLike, n: int, name: str) -> NDArray[np.bool_]:
+    array = np.asarray(values)
+    if array.dtype != np.bool_ and array.dtype != bool:
+        raise ValueError(f"{name} must be a boolean mask")
+    mask = np.asarray(array, dtype=bool).reshape(-1)
+    if mask.size != n:
+        raise ValueError(f"{name} must have one flag per sample")
+    return mask
+
+
+def _azimuthal_probe_offsets(offset_lm_rad: ArrayLike) -> NDArray[np.float64]:
+    offset = _offset_pairs(offset_lm_rad)
+    radii = np.asarray(
+        [
+            AZIMUTHAL_CORE_ARCMIN,
+            2.0 * AZIMUTHAL_CORE_ARCMIN,
+            NOMINAL_FIRST_SIDELOBE_ARCMIN,
+        ],
+        dtype=np.float64,
+    ) * ARCMIN_TO_RAD
+    angle = np.linspace(0.0, 2.0 * np.pi, 64, endpoint=False)
+    rings = [
+        np.stack([radius * np.sin(angle), radius * np.cos(angle)], axis=1) for radius in radii
+    ]
+    return np.vstack((offset, *rings))
+
+
+def shrink_azimuthal_coefficients(
+    offset_lm_rad: ArrayLike,
+    coef: tuple[float, float, float, float],
+    *,
+    sidelobe_amplitude: float = 1.0,
+) -> tuple[float, float, float, float]:
+    """Uniformly shrink the LS envelope so it cannot change sign."""
+
+    offset = _azimuthal_probe_offsets(offset_lm_rad)
+    radius = np.hypot(offset[:, 0], offset[:, 1])
+    angle = np.arctan2(offset[:, 0], offset[:, 1])
+    r0 = NOMINAL_FIRST_SIDELOBE_ARCMIN * ARCMIN_TO_RAD
+    sigma = SIDELOBE_BUMP_WIDTH_ARCMIN * ARCMIN_TO_RAD
+    core = AZIMUTHAL_CORE_ARCMIN * ARCMIN_TO_RAD
+    bump = np.exp(-0.5 * ((radius - r0) / sigma) ** 2)
+    bump0 = float(np.exp(-0.5 * (r0 / sigma) ** 2))
+    amplitude = float(sidelobe_amplitude)
+    sidelobe = (1.0 + (amplitude - 1.0) * bump) / (1.0 + (amplitude - 1.0) * bump0)
+    window = 1.0 - np.exp(-((radius / core) ** 2))
+    a_c, a_s, b_c, b_s = (float(item) for item in coef)
+    harmonic = window * (
+        a_c * np.cos(angle)
+        + a_s * np.sin(angle)
+        + b_c * np.cos(2.0 * angle)
+        + b_s * np.sin(2.0 * angle)
+    )
+    envelope = sidelobe * (1.0 + harmonic)
+    if np.all(envelope > ENVELOPE_POSITIVE_FLOOR):
+        return (a_c, a_s, b_c, b_s)
+    delta = sidelobe * harmonic
+    needed = ENVELOPE_POSITIVE_FLOOR - sidelobe
+    bad = delta < -1.0e-15
+    if not bool(np.any(bad)):
+        return (a_c, a_s, b_c, b_s)
+    scale = float(np.min(needed[bad] / delta[bad]))
+    if not np.isfinite(scale) or scale <= 0.0:
+        return (0.0, 0.0, 0.0, 0.0)
+    scale = min(1.0, scale)
+    return (scale * a_c, scale * a_s, scale * b_c, scale * b_s)
 
 
 def gaussian_diagonal_lookup(
@@ -344,6 +526,36 @@ def gaussian_diagonal_lookup(
     return lookup
 
 
+def catalog_diagonal_feed_lookup(
+    catalog: object,
+    frequency_hz: float,
+    convention: object | None = None,
+) -> FeedFrameLookup:
+    """Feed-frame diagonal CASSBEAM lookup used by the frozen HOLORASTER RIME.
+
+    Rounds and deduplicates query coordinates the same way as the comparison
+    evaluator. Do not look up each raw row independently.
+    """
+
+    from sl1mjax.cassbeam_highres import HighresCassbeamCatalog
+    from sl1mjax.holography_highres_cassbeam import DEFAULT_CONVENTION
+
+    if not isinstance(catalog, HighresCassbeamCatalog):
+        raise TypeError("catalog_diagonal_feed_lookup requires a HighresCassbeamCatalog")
+    conv = DEFAULT_CONVENTION if convention is None else convention
+    freqs = np.asarray([float(frequency_hz)], dtype=np.float64)
+
+    def lookup(offset_lm_rad: ArrayLike) -> NDArray[np.complex128]:
+        offset = _offset_pairs(offset_lm_rad)
+        feed, ok = unique_feed_frame_jones(
+            offset, catalog, freqs, conv, off_diagonal=False
+        )
+        plane = squeeze_sample_jones(feed)
+        return np.where(ok[:, 0, None, None], plane, np.nan)
+
+    return lookup
+
+
 SQUINT_SCALE_GRID = np.linspace(0.85, 1.50, 27)
 WIDTH_SCALE_GRID = np.linspace(0.90, 1.12, 23)
 POINTING_ARCMIN_GRID = np.linspace(-1.5, 1.5, 13)
@@ -355,14 +567,20 @@ FROZEN_HYPERPARAMETERS = {
     "nominal_first_sidelobe_arcmin": NOMINAL_FIRST_SIDELOBE_ARCMIN,
     "sidelobe_bump_width_arcmin": SIDELOBE_BUMP_WIDTH_ARCMIN,
     "azimuthal_core_arcmin": AZIMUTHAL_CORE_ARCMIN,
+    "envelope_positive_floor": ENVELOPE_POSITIVE_FLOOR,
     "squint_scale_grid": tuple(float(item) for item in SQUINT_SCALE_GRID),
     "width_scale_grid": tuple(float(item) for item in WIDTH_SCALE_GRID),
+    "pointing_arcmin_grid": tuple(float(item) for item in POINTING_ARCMIN_GRID),
+    "sidelobe_radius_grid": tuple(float(item) for item in SIDELOBE_RADIUS_GRID),
+    "sidelobe_amplitude_grid": tuple(float(item) for item in SIDELOBE_AMPLITUDE_GRID),
+    "paired_delta_bootstrap": PAIRED_DELTA_BOOTSTRAP,
+    "bootstrap_seed": 0,
 }
 
 
 @dataclass(frozen=True)
 class CorrectionSamples:
-    """Visibility-domain samples already reduced to one native channel."""
+    """Frozen HOLORASTER field-10 / SPW-4 / channel-32 correction rows."""
 
     offset_lm_rad: NDArray[np.float64]
     measured: NDArray[np.complex128]
@@ -371,6 +589,10 @@ class CorrectionSamples:
     source: NDArray[np.complex128]
     moving_is_p: NDArray[np.bool_]
     moving_id: NDArray[np.int32]
+    reference_id: NDArray[np.int32]
+    residual_jones: Mapping[int, NDArray[np.complex128]]
+    parallactic_angle_rad: NDArray[np.float64]
+    reference_parallactic_angle_rad: NDArray[np.float64]
     antenna_names: tuple[str, ...]
     train: NDArray[np.bool_]
     spatial_holdout: NDArray[np.bool_]
@@ -378,20 +600,60 @@ class CorrectionSamples:
     main_lobe: NDArray[np.bool_]
     mid: NDArray[np.bool_]
     outer: NDArray[np.bool_]
-    parallactic_angle_rad: NDArray[np.float64] | None = None
-    field_id: NDArray[np.int32] | None = None
-    frequency_hz: float = 4.564e9
+    field_id: NDArray[np.int32]
+    frequency_hz: float = SPW4_TRAINING_FREQUENCY_HZ
     spectral_window_id: int = 4
 
     def __post_init__(self) -> None:
         n = _offset_pairs(self.offset_lm_rad).shape[0]
         object.__setattr__(self, "offset_lm_rad", _offset_pairs(self.offset_lm_rad))
+        object.__setattr__(
+            self, "measured", _one_channel_vis(self.measured, "measured", np.complex128)
+        )
+        object.__setattr__(
+            self, "baseline", _one_channel_vis(self.baseline, "baseline", np.complex128)
+        )
+        object.__setattr__(self, "weight", _one_channel_vis(self.weight, "weight", np.float64))
+        if self.measured.shape[0] != n or self.baseline.shape[0] != n or self.weight.shape[0] != n:
+            raise ValueError("visibility planes must have one entry per sample")
+        source = np.asarray(self.source, dtype=np.complex128)
+        if source.shape == (2, 2):
+            pass
+        elif source.shape == (n, 2, 2) or source.shape == (n, 1, 2, 2):
+            if source.ndim == 4:
+                source = source[:, 0]
+        else:
+            raise ValueError("source must be (2, 2) or one coherency per sample")
+        object.__setattr__(self, "source", source)
+        for name in ("moving_id", "reference_id"):
+            value = np.asarray(getattr(self, name), dtype=np.int32).reshape(-1)
+            if value.size != n:
+                raise ValueError(f"{name} must have one entry per sample")
+            object.__setattr__(self, name, value)
+        moving_chi = np.asarray(self.parallactic_angle_rad, dtype=np.float64).reshape(-1)
+        reference_chi = np.asarray(self.reference_parallactic_angle_rad, dtype=np.float64).reshape(
+            -1
+        )
+        if moving_chi.size != n or reference_chi.size != n:
+            raise ValueError("parallactic angles must have one entry per sample")
+        object.__setattr__(self, "parallactic_angle_rad", moving_chi)
+        object.__setattr__(self, "reference_parallactic_angle_rad", reference_chi)
+        residuals = {
+            int(antenna): np.asarray(jones, dtype=np.complex128)
+            for antenna, jones in dict(self.residual_jones).items()
+        }
+        needed = set(int(item) for item in self.moving_id) | set(
+            int(item) for item in self.reference_id
+        )
+        missing = needed - set(residuals)
+        if missing:
+            raise ValueError(f"residual_jones is missing antennas {sorted(missing)}")
+        for antenna, jones in residuals.items():
+            if jones.shape != (2, 2):
+                raise ValueError(f"residual Jones for antenna {antenna} must be 2×2")
+        object.__setattr__(self, "residual_jones", residuals)
+        object.__setattr__(self, "moving_is_p", _boolean_mask(self.moving_is_p, n, "moving_is_p"))
         for name in (
-            "measured",
-            "baseline",
-            "weight",
-            "moving_is_p",
-            "moving_id",
             "train",
             "spatial_holdout",
             "mover_holdout",
@@ -399,21 +661,35 @@ class CorrectionSamples:
             "mid",
             "outer",
         ):
-            value = np.asarray(getattr(self, name))
-            if value.shape[0] != n:
-                raise ValueError(f"{name} must have one entry per sample")
-            object.__setattr__(self, name, value)
+            object.__setattr__(self, name, _boolean_mask(getattr(self, name), n, name))
+        if not (
+            bool(np.any(self.train))
+            and bool(np.any(self.spatial_holdout))
+            and bool(np.any(self.mover_holdout))
+        ):
+            raise ValueError("train, spatial holdout, and mover holdout must be non-empty")
+        if bool(np.any(self.train & self.spatial_holdout | self.train & self.mover_holdout)):
+            raise ValueError("train and holdout masks must be disjoint")
+        if bool(np.any(self.spatial_holdout & self.mover_holdout)):
+            raise ValueError("spatial and mover holdouts must be disjoint")
         object.__setattr__(self, "antenna_names", tuple(self.antenna_names))
-        if self.field_id is not None:
-            fields = np.asarray(self.field_id, dtype=np.int32).reshape(-1)
-            object.__setattr__(self, "field_id", fields)
-            refuse_c147_training(fields[self.development_mask()])
-            if np.any(fields[self.development_mask()] != HOLORASTER_FIELD_ID):
-                raise ValueError("development samples must be HOLORASTER field 10")
+        fields = np.asarray(self.field_id, dtype=np.int32).reshape(-1)
+        if fields.size != n:
+            raise ValueError("field_id must have one entry per sample")
+        object.__setattr__(self, "field_id", fields)
+        refuse_c147_training(fields[self.development_mask()])
+        if np.any(fields != HOLORASTER_FIELD_ID):
+            raise ValueError("correction samples must be HOLORASTER field 10")
         refuse_spw5(
             frequency_hz=self.frequency_hz,
             spectral_window_id=int(self.spectral_window_id),
         )
+        if int(self.spectral_window_id) != 4:
+            raise ValueError("correction samples must be SPW 4")
+        if not np.isclose(
+            float(self.frequency_hz), SPW4_TRAINING_FREQUENCY_HZ, rtol=0.0, atol=0.5e6
+        ):
+            raise ValueError("correction samples must be THOL0001 SPW 4 channel 32")
 
     def development_mask(self) -> NDArray[np.bool_]:
         return np.asarray(self.train | self.spatial_holdout | self.mover_holdout, dtype=bool)
@@ -445,19 +721,128 @@ class LadderResult:
     notes: tuple[str, ...] = (IDENTITY_STATE_NOTE, WARP_NOTE)
 
 
+def correction_state_to_dict(state: CorrectionState) -> dict[str, object]:
+    return {
+        "accepted_terms": list(state.accepted_terms),
+        "squint_scale": float(state.squint_scale),
+        "width_scale": float(state.width_scale),
+        "pointing_l_rad": float(state.pointing_l_rad),
+        "pointing_m_rad": float(state.pointing_m_rad),
+        "sidelobe_radius_scale": float(state.sidelobe_radius_scale),
+        "sidelobe_amplitude": float(state.sidelobe_amplitude),
+        "azimuthal": [float(item) for item in state.azimuthal],
+        "is_identity": state.is_identity(),
+    }
+
+
+def paired_delta_to_dict(delta: PairedLossDifference) -> dict[str, object]:
+    return {
+        "axis": delta.axis,
+        "cluster_kind": delta.cluster_kind,
+        "delta": float(delta.delta),
+        "delta_lo": float(delta.delta_lo),
+        "delta_hi": float(delta.delta_hi),
+        "n_clusters": int(delta.n_clusters),
+        "n_boot": int(delta.n_boot),
+        "improves": bool(delta.improves()),
+    }
+
+
+def mover_units_to_dict(units: MoverPairedDeltas) -> dict[str, object]:
+    return {
+        "names": list(units.names),
+        "delta": [float(item) for item in units.delta],
+        "mainlobe_delta": [float(item) for item in units.mainlobe_delta],
+        "mainlobe_baseline": [float(item) for item in units.mainlobe_baseline],
+        "n_improving": int(units.n_improving),
+        "n_material_mainlobe_regression": int(units.n_material_mainlobe_regression),
+        "finite": bool(np.all(np.isfinite(units.delta))),
+        "passes": bool(units.passes()),
+    }
+
+
+def ladder_result_to_dict(result: LadderResult) -> dict[str, object]:
+    return {
+        "accepted": correction_state_to_dict(result.accepted),
+        "stopped_at": result.stopped_at,
+        "identity_matches_baseline": bool(result.identity_matches_baseline),
+        "holdout_scores_preserved": bool(result.holdout_scores_preserved),
+        "development_refit": (
+            None
+            if result.development_refit is None
+            else correction_state_to_dict(result.development_refit)
+        ),
+        "hyperparameters": dict(result.hyperparameters),
+        "notes": list(result.notes),
+        "selection_record": [
+            {
+                "term": item.term,
+                "decision": item.decision,
+                "state": correction_state_to_dict(item.state),
+                "spatial": paired_delta_to_dict(item.spatial),
+                "moving": paired_delta_to_dict(item.moving),
+                "mover_units": mover_units_to_dict(item.mover_units),
+                "region_residual_power": dict(item.region_residual_power),
+                "notes": list(item.notes),
+            }
+            for item in result.selection_record
+        ],
+    }
+
+
+def correction_path_stages(
+    offset_lm_rad: ArrayLike,
+    lookup: FeedFrameLookup,
+    state: CorrectionState,
+    *,
+    residual_jones: Mapping[int, ArrayLike],
+    moving_id: ArrayLike,
+    reference_id: ArrayLike,
+    moving_is_p: ArrayLike,
+    chi_moving: ArrayLike,
+    chi_reference: ArrayLike,
+    source: ArrayLike,
+) -> dict[str, NDArray[np.complex128]]:
+    """Feed, sky, and :math:`R_m E_m S R_r^H` from the correction path."""
+
+    feed = apply_feed_frame_correction(offset_lm_rad, lookup, state)
+    sky = apply_parallactic_after_correction(feed, chi_moving)
+    vis = predict_from_moving_beams(
+        residual_jones,
+        moving_id,
+        reference_id,
+        moving_is_p,
+        chi_moving,
+        chi_reference,
+        sky,
+        source,
+    )
+    if vis.ndim == 4:
+        if vis.shape[1] != 1:
+            raise ValueError("correction predictions must stay on one native channel")
+        vis = vis[:, 0]
+    return {"feed": feed, "sky": sky, "visibility": vis}
+
+
 def predict_from_state(
     samples: CorrectionSamples,
     lookup: FeedFrameLookup,
     state: CorrectionState,
 ) -> NDArray[np.complex128]:
-    feed = apply_feed_frame_correction(samples.offset_lm_rad, lookup, state)
-    if samples.parallactic_angle_rad is not None:
-        feed = apply_parallactic_after_correction(feed, samples.parallactic_angle_rad)
-    return predict_moving_reference_vis(
-        feed,
-        samples.source,
-        samples.moving_is_p,
-    )
+    """Correct the moving beam, then apply the frozen two-antenna RIME."""
+
+    return correction_path_stages(
+        samples.offset_lm_rad,
+        lookup,
+        state,
+        residual_jones=samples.residual_jones,
+        moving_id=samples.moving_id,
+        reference_id=samples.reference_id,
+        moving_is_p=samples.moving_is_p,
+        chi_moving=samples.parallactic_angle_rad,
+        chi_reference=samples.reference_parallactic_angle_rad,
+        source=samples.source,
+    )["visibility"]
 
 
 def region_residual_power(
@@ -568,10 +953,18 @@ def _best_on_grid(
     updates: Sequence[Mapping[str, float | tuple[float, ...]]],
     row_mask: ArrayLike,
 ) -> Mapping[str, float | tuple[float, ...]]:
+    term = next_term(prefix)
+    if term is None:
+        raise ValueError("no remaining first-ladder term to evaluate")
     best = updates[0]
     best_loss = np.inf
     for item in updates:
-        loss = _train_loss(samples, lookup, replace(prefix, **dict(item)), row_mask)
+        loss = _train_loss(
+            samples,
+            lookup,
+            with_accepted_term(prefix, term, **dict(item)),
+            row_mask,
+        )
         if np.isfinite(loss) and loss < best_loss:
             best_loss = float(loss)
             best = item
@@ -582,6 +975,8 @@ def _fit_azimuthal(
     samples: CorrectionSamples,
     prefix_vis: ArrayLike,
     row_mask: ArrayLike,
+    *,
+    sidelobe_amplitude: float = 1.0,
 ) -> tuple[float, float, float, float]:
     choose = np.asarray(row_mask, dtype=bool).reshape(-1)
     offset = samples.offset_lm_rad[choose]
@@ -618,7 +1013,11 @@ def _fit_azimuthal(
     matrix = np.vstack(columns)
     vector = np.concatenate(rhs)
     coef, *_ = np.linalg.lstsq(matrix, vector, rcond=None)
-    return (float(coef[0]), float(coef[1]), float(coef[2]), float(coef[3]))
+    return shrink_azimuthal_coefficients(
+        samples.offset_lm_rad[choose],
+        (float(coef[0]), float(coef[1]), float(coef[2]), float(coef[3])),
+        sidelobe_amplitude=float(sidelobe_amplitude),
+    )
 
 
 def fit_term(
@@ -633,6 +1032,11 @@ def fit_term(
 
     refuse_phase_in_first_ladder(term)
     mask = samples.train if row_mask is None else np.asarray(row_mask, dtype=bool)
+
+    def finish(state: CorrectionState) -> CorrectionState:
+        require_positive_envelope(samples.offset_lm_rad, state)
+        return state
+
     if term == "rl_squint_scale":
         chosen = _best_on_grid(
             samples,
@@ -641,7 +1045,7 @@ def fit_term(
             tuple({"squint_scale": float(value)} for value in SQUINT_SCALE_GRID),
             mask,
         )
-        return with_accepted_term(prefix, term, squint_scale=float(chosen["squint_scale"]))
+        return finish(with_accepted_term(prefix, term, squint_scale=float(chosen["squint_scale"])))
     if term == "beam_width":
         chosen = _best_on_grid(
             samples,
@@ -650,7 +1054,7 @@ def fit_term(
             tuple({"width_scale": float(value)} for value in WIDTH_SCALE_GRID),
             mask,
         )
-        return with_accepted_term(prefix, term, width_scale=float(chosen["width_scale"]))
+        return finish(with_accepted_term(prefix, term, width_scale=float(chosen["width_scale"])))
     if term == "pointing_offset":
         updates = tuple(
             {
@@ -661,7 +1065,7 @@ def fit_term(
             for m_arcmin in POINTING_ARCMIN_GRID
         )
         chosen = _best_on_grid(samples, lookup, prefix, updates, mask)
-        return with_accepted_term(prefix, term, **chosen)
+        return finish(with_accepted_term(prefix, term, **chosen))
     if term == "first_sidelobe_radius_amplitude":
         updates = tuple(
             {
@@ -672,11 +1076,16 @@ def fit_term(
             for amplitude in SIDELOBE_AMPLITUDE_GRID
         )
         chosen = _best_on_grid(samples, lookup, prefix, updates, mask)
-        return with_accepted_term(prefix, term, **chosen)
+        return finish(with_accepted_term(prefix, term, **chosen))
     if term == "low_order_azimuthal":
         prefix_vis = predict_from_state(samples, lookup, prefix)
-        azimuthal = _fit_azimuthal(samples, prefix_vis, mask)
-        return with_accepted_term(prefix, term, azimuthal=azimuthal)
+        azimuthal = _fit_azimuthal(
+            samples,
+            prefix_vis,
+            mask,
+            sidelobe_amplitude=prefix.sidelobe_amplitude,
+        )
+        return finish(with_accepted_term(prefix, term, azimuthal=azimuthal))
     raise ValueError(f"unsupported first-ladder term {term!r}")
 
 
@@ -746,6 +1155,9 @@ def run_first_ladder(
     development = (
         refit_frozen_family(accepted, samples, lookup) if refit_development else None
     )
+    hyperparameters = dict(FROZEN_HYPERPARAMETERS)
+    hyperparameters["paired_delta_bootstrap"] = int(n_boot)
+    hyperparameters["bootstrap_seed"] = int(seed)
     return LadderResult(
         accepted=accepted,
         stopped_at=stopped,
@@ -753,6 +1165,7 @@ def run_first_ladder(
         selection_record=tuple(record),
         development_refit=development,
         holdout_scores_preserved=True,
+        hyperparameters=hyperparameters,
     )
 
 

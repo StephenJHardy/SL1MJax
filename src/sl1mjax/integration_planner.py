@@ -529,6 +529,22 @@ def _plan_pointing(
             squares.append(component)
     if not squares:
         return assignments, 0, len(regimes)
+    if tolerance.max_depth <= 0:
+        frequencies = tuple(regime.frequency_hz for regime in regimes)
+        for component in squares:
+            assignments.append(
+                ComponentPointingAssignment(
+                    component_id=component.component_id,
+                    pointing_id=pointing_id,
+                    depth=0,
+                    error_estimate=0.0,
+                    apparent_norm=0.0,
+                    reasons=(RefinementReason.MAX_DEPTH.value,),
+                    channel_regimes_hz=frequencies,
+                    depth_by_regime=tuple(0 for _ in regimes),
+                )
+            )
+        return assignments, 0, len(regimes)
 
     forced = {
         component.component_id: _forced_reasons(

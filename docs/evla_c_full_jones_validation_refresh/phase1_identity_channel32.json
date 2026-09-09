@@ -1,0 +1,16 @@
+{
+  "aligned_same_index": true,
+  "atol": 1e-06,
+  "max_abs": 0.032485661328835104,
+  "median_abs": 1.656265600007764e-07,
+  "n_matched": 538489,
+  "n_new": 538489,
+  "n_prior": 538489,
+  "n_unique_new_keys": 81937,
+  "note": "Same EVLA-C physical model should match on shared rows. A difference must be versioned before new scores replace old ones.",
+  "same_index": {
+    "max_abs": 4.7503813572003074e-07,
+    "median_abs": 5.237277252054623e-09
+  },
+  "status": "pass"
+}

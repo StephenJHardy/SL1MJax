@@ -80,6 +80,8 @@ def copy_commissioning_measurement_set(
     destination: Path,
     *,
     spectral_window_ids: tuple[int, ...] = COMMISSIONING_SPWS,
+    immutable: bool = True,
+    kind: str = "thol0001_lower_c_commissioning_ms",
 ) -> CommissioningSelection:
     """Copy selected MAIN rows to a new MS. The source is opened read-only."""
 
@@ -126,8 +128,8 @@ def copy_commissioning_measurement_set(
         json.dumps(
             {
                 "schema_version": 1,
-                "kind": "thol0001_lower_c_commissioning_ms",
-                "immutable": True,
+                "kind": kind,
+                "immutable": bool(immutable),
                 "n_native_channels_kept": 64,
                 "correlations": ("RR", "RL", "LR", "LL"),
                 "channel_32_only": False,
@@ -137,7 +139,8 @@ def copy_commissioning_measurement_set(
         )
         + "\n"
     )
-    _make_tree_immutable(dest)
+    if immutable:
+        _make_tree_immutable(dest)
     return selection
 
 

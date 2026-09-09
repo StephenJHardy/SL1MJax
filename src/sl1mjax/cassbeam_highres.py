@@ -288,3 +288,64 @@ def _load_highres_plane(
         data_sha256=data_sha,
         params_sha256=params_sha,
     )
+
+
+EVLA_C_HIGHRES_MODEL_ID = "cassbeam_evla_c_g1024_p32_spw4_dev"
+
+
+def write_development_highres_manifest(
+    root: Path,
+    *,
+    model_id: str,
+    name_prefix: str,
+    gridsize: int = 1024,
+    pixelsperbeam: int = 32,
+) -> dict[str, object]:
+    """Checksum whatever exact planes exist. Not a production freeze."""
+
+    root = Path(root)
+    files: dict[str, str] = {}
+    planes: list[dict[str, object]] = []
+    pattern = f"{name_prefix}-*-g{gridsize}-p{pixelsperbeam}.jones.dat"
+    for data_path in sorted(root.glob(f"**/{pattern}")):
+        if not data_path.name.endswith(".jones.dat"):
+            raise ValueError(f"unexpected Jones name {data_path.name}")
+        params_path = data_path.with_name(data_path.name[: -len(".jones.dat")] + ".params")
+        if not params_path.is_file():
+            raise FileNotFoundError(params_path)
+        frequency_mhz = int(data_path.name.split("-")[2])
+        group = data_path.parent.name
+        for path in (data_path, params_path):
+            files[path.relative_to(root).as_posix()] = _sha256(path)
+        planes.append(
+            {
+                "frequency_mhz": frequency_mhz,
+                "group": group,
+                "shape": [513, 513, 2, 2],
+                "native_columns": list(NATIVE_COLUMNS),
+                "data": data_path.relative_to(root).as_posix(),
+                "params": params_path.relative_to(root).as_posix(),
+            }
+        )
+    if not planes:
+        raise FileNotFoundError(f"no {pattern} planes under {root}")
+    for relative in ("reference/base.in", "reference/vla_geom"):
+        files[relative] = _sha256(root / relative)
+    manifest = {
+        "schema_version": 1,
+        "model_id": str(model_id),
+        "artifact_kind": "electromagnetic_voltage_jones",
+        "development_only": True,
+        "production_accepted": False,
+        "full_jones_frozen": False,
+        "raster": {
+            "shape": [513, 513, 2, 2],
+            "science_normalization": "inv(E(0)) @ E(s)",
+        },
+        "planes": planes,
+        "files_sha256": files,
+    }
+    (root / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return manifest

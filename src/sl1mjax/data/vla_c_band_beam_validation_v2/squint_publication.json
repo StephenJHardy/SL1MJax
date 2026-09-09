@@ -1,0 +1,40 @@
+{
+  "measured": {
+    "series": "measured_source_lm",
+    "estimator": "mainlobe_20pct_peak",
+    "power_fraction": 0.2,
+    "publication_estimator": true,
+    "rr_l_arcmin": -0.13873153611477865,
+    "rr_m_arcmin": 0.17298584795228278,
+    "ll_l_arcmin": 0.007434368844121974,
+    "ll_m_arcmin": -0.3323398296137849,
+    "separation_arcmin": 0.5260404092653528,
+    "n_rr": 33161,
+    "n_ll": 32307,
+    "full_raster_separation_arcmin": 0.38814396932165063,
+    "full_raster_is_publication_estimator": false,
+    "frequency_hz": 4564000000.0,
+    "memo195_separation_arcmin": 0.525854513584575
+  },
+  "cassbeam": {
+    "series": "evla_c_source_lm",
+    "estimator": "mainlobe_20pct_peak",
+    "power_fraction": 0.2,
+    "publication_estimator": true,
+    "rr_l_arcmin": -0.00026707847512888076,
+    "rr_m_arcmin": 0.2811783908890156,
+    "ll_l_arcmin": -0.1466994305551342,
+    "ll_m_arcmin": -0.1717822793504674,
+    "separation_arcmin": 0.47604180753320846,
+    "n_rr": 33534,
+    "n_ll": 33360,
+    "full_raster_separation_arcmin": 0.41540547388170734,
+    "full_raster_is_publication_estimator": false,
+    "frequency_hz": 4564000000.0,
+    "memo195_separation_arcmin": 0.525854513584575
+  },
+  "frequency_hz": 4564000000.0,
+  "predictions_recomputed": true,
+  "coordinate_query": "source_lm_feed",
+  "model": "evla_c_source_lm"
+}

@@ -32,6 +32,9 @@ from sl1mjax.holography_diagonal import (
     _unique_offsets,
     four_hand_active_rows,
 )
+from sl1mjax.holography_holoraster_coordinates import (
+    source_lm_feed_from_commanded_azelgeo,
+)
 from sl1mjax.holography_pointing_maps import visit_id_per_time
 from sl1mjax.holography_reference_jones import (
     CALIBRATION_ADEQUACY_NOT_OPERATOR_NOTE,
@@ -1581,6 +1584,7 @@ def moving_reference_row_geometry(
     moving_id = np.full(n_row, -1, dtype=np.int32)
     reference_id = np.full(n_row, -1, dtype=np.int32)
     offset_lm = np.full((n_row, 2), np.nan, dtype=np.float64)
+    source_lm = np.full((n_row, 2), np.nan, dtype=np.float64)
     cell_l = np.full(n_row, np.iinfo(np.int64).min, dtype=np.int64)
     cell_m = np.full(n_row, np.iinfo(np.int64).min, dtype=np.int64)
     time_index = np.full(n_row, -1, dtype=np.int32)
@@ -1590,6 +1594,7 @@ def moving_reference_row_geometry(
         reference_id[usable] = reference[usable]
         time_index[usable] = time_all[usable]
         offset_lm[usable] = offsets[time_all[usable], moving[usable]]
+        source_lm[usable] = source_lm_feed_from_commanded_azelgeo(offset_lm[usable])
         cell_l[usable] = np.rint(offset_lm[usable, 0] * float(offset_scale)).astype(np.int64)
         cell_m[usable] = np.rint(offset_lm[usable, 1] * float(offset_scale)).astype(np.int64)
         radius[usable] = np.hypot(offset_lm[usable, 0], offset_lm[usable, 1])
@@ -1597,7 +1602,10 @@ def moving_reference_row_geometry(
         "usable": usable,
         "moving_id": moving_id,
         "reference_id": reference_id,
+        "commanded_offset_azelgeo": offset_lm,
+        "source_lm_feed": source_lm,
         "offset_lm_rad": offset_lm,
+        "offset_lm_meaning": "commanded_azelgeo_legacy",
         "cell_l": cell_l,
         "cell_m": cell_m,
         "time_index": time_index,

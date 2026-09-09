@@ -207,6 +207,17 @@ def test_classifier_never_selects_a_model() -> None:
     )
     assert failed["process_failure"] is True
     assert failed["model_selected"] is False
+    rejected = classify_diagonal_region_support(
+        {
+            "main_lobe": {"rr": {"residual_power": 0.50}, "ll": {"residual_power": 0.50}},
+            "mid": {"rr": {"residual_power": 0.50}, "ll": {"residual_power": 0.50}},
+            "outer_diagnostic": {"rr": {"residual_power": 0.50}, "ll": {"residual_power": 0.50}},
+        }
+    )
+    assert rejected["main_lobe"] == "rejected"
+    assert rejected["mid_beam"] == "unqualified"
+    assert rejected["regions"]["main_lobe"]["matches_class"] is False
+    assert rejected["regions"]["main_lobe"]["class"] == "rejected"
 
 
 def test_comparison_plots_write_the_requested_families(tmp_path: Path | None = None) -> None:

@@ -1,0 +1,100 @@
+{
+  "axis_map": "az_to_plus_l_el_to_plus_m_no_swap",
+  "calibration": {
+    "new_spws_require_new_work_copies": true,
+    "residual_jones": "not_applied",
+    "reuse_incompatible_tables": false,
+    "scientific_spw45_ms": "/media/stephen/astro/vla/extracted/commissioning/work/THOL0001.lowerC.spw45.scientific.ms",
+    "solve_on_holoraster_movers": false
+  },
+  "catalog_id": "evla_c_diagonal_survey_v1",
+  "classifiers": {
+    "main_lobe_accepted_max_residual_power": 0.01,
+    "mid_beam_qualified_max_residual_power": 0.12,
+    "outer": "diagnostic unless new evidence supports a stronger class"
+  },
+  "convention_ladder_reopened": false,
+  "coordinate_query": "source_lm_feed",
+  "correlation_order": [
+    "RR",
+    "RL",
+    "LR",
+    "LL"
+  ],
+  "data_column": "CORRECTED_DATA",
+  "diagnostic_arm": "evla_c_source_full_jones",
+  "dirty_tree": true,
+  "experiment_id": "evla_c_diagonal_survey_v1",
+  "full_jones_is_gate": false,
+  "git_head": "ef9b795d60b1de65408dc082ff179a0e9541ebb3",
+  "jones_packing": "[[RR, RL], [LR, LL]]",
+  "nearest_plane_substitution": false,
+  "objective": "Measure EVLA-C diagonal suitability across available THOL0001 C-band holography frequencies and hand off an opt-in 3C391 adapter. A usable limited range is a valid completion.",
+  "paths": {
+    "beam_root": "/media/stephen/astro/vla/beam_models/cassbeam_evla_c_diagonal_survey_v1",
+    "lower_c_ms": "/media/stephen/astro/vla/extracted/THOL0001.sb31628704.eb31629959.57401.169024456016.ms",
+    "preserve": [
+      "vla_c_band_beam_validation_v2",
+      "evla_c_full_jones_validation_refresh_v1"
+    ],
+    "product_dir": "/media/stephen/astro/vla/extracted/commissioning/validation/scientific/evla_c_diagonal_survey_v1",
+    "staging_package": "/tmp/sl1mjax-evla-c-survey",
+    "staging_scripts": "/tmp/sl1mjax-evla-c-survey-scripts",
+    "upper_c_candidate_ms": "/media/stephen/astro/vla/extracted/THOL0001.sb31635131.eb31644651.57405.16003953703.ms"
+  },
+  "primary_arm": "evla_c_source_diagonal",
+  "production_accepted": false,
+  "publication_bundle": "vla_c_band_beam_validation_v3",
+  "residual_jones_policy": "not_applied",
+  "sampling": {
+    "frequency_source": "each MS SPECTRAL_WINDOW CHAN_FREQ",
+    "pass_a": "native channel floor(n*32/64); 32 when n=64",
+    "pass_b": "native channels floor(n*k/64) for k in 8,24,32,40,56",
+    "spw_numbers_are_not_global_frequencies": true,
+    "unsupported_pass_a": "nearest supported channel to the declared centre; lower index on a tie"
+  },
+  "schema_version": 1,
+  "source_coherency": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "source_snapshot": {
+    "files": {
+      "cassbeam_evla_c.py": "0bba8caebf70fa585fd366f2f395e4c2469abbbccfe1160d41f5f73ec52ceeef",
+      "cassbeam_highres.py": "602f204c5bd8b4334585497bcf8cc59e659b6a9de473e235b015ba8925dca679",
+      "evla-c-band-diagonal-survey-and-imaging-handoff-plan.md": "faa86533432d80d82e0e660f535e1b0716f9a97c965144afd0744c510a730801",
+      "evla_c_diagonal_survey.py": "ae88821ceea04ee4e0137b3db179c1558e21bdb5234521fde497420a1ad1aa86",
+      "evla_c_independent_rime.py": "ebb22a1266a8d6db27fd61b5ebff9c3c8649bdc1f118931014b43f6da7e518e1",
+      "evla_c_validation_refresh.py": "ed4c2b88888dacbbab3b01f92f26c3376053a9c037fd0122132ca8d099259125",
+      "holography_beam_prior.py": "9f98fc9525724e63a0d67be4f5c5bf00bf337dbb23dbdf90d559e38326099cfc",
+      "holography_holoraster_coordinates.py": "15e8a504e3de4b8cd2c9174b42d2685ca3fd4d203b0d22605294d376db40206d",
+      "holography_ms.py": "a0c1a9119e775f37077ed81cfe1ef3632a6e623a234c066c131c9e7a68ec31bd",
+      "run_thol0001_evla_c_diagonal_survey.py": "97d8d58e3c8e05f31b1b3fe170f530d4442be71e1e81a21abbfe28f097c91209"
+    },
+    "n_files": 10,
+    "tree_sha256": "d9cdd96a26d724b2b0735a1ba7123c85edb9d9b1aec6e3fdabd46ddd0c8dfe2c"
+  },
+  "spw5_role": "declared_diagonal_frequency_transfer",
+  "taper": {
+    "formula": "12.75 + 0.375 * (nu_GHz - 6.0)",
+    "outside_range": "record numerically_unverified_taper; do not silently extrapolate",
+    "valid_hz": [
+      3900000000.0,
+      8100000000.0
+    ]
+  },
+  "task_ids": [
+    "phase0_manifest",
+    "phase1_lower_c_inventory",
+    "phase1_upper_c_identity",
+    "phase1_upper_c_inventory",
+    "phase2_calibration_policy",
+    "phase2_excursion_diagnosis",
+    "phase3_planes",
+    "phase3_convergence",
+    "phase4_pass_a",
+    "phase4_pass_b",
+    "phase5_plots",
+    "phase6_catalog",
+    "phase6_imaging_adapter",
+    "phase7_publication"
+  ],
+  "width_or_squint_fit": false
+}

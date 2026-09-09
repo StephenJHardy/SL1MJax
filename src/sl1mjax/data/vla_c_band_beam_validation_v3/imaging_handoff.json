@@ -1,0 +1,412 @@
+{
+  "catalog_id": "evla_c_diagonal_survey_v1",
+  "beam_mode": "evla_c_diagonal_survey_v1",
+  "catalog_digest": "828c9ece95d3bc6c95bed8091840a6bceea3214e59b42895530b23224973d843",
+  "interpolation_policy": "refused",
+  "nearest_plane_substitution": false,
+  "airy_fallback": false,
+  "residual_jones_policy": "not_applied",
+  "imaging_node_mhz": [
+    4536,
+    4598,
+    4662
+  ],
+  "native_3c391_hz": [
+    4536000000.0,
+    4662000000.0
+  ],
+  "native_3c391_channel_step_mhz": 2,
+  "usable_main_lobe_slots": [
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4436000000.0,
+      "spectral_window_id": 3,
+      "channel": 32,
+      "main_lobe_rr": 0.0053504236917713815,
+      "main_lobe_ll": 0.005674332069218686
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4516000000.0,
+      "spectral_window_id": 4,
+      "channel": 8,
+      "main_lobe_rr": 0.009587488835893571,
+      "main_lobe_ll": 0.009608995079932564
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4564000000.0,
+      "spectral_window_id": 4,
+      "channel": 32,
+      "main_lobe_rr": 0.00598408333678186,
+      "main_lobe_ll": 0.0053760842201255
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4676000000.0,
+      "spectral_window_id": 5,
+      "channel": 24,
+      "main_lobe_rr": 0.005964513897120411,
+      "main_lobe_ll": 0.006505188001540763
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4692000000.0,
+      "spectral_window_id": 5,
+      "channel": 32,
+      "main_lobe_rr": 0.005892616426496046,
+      "main_lobe_ll": 0.005956632760415818
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4708000000.0,
+      "spectral_window_id": 5,
+      "channel": 40,
+      "main_lobe_rr": 0.006458719517652433,
+      "main_lobe_ll": 0.006151082853380395
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4804000000.0,
+      "spectral_window_id": 6,
+      "channel": 24,
+      "main_lobe_rr": 0.006247347244082374,
+      "main_lobe_ll": 0.006071663630632731
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4820000000.0,
+      "spectral_window_id": 6,
+      "channel": 32,
+      "main_lobe_rr": 0.005535095611454411,
+      "main_lobe_ll": 0.005835318924558524
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4836000000.0,
+      "spectral_window_id": 6,
+      "channel": 40,
+      "main_lobe_rr": 0.006110368179191397,
+      "main_lobe_ll": 0.006141643363549217
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4948000000.0,
+      "spectral_window_id": 7,
+      "channel": 32,
+      "main_lobe_rr": 0.006493697387562325,
+      "main_lobe_ll": 0.005829414240128743
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5052000000.0,
+      "spectral_window_id": 8,
+      "channel": 32,
+      "main_lobe_rr": 0.005955693966810603,
+      "main_lobe_ll": 0.006456097708693394
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5180000000.0,
+      "spectral_window_id": 9,
+      "channel": 32,
+      "main_lobe_rr": 0.006202801192494082,
+      "main_lobe_ll": 0.006363841539422233
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5436000000.0,
+      "spectral_window_id": 11,
+      "channel": 32,
+      "main_lobe_rr": 0.006777034487010551,
+      "main_lobe_ll": 0.006834917222373759
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5564000000.0,
+      "spectral_window_id": 12,
+      "channel": 32,
+      "main_lobe_rr": 0.006841414872420747,
+      "main_lobe_ll": 0.006842665528567326
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5692000000.0,
+      "spectral_window_id": 13,
+      "channel": 32,
+      "main_lobe_rr": 0.006494435931038263,
+      "main_lobe_ll": 0.0064513916502767
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5820000000.0,
+      "spectral_window_id": 14,
+      "channel": 32,
+      "main_lobe_rr": 0.0069906091840520115,
+      "main_lobe_ll": 0.006863209120338808
+    }
+  ],
+  "limitation_slots": [
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4052000000.0,
+      "spectral_window_id": 0,
+      "channel": 32,
+      "main_lobe_rr": 0.06961123536134159,
+      "main_lobe_ll": 0.10249733453336311,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4180000000.0,
+      "spectral_window_id": 1,
+      "channel": 32,
+      "main_lobe_rr": 0.25147816058536376,
+      "main_lobe_ll": 0.23441314002142155,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4308000000.0,
+      "spectral_window_id": 2,
+      "channel": 32,
+      "main_lobe_rr": 0.9466201753010086,
+      "main_lobe_ll": 0.940291940359751,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4548000000.0,
+      "spectral_window_id": 4,
+      "channel": 24,
+      "main_lobe_rr": 0.005849715652693939,
+      "main_lobe_ll": 0.01397072616232101,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4580000000.0,
+      "spectral_window_id": 4,
+      "channel": 40,
+      "main_lobe_rr": 0.01641157401659577,
+      "main_lobe_ll": 0.0061830046956779135,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4612000000.0,
+      "spectral_window_id": 4,
+      "channel": 56,
+      "main_lobe_rr": 0.011414222859859246,
+      "main_lobe_ll": 0.01032032137232008,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4644000000.0,
+      "spectral_window_id": 5,
+      "channel": 8,
+      "main_lobe_rr": 0.017505376558425458,
+      "main_lobe_ll": 0.008796834165384263,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4740000000.0,
+      "spectral_window_id": 5,
+      "channel": 56,
+      "main_lobe_rr": 0.010480996994386628,
+      "main_lobe_ll": 0.00874522237017256,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4772000000.0,
+      "spectral_window_id": 6,
+      "channel": 8,
+      "main_lobe_rr": 0.010470396325698931,
+      "main_lobe_ll": 0.009096372071503517,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 4868000000.0,
+      "spectral_window_id": 6,
+      "channel": 56,
+      "main_lobe_rr": 0.010218741439684313,
+      "main_lobe_ll": 0.009744205387555818,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5308000000.0,
+      "spectral_window_id": 10,
+      "channel": 32,
+      "main_lobe_rr": 0.014551758488504644,
+      "main_lobe_ll": 0.014727442032959042,
+      "status": "complete"
+    },
+    {
+      "execution": "lower_c",
+      "frequency_hz": 5948000000.0,
+      "spectral_window_id": 15,
+      "channel": 32,
+      "main_lobe_rr": 0.30014040680839743,
+      "main_lobe_ll": 0.22948105291444604,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6052000000.0,
+      "spectral_window_id": 0,
+      "channel": 32,
+      "main_lobe_rr": 0.013945740950257933,
+      "main_lobe_ll": 0.013991797689718994,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6180000000.0,
+      "spectral_window_id": 1,
+      "channel": 32,
+      "main_lobe_rr": 0.9539010238273113,
+      "main_lobe_ll": 0.9801715495225353,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6308000000.0,
+      "spectral_window_id": 2,
+      "channel": 32,
+      "main_lobe_rr": 0.9276909614253577,
+      "main_lobe_ll": 0.9510039482560354,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6436000000.0,
+      "spectral_window_id": 3,
+      "channel": 32,
+      "main_lobe_rr": 0.9463770633172697,
+      "main_lobe_ll": 0.9719342808116752,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6564000000.0,
+      "spectral_window_id": 4,
+      "channel": 32,
+      "main_lobe_rr": 0.011711505565081895,
+      "main_lobe_ll": 0.011127424557721607,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6692000000.0,
+      "spectral_window_id": 5,
+      "channel": 32,
+      "main_lobe_rr": 0.012239966157517247,
+      "main_lobe_ll": 0.011539212545011205,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6820000000.0,
+      "spectral_window_id": 6,
+      "channel": 32,
+      "main_lobe_rr": 0.01203792659469685,
+      "main_lobe_ll": 0.011676989197304317,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 6948000000.0,
+      "spectral_window_id": 7,
+      "channel": 32,
+      "main_lobe_rr": 0.016784071928526934,
+      "main_lobe_ll": 0.016151871370098412,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7052000000.0,
+      "spectral_window_id": 8,
+      "channel": 32,
+      "main_lobe_rr": 0.014145182882002536,
+      "main_lobe_ll": 0.0137880957813048,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7180000000.0,
+      "spectral_window_id": 9,
+      "channel": 32,
+      "main_lobe_rr": 0.012793480627653184,
+      "main_lobe_ll": 0.012832235067258434,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7308000000.0,
+      "spectral_window_id": 10,
+      "channel": 32,
+      "main_lobe_rr": 0.01462984706398526,
+      "main_lobe_ll": 0.013411225997200049,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7436000000.0,
+      "spectral_window_id": 11,
+      "channel": 32,
+      "main_lobe_rr": 0.016374176822930086,
+      "main_lobe_ll": 0.014001737229614793,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7564000000.0,
+      "spectral_window_id": 12,
+      "channel": 32,
+      "main_lobe_rr": 0.02054392425434832,
+      "main_lobe_ll": 0.014491425915069309,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7692000000.0,
+      "spectral_window_id": 13,
+      "channel": 32,
+      "main_lobe_rr": 0.013895903197776255,
+      "main_lobe_ll": 0.013919814466688066,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7820000000.0,
+      "spectral_window_id": 14,
+      "channel": 32,
+      "main_lobe_rr": 0.014133888798711374,
+      "main_lobe_ll": 0.014144284292739971,
+      "status": "complete"
+    },
+    {
+      "execution": "upper_c",
+      "frequency_hz": 7948000000.0,
+      "spectral_window_id": 15,
+      "channel": 32,
+      "main_lobe_rr": 0.01462630977467647,
+      "main_lobe_ll": 0.014720220812289145,
+      "status": "complete"
+    }
+  ],
+  "frequency_support": "sampled_centres_not_continuous",
+  "pass_b_scope": "lower_c_spw_4_6_only",
+  "numerical_qualification": "incomplete_no_band_wide_convergence",
+  "upper_c_archive_integrity": "unverified",
+  "imaging_channel_policy": "fixed_nodes_4536_4598_4662",
+  "native_smoke": "engineering_check_not_mosaic_validation",
+  "smoke_command": "PYTHONPATH=/tmp/sl1mjax-evla-c-survey JAX_PLATFORMS=cpu python -u scripts/run_3c391_survey_smoke.py --native-root outputs/3c391_native_averaging_ablation --survey-catalog-root /media/stephen/astro/vla/beam_models/cassbeam_evla_c_diagonal_survey_v1 --survey-catalog-digest 828c9ece95d3bc6c95bed8091840a6bceea3214e59b42895530b23224973d843 --output outputs/3c391_survey_smoke",
+  "mosaic_command": "PYTHONPATH=/tmp/sl1mjax-evla-c-survey JAX_PLATFORMS=cpu python -u scripts/run_3c391_phase6_bacchus.py --stage baseline --beams evla_c_diagonal_survey_v1 --native-root outputs/3c391_native_averaging_ablation --survey-catalog-root /media/stephen/astro/vla/beam_models/cassbeam_evla_c_diagonal_survey_v1 --survey-catalog-digest 828c9ece95d3bc6c95bed8091840a6bceea3214e59b42895530b23224973d843 --output outputs/3c391_survey_mosaic",
+  "command": "PYTHONPATH=/tmp/sl1mjax-evla-c-survey JAX_PLATFORMS=cpu python -u scripts/run_3c391_phase6_bacchus.py --stage baseline --beams evla_c_diagonal_survey_v1 --native-root outputs/3c391_native_averaging_ablation --survey-catalog-root /media/stephen/astro/vla/beam_models/cassbeam_evla_c_diagonal_survey_v1 --survey-catalog-digest 828c9ece95d3bc6c95bed8091840a6bceea3214e59b42895530b23224973d843 --output outputs/3c391_survey_mosaic"
+}

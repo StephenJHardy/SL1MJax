@@ -409,6 +409,186 @@ def _read_channel_frequencies(tables: Any, measurement_set: Path) -> dict[int, N
     return frequencies
 
 
+def read_spectral_window_catalog(path: Path) -> list[dict[str, object]]:
+    """Read per-SPW channel frequencies without loading MAIN visibilities."""
+
+    from sl1mjax.evla_c_diagonal_survey import (
+        pass_a_channel,
+        pass_b_channels,
+        taper_in_documented_range,
+    )
+
+    tables = _tables()
+    measurement_set = Path(path)
+    frequencies = _read_channel_frequencies(tables, measurement_set)
+    descriptions = _read_data_descriptions(tables, measurement_set)
+    ddid_by_spw: dict[int, list[int]] = {}
+    for ddid, spw_id, _pol in descriptions:
+        ddid_by_spw.setdefault(int(spw_id), []).append(int(ddid))
+    catalog: list[dict[str, object]] = []
+    for spw_id, chan_freq in sorted(frequencies.items()):
+        n_chan = int(chan_freq.size)
+        pass_a = pass_a_channel(n_chan) if n_chan else None
+        rows = {
+            "spectral_window_id": int(spw_id),
+            "data_desc_ids": ddid_by_spw.get(int(spw_id), []),
+            "n_chan": n_chan,
+            "chan_freq_hz": [float(value) for value in chan_freq],
+            "pass_a_channel": pass_a,
+            "pass_a_frequency_hz": float(chan_freq[pass_a]) if pass_a is not None else None,
+            "pass_b_channels": list(pass_b_channels(n_chan)) if n_chan else [],
+            "pass_b_frequency_hz": (
+                [float(chan_freq[index]) for index in pass_b_channels(n_chan)] if n_chan else []
+            ),
+            "freq_min_hz": float(chan_freq.min()) if n_chan else None,
+            "freq_max_hz": float(chan_freq.max()) if n_chan else None,
+            "taper_in_documented_range": (
+                bool(n_chan) and all(taper_in_documented_range(float(value)) for value in chan_freq)
+            ),
+        }
+        catalog.append(rows)
+    return catalog
+
+
+def read_measurement_set_light_inventory(path: Path) -> dict[str, object]:
+    """Identity, columns, and SPECTRAL_WINDOW catalog. No MAIN TIME or visibilities."""
+
+    from sl1mjax.evla_c_diagonal_survey import classify_spectral_windows, window_role
+
+    tables = _tables()
+    measurement_set = Path(path)
+    if not is_casacore_measurement_set(measurement_set):
+        raise ValueError(f"not a casacore Measurement Set: {measurement_set}")
+    windows = read_spectral_window_catalog(measurement_set)
+    band_class = classify_spectral_windows(windows)
+    ddid_rows = _read_data_desc_row_counts(tables, measurement_set)
+    annotated = []
+    for window in windows:
+        row = dict(window)
+        row["role"] = window_role(window, band_class)
+        row["main_row_count"] = int(
+            sum(ddid_rows.get(int(ddid), 0) for ddid in list(window.get("data_desc_ids") or []))
+        )
+        annotated.append(row)
+    windows = annotated
+    observation = _read_observation(tables, measurement_set)
+    antennas = _read_antennas(tables, measurement_set)
+    correlations, codes, by_ddid = _read_correlations(tables, measurement_set)
+    fields = _read_field_names(tables, measurement_set)
+    states = _read_state_modes(tables, measurement_set)
+    pointing = measurement_set / "POINTING"
+    pointing_row_count: int | None = None
+    if pointing.exists():
+        with tables.table(str(pointing), readonly=True, ack=False) as table:
+            pointing_row_count = int(table.nrows())
+    main_columns: tuple[str, ...] = ()
+    main_row_count: int | None = None
+    main_error: str | None = None
+    try:
+        with tables.table(str(measurement_set), readonly=True, ack=False) as main:
+            main_columns = tuple(str(name) for name in main.colnames())
+            main_row_count = int(main.nrows())
+    except Exception as exc:  # noqa: BLE001 — record a corrupt MAIN without failing catalog
+        main_error = str(exc)
+    freq_min = min(
+        (
+            float(row["freq_min_hz"])
+            for row in windows
+            if row.get("freq_min_hz") is not None
+        ),
+        default=None,
+    )
+    freq_max = max(
+        (
+            float(row["freq_max_hz"])
+            for row in windows
+            if row.get("freq_max_hz") is not None
+        ),
+        default=None,
+    )
+    provenance = holography_execution_provenance(
+        measurement_set,
+        None,
+        observation_project=observation.get("project") or "",
+    )
+    return {
+        "path": str(measurement_set),
+        "project": provenance.get("project") or observation.get("project") or "",
+        "scheduling_block": provenance.get("scheduling_block") or "",
+        "execution_block": provenance.get("execution_block") or "",
+        "observation": observation,
+        "antenna_names": list(antennas[1]),
+        "antenna_count": len(antennas[1]),
+        "field_names": list(fields),
+        "state_modes": list(states),
+        "correlations": list(correlations),
+        "correlation_codes": list(codes),
+        "polarization_by_id": list(by_ddid),
+        "main_row_count": main_row_count,
+        "main_columns": list(main_columns),
+        "has_data": "DATA" in main_columns,
+        "has_corrected_data": "CORRECTED_DATA" in main_columns,
+        "has_model_data": "MODEL_DATA" in main_columns,
+        "pointing_present": pointing.exists(),
+        "pointing_row_count": pointing_row_count,
+        "frequency_hz_min": freq_min,
+        "frequency_hz_max": freq_max,
+        "n_spw": len(windows),
+        "band_class": band_class,
+        "science_frequency_hz_min": min(
+            (
+                float(row["freq_min_hz"])
+                for row in windows
+                if row.get("role") == "science" and row.get("freq_min_hz") is not None
+            ),
+            default=None,
+        ),
+        "science_frequency_hz_max": max(
+            (
+                float(row["freq_max_hz"])
+                for row in windows
+                if row.get("role") == "science" and row.get("freq_max_hz") is not None
+            ),
+            default=None,
+        ),
+        "data_desc_row_counts": {str(key): int(value) for key, value in sorted(ddid_rows.items())},
+        "spectral_windows": windows,
+        "main_error": main_error,
+        "loaded_main_time": False,
+        "loaded_visibilities": False,
+    }
+
+
+def read_unique_scan_field_state(path: Path) -> list[dict[str, object]]:
+    """Unique SCAN/FIELD/STATE triples. Does not load visibilities."""
+
+    tables = _tables()
+    measurement_set = Path(path)
+    if not is_casacore_measurement_set(measurement_set):
+        raise ValueError(f"not a casacore Measurement Set: {measurement_set}")
+    fields = list(_read_field_names(tables, measurement_set))
+    states = list(_read_state_modes(tables, measurement_set))
+    query = f"SELECT UNIQUE SCAN_NUMBER, FIELD_ID, STATE_ID FROM '{measurement_set}'"
+    with tables.taql(query) as selected:
+        scans = np.asarray(selected.getcol("SCAN_NUMBER"), dtype=np.int32).reshape(-1)
+        field_ids = np.asarray(selected.getcol("FIELD_ID"), dtype=np.int32).reshape(-1)
+        state_ids = np.asarray(selected.getcol("STATE_ID"), dtype=np.int32).reshape(-1)
+    rows: list[dict[str, object]] = []
+    for scan, field_id, state_id in zip(scans, field_ids, state_ids, strict=True):
+        field_index = int(field_id)
+        state_index = int(state_id)
+        rows.append(
+            {
+                "scan_number": int(scan),
+                "field_id": field_index,
+                "field_name": fields[field_index] if 0 <= field_index < len(fields) else "",
+                "state_id": state_index,
+                "state_mode": states[state_index] if 0 <= state_index < len(states) else "",
+            }
+        )
+    return rows
+
+
 def _read_data_descriptions(tables: Any, measurement_set: Path) -> tuple[tuple[int, int, int], ...]:
     description = measurement_set / "DATA_DESCRIPTION"
     if not description.exists():
@@ -449,6 +629,22 @@ def _read_field_phase_centre(
 
 def _taql_int_list(values: tuple[int, ...]) -> str:
     return "[" + ",".join(str(int(value)) for value in values) + "]"
+
+
+def _read_data_desc_row_counts(tables: Any, measurement_set: Path) -> dict[int, int]:
+    """Count MAIN rows per DATA_DESC_ID without reading visibilities."""
+
+    try:
+        with tables.table(str(measurement_set), readonly=True, ack=False) as main:
+            if "DATA_DESC_ID" not in main.colnames():
+                return {}
+            ids = np.asarray(main.getcol("DATA_DESC_ID"), dtype=np.int32).reshape(-1)
+    except Exception:  # noqa: BLE001 — a corrupt MAIN still yields a spectral catalog
+        return {}
+    if ids.size == 0:
+        return {}
+    values, counts = np.unique(ids, return_counts=True)
+    return {int(value): int(count) for value, count in zip(values, counts, strict=True)}
 
 
 def _tables() -> Any:

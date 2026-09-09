@@ -1,0 +1,272 @@
+{
+  "version": "vla_c_band_beam_validation_v2",
+  "diagonal_reference": "evla_c_source_lm_spw4_development",
+  "full_jones": "inconclusive_sensitivity",
+  "spw5": "sealed_diagonal_frequency_transfer",
+  "convention_search": false,
+  "rr_slope": "1.027-0.003i",
+  "ll_slope": "1.027-0.000i",
+  "rr_correlation": 0.9756664653667132,
+  "ll_correlation": 0.9761512530602922,
+  "diagonal_support": {
+    "main_lobe": "accepted",
+    "mid_beam": "qualified",
+    "outer_raster": "diagnostic",
+    "regions": {
+      "main_lobe": {
+        "class": "accepted",
+        "intended_class": "accepted",
+        "residual_power_rr": 0.006160125312689845,
+        "residual_power_ll": 0.005599360788762092,
+        "matches_class": true
+      },
+      "mid": {
+        "class": "qualified",
+        "intended_class": "qualified",
+        "residual_power_rr": 0.04034733940681837,
+        "residual_power_ll": 0.03771077649734374,
+        "matches_class": true
+      },
+      "outer_diagnostic": {
+        "class": "diagnostic",
+        "intended_class": "diagnostic",
+        "residual_power_rr": 0.29531764320414455,
+        "residual_power_ll": 0.289767902984554,
+        "matches_class": true
+      }
+    }
+  },
+  "claims": [
+    {
+      "id": "C01",
+      "title": "CASSBEAM is the SPW-4 diagonal C-band reference in the main lobe",
+      "status": "pass",
+      "support_class": "accepted",
+      "metric": {
+        "rr_residual_power": 0.006160125312689845,
+        "ll_residual_power": 0.005599360788762092,
+        "rr_rms": 0.07848646579308974,
+        "ll_rms": 0.07482887670386408,
+        "rr_median_abs_over_i": 0.045509354255082235,
+        "ll_median_abs_over_i": 0.04682886843093773,
+        "threshold": 0.01
+      },
+      "evidence": "HOLORASTER channel-32 residual power RR 0.62%, LL 0.56% (RMS visibility 7.85% / 7.48%; median |\u0394V|/I 4.55% / 4.68%)",
+      "figures": [
+        "F05",
+        "F08",
+        "F10",
+        "F12",
+        "F15"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "HOLORASTER field 10, native channel 32"
+    },
+    {
+      "id": "C02",
+      "title": "Middle-beam CASSBEAM is useful but imperfect",
+      "status": "warn",
+      "support_class": "qualified",
+      "metric": {
+        "rr_residual_power": 0.04034733940681837,
+        "ll_residual_power": 0.03771077649734374,
+        "threshold": 0.12
+      },
+      "evidence": "HOLORASTER mid-beam residual power RR 4.03%, LL 3.77%",
+      "figures": [
+        "F10",
+        "F12"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "HOLORASTER field 10, mid-beam mask"
+    },
+    {
+      "id": "C03",
+      "title": "Outer-raster CASSBEAM is diagnostic only",
+      "status": "warn",
+      "support_class": "diagnostic",
+      "metric": {
+        "rr_residual_power": 0.29531764320414455,
+        "ll_residual_power": 0.289767902984554,
+        "rr_correlation": 0.8424414588090031,
+        "ll_correlation": 0.8454384094011554,
+        "rr_median_abs_ratio": NaN,
+        "ll_median_abs_ratio": NaN
+      },
+      "evidence": "HOLORASTER outer residual power RR 29.53%, LL 28.98%; complex correlation 0.842 / 0.845; median |V| ratio nan / nan. Outer phase is exploratory and is not a claim metric.",
+      "figures": [
+        "F10",
+        "F12",
+        "F20",
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "HOLORASTER field 10, outer-raster mask"
+    },
+    {
+      "id": "C04",
+      "title": "The C147-* offset ring independently supports the diagonal beam",
+      "status": "pass",
+      "support_class": "accepted",
+      "metric": {
+        "rr_residual_power": 0.009084030947264246,
+        "ll_residual_power": 0.005506648850203247,
+        "radius_arcmin": 3.6134405474883557
+      },
+      "evidence": "3.61\u2032 ring RR/LL residual power 0.91% / 0.55% after the geometric fringe",
+      "figures": [
+        "F17"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "C147-* fields 1\u20138; unused in calibration and beam fitting",
+      "limitations": [
+        "The already-written ring Q/U used all 64 channels and is not a frequency holdout"
+      ]
+    },
+    {
+      "id": "C05",
+      "title": "EVLA-C full Jones is inconclusive on these SPW-4 observations",
+      "status": "warn",
+      "support_class": "inconclusive_sensitivity",
+      "metric": {
+        "rl_correlation": 0.10340211362728197,
+        "lr_correlation": 0.10539555292253826,
+        "rl_residual_power": 0.9932619890712673,
+        "lr_residual_power": 0.99375457916228,
+        "outcome": "inconclusive_sensitivity"
+      },
+      "evidence": "The experiment cannot distinguish the unit full-Jones prediction from the diagonal at the predeclared sensitivity.",
+      "figures": [
+        "F18"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "HOLORASTER RL/LR versus experimental full Jones",
+      "limitations": [
+        "SPW-4 development partitions only; residual Jones is the channel-32 field-9 plane applied to all publication channels"
+      ]
+    },
+    {
+      "id": "C06",
+      "title": "SPW 5 remains sealed",
+      "status": "not_run",
+      "support_class": "frequency_transfer",
+      "metric": {},
+      "evidence": "Reserved for one diagonal frequency-transfer test after a frozen SPW-4 correction",
+      "figures": [
+        "F19"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "SPW 5 sealed"
+    },
+    {
+      "id": "C07",
+      "title": "Publication squint uses the 20%-of-peak main-lobe estimator",
+      "status": "pass",
+      "support_class": "squint",
+      "metric": {
+        "measured_arcmin": 0.5260404092653528,
+        "cassbeam_arcmin": 0.47604180753320846,
+        "memo195_arcmin": 0.525854513584575,
+        "full_raster_measured_arcmin": 0.38814396932165063
+      },
+      "evidence": "Channel 32 measured 0.526\u2032, Memo 195 0.526\u2032, CASSBEAM 0.476\u2032. The superseded full-raster measured centroid is retained only as a bias diagnostic",
+      "figures": [
+        "F13"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "HOLORASTER channel 32, 20%-of-peak main-lobe mask"
+    },
+    {
+      "id": "C08",
+      "title": "HOLORASTER beam queries use source-in-feed coordinates",
+      "status": "pass",
+      "support_class": "coordinate_contract",
+      "metric": {
+        "max_abs_source_plus_commanded_rad": 0.0,
+        "axis_map": "az_to_plus_l_el_to_plus_m_no_swap"
+      },
+      "evidence": "POINTING_OFFSET is the commanded AZELGEO displacement; a source at the phase centre is queried at its negative in the feed frame",
+      "figures": [
+        "F26",
+        "F28",
+        "F29"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "Geometry contract; no visibility model selected"
+    },
+    {
+      "id": "C09",
+      "title": "EVLA-C feed parameters improve SPW-4 development holdouts",
+      "status": "pass",
+      "support_class": "development_only",
+      "metric": {
+        "spatial_delta": -0.005637690573202077,
+        "spatial_delta_lo": -0.008144253321343138,
+        "spatial_delta_hi": -0.003774354644574385,
+        "mover_delta": -0.006067424891404605,
+        "mover_delta_lo": -0.007093486665700463,
+        "mover_delta_hi": -0.004922899091496527,
+        "evla_c_squint_arcmin": 0.5162489139387534
+      },
+      "evidence": "Against generic VLA at the same source-in-beam coordinates, spatial \u0394L -0.0056 and mover \u0394L -0.0061; both paired 95% intervals are below zero",
+      "figures": [
+        "F26",
+        "F27",
+        "F28",
+        "F29"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": "3635961c54fbe814299e135989ee019a566d5ffaf607fb07b337813406c8f27b",
+        "squint_publication": "751c5e38eb0d28936d98492d3553f3d7661aad0b127be436d3044fa44411c1a3",
+        "offset_ring": "b3ae3e6777796eac2f03fc14f63e38e91cebb2302c1e5d8d565d4518ac0e54e7",
+        "manifest": ""
+      },
+      "validation_split": "Frozen SPW-4 spatial and mover development holdouts",
+      "limitations": [
+        "One frequency only; production beam is not frozen and SPW 5 remains sealed"
+      ]
+    }
+  ]
+}

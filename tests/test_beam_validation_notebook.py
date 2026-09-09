@@ -4,7 +4,11 @@ from pathlib import Path
 
 import nbformat
 
-from sl1mjax.beam_validation_outputs import default_bundle_root, load_bundle
+from sl1mjax.beam_validation_outputs import (
+    ALLOWED_PUBLICATION_VERSIONS,
+    default_bundle_root,
+    load_bundle,
+)
 
 NOTEBOOK = Path("notebooks/vla_c_band_beam_validation.ipynb")
 REQUIRED_HEADINGS = (
@@ -13,6 +17,7 @@ REQUIRED_HEADINGS = (
     "THOL0001 observation",
     "Calibration and source model",
     "Convention and software correctness",
+    "Corrected coordinate and EVLA-C feed update",
     "Direct HOLORASTER comparison",
     "R/L squint",
     "C147-* offset ring",
@@ -48,7 +53,7 @@ def test_publication_bundle_loads_without_bacchus_if_present() -> None:
     if not (root / "manifest.json").is_file():
         return
     bundle = load_bundle(root)
-    assert bundle.manifest["publication_version"] == "vla_c_band_beam_validation_v1"
+    assert bundle.manifest["publication_version"] in ALLOWED_PUBLICATION_VERSIONS
     assert "holoraster_channel32.json" in bundle.manifest["files"]
 
 

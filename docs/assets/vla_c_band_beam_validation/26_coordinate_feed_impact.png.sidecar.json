@@ -1,0 +1,98 @@
+{
+  "figure_id": "F26",
+  "filename": "26_coordinate_feed_impact.png",
+  "image_sha256": "64fc2be3cdaf36be3f5a2b7407803477381691e2cca9b3cf0a06720530b6c16b",
+  "generating_function": "plot_coordinate_feed_impact",
+  "claims": [
+    "C01",
+    "C07"
+  ],
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:08.291592+00:00",
+  "caption": "Impact of correcting the query coordinate and replacing the generic VLA feed with CASA's EVLA-C parameters. Negative paired \u0394L is better. The EVLA-C feed transfers across spatial and mover holdouts when both models use source-in-beam coordinates.",
+  "table": {
+    "absolute": {
+      "generic_commanded": [
+        0.007054667297027773,
+        0.07808097346399165,
+        0.33481966090500137,
+        0.05994560314947579
+      ],
+      "generic_source_lm": [
+        0.006692888644984579,
+        0.06491540559352474,
+        0.3414159479547536,
+        0.05823688557684725
+      ],
+      "evla_c_source_lm": [
+        0.005756832413145661,
+        0.05885436047052159,
+        0.3091731086871977,
+        0.05253332576328367
+      ]
+    },
+    "paired": {
+      "generic_source_lm_vs_generic_commanded": {
+        "spatial": {
+          "delta": 0.001191019715968883,
+          "delta_lo": -0.005319307391281258,
+          "delta_hi": 0.009893888788282635,
+          "improves": 0
+        },
+        "moving": {
+          "delta": -0.0030011999661732347,
+          "delta_lo": -0.0035119643166564643,
+          "delta_hi": -0.0023805315872077247,
+          "improves": 1
+        }
+      },
+      "evla_c_source_lm_vs_generic_commanded": {
+        "spatial": {
+          "delta": -0.004446670857233194,
+          "delta_lo": -0.011615298420211247,
+          "delta_hi": 0.003376379990177349,
+          "improves": 0
+        },
+        "moving": {
+          "delta": -0.00906862485757784,
+          "delta_lo": -0.010352310672578142,
+          "delta_hi": -0.007554341196933408,
+          "improves": 1
+        }
+      },
+      "evla_c_source_lm_vs_generic_source_lm": {
+        "spatial": {
+          "delta": -0.005637690573202077,
+          "delta_lo": -0.008144253321343138,
+          "delta_hi": -0.003774354644574385,
+          "improves": 1
+        },
+        "moving": {
+          "delta": -0.006067424891404605,
+          "delta_lo": -0.007093486665700463,
+          "delta_hi": -0.004922899091496527,
+          "improves": 1
+        }
+      }
+    }
+  },
+  "table_sha256": "0b36941effb513f454599ebdc5ffeabd5614160abf9d8c4b375b4b4da7960c0f",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
+}

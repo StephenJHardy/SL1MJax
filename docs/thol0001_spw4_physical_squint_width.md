@@ -52,17 +52,30 @@ The train-row joint surface along the native CASSBEAM axis bottoms at
 magnitude scale 0 and width 1.04. The perpendicular profile bottoms on
 the grid edge toward the measured map direction.
 
+The missing direct paired empirical-versus-no-squint interval is
+computed in the follow-on spatial-convention product, not inferred
+from the two native-referenced point estimates.
+
 ## Outcome
 
-- Width **1.04** survived: interior, stable under both fixed-\(\delta\)
-  choices, paired intervals below zero, all five holdout movers, no
-  material main-lobe regression. This reproduces the earlier prior
-  without forcing it.
-- The predeclared empirical-versus-native paired gates passed, so an
-  empirical \(\delta\) may be stored as an SPW-4 development coefficient.
-- Native CASSBEAM still loses to the no-squint ablation in visibility
-  loss. Keep native squint as the physics prior; do not set it to zero.
-- Do not freeze a general C-band beam. Do not open SPW 5. A later
-  one-shot transfer is not justified until the native-axis versus
-  empirical-direction disagreement is resolved without refitting on
-  SPW 5.
+The holography measures a real differential R/L displacement. The
+current native CASSBEAM orientation is not an adequate production
+prior: it loses to no-squint in visibility loss, while the measured
+direction beats native. That is a spatial-convention problem, not a
+proof that squint is absent.
+
+- Keep the physical role of CASSBEAM squint. Do not set \(\delta=0\)
+  as the model.
+- Do **not** retain the current CASSBEAM coordinate orientation as
+  the production prior. The independent-mask vector
+  \((0.252,-0.675)\) arcmin differs from the frozen centres
+  \((0.292,+0.290)\) by about \(114^\circ\).
+- Width **1.04** survived and is frozen for the discrete convention
+  test.
+- The 0.692′–0.733′ bootstrap interval is sampling variation of the
+  independent-mask estimator only. The common-mask magnitude is
+  0.449′. Direction is better determined than magnitude.
+- Do not freeze a general C-band beam. Leave SPW 5 sealed until a
+  discrete \(l/m\)-sign, axis-swap, and R/L-swap convention is locked
+  on the complete diagonal beam. Magnitude adjustment stays separate.
+  That discrete test is `thol0001_spw4_spatial_convention.md`.

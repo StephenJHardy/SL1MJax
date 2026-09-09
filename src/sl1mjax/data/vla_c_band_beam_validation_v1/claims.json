@@ -1,7 +1,7 @@
 {
   "version": "vla_c_band_beam_validation_v1",
-  "diagonal_reference": "cassbeam_diagonal_cband_reference",
-  "full_jones": "experimental_non_detection",
+  "diagonal_reference": "evla_c_source_lm_spw4_development",
+  "full_jones": "not_retested_after_coordinate_feed_update",
   "spw5": "sealed_diagonal_frequency_transfer",
   "convention_search": false,
   "rr_slope": "1.032+0.003i",
@@ -15,18 +15,21 @@
     "regions": {
       "main_lobe": {
         "class": "accepted",
+        "intended_class": "accepted",
         "residual_power_rr": 0.006355800881393682,
         "residual_power_ll": 0.007597568148713863,
         "matches_class": true
       },
       "mid": {
         "class": "qualified",
+        "intended_class": "qualified",
         "residual_power_rr": 0.0769820790299416,
         "residual_power_ll": 0.08914760039946078,
         "matches_class": true
       },
       "outer_diagnostic": {
         "class": "diagnostic",
+        "intended_class": "diagnostic",
         "residual_power_rr": 0.3231464586972649,
         "residual_power_ll": 0.3485263146721795,
         "matches_class": true
@@ -144,7 +147,7 @@
     },
     {
       "id": "C05",
-      "title": "CASSBEAM full Jones is an experimental non-detection",
+      "title": "Historical generic CASSBEAM full Jones is an experimental non-detection",
       "status": "blocked",
       "support_class": "experimental_non_detection",
       "metric": {
@@ -153,7 +156,7 @@
         "rl_residual_power": 0.9936053081988492,
         "lr_residual_power": 0.9921176253271361
       },
-      "evidence": "RL/LR correlation 0.101 / 0.104; residual power 0.994 / 0.992; predicted signal below the observed cloud",
+      "evidence": "RL/LR correlation 0.101 / 0.104; residual power 0.994 / 0.992; predicted signal below the observed cloud. This has not been retested with EVLA-C parameters at source-in-beam coordinates",
       "figures": [
         "F18"
       ],
@@ -205,6 +208,61 @@
         "manifest": ""
       },
       "validation_split": "HOLORASTER channel 32, 20%-of-peak main-lobe mask"
+    },
+    {
+      "id": "C08",
+      "title": "HOLORASTER beam queries use source-in-feed coordinates",
+      "status": "pass",
+      "support_class": "coordinate_contract",
+      "metric": {
+        "max_abs_source_plus_commanded_rad": 0.0,
+        "axis_map": "az_to_plus_l_el_to_plus_m_no_swap"
+      },
+      "evidence": "POINTING_OFFSET is the commanded AZELGEO displacement; a source at the phase centre is queried at its negative in the feed frame",
+      "figures": [
+        "F26",
+        "F28",
+        "F29"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": null,
+        "squint_publication": null,
+        "offset_ring": null,
+        "manifest": ""
+      },
+      "validation_split": "Geometry contract; no visibility model selected"
+    },
+    {
+      "id": "C09",
+      "title": "EVLA-C feed parameters improve SPW-4 development holdouts",
+      "status": "pass",
+      "support_class": "development_only",
+      "metric": {
+        "spatial_delta": -0.005637690573202077,
+        "spatial_delta_lo": -0.008144253321343138,
+        "spatial_delta_hi": -0.003774354644574385,
+        "mover_delta": -0.006067424891404605,
+        "mover_delta_lo": -0.007093486665700463,
+        "mover_delta_hi": -0.004922899091496527,
+        "evla_c_squint_arcmin": 0.5162489139387534
+      },
+      "evidence": "Against generic VLA at the same source-in-beam coordinates, spatial \u0394L -0.0056 and mover \u0394L -0.0061; both paired 95% intervals are below zero",
+      "figures": [
+        "F26",
+        "F27",
+        "F28",
+        "F29"
+      ],
+      "input_hashes": {
+        "holoraster_channel32": null,
+        "squint_publication": null,
+        "offset_ring": null,
+        "manifest": ""
+      },
+      "validation_split": "Frozen SPW-4 spatial and mover development holdouts",
+      "limitations": [
+        "One frequency only; production beam is not frozen and SPW 5 remains sealed"
+      ]
     }
   ]
 }

@@ -41,22 +41,26 @@ PRODUCT_ROOT = Path(
 )
 REFERENCE_ANTENNA = os.environ.get("SL1MJAX_THOL0001_REFANT", "ea02")
 HELD_OUT_REFERENCE = os.environ.get("SL1MJAX_THOL0001_HOLD_REFANT", "ea26")
-FLUX_SCANS = "2,51"
-HELD_OUT_FLUX_SCAN = "51"
-SOLVE_FLUX_SCAN = "2"
-PHASE_SCANS = (
-    "14,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,53,56,"
-    "58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102"
+FLUX_SCANS = os.environ.get("SL1MJAX_THOL0001_FLUX_SCANS", "2,51")
+HELD_OUT_FLUX_SCAN = os.environ.get("SL1MJAX_THOL0001_HELD_OUT_FLUX_SCAN", "51")
+SOLVE_FLUX_SCAN = os.environ.get("SL1MJAX_THOL0001_SOLVE_FLUX_SCAN", "2")
+PHASE_SCANS = os.environ.get(
+    "SL1MJAX_THOL0001_PHASE_SCANS",
+    (
+        "14,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,53,56,"
+        "58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102"
+    ),
 )
-ON_AXIS_FIELDS = "0,9"
-PREDICTION_FIELDS = "0,9,10"
-APPLY_FIELDS = "0,9,10,11"
-FLUX_FIELD = "0"
-D_FIELD = "9"
-HOLORASTER_FIELD = "10"
-THREE_C286_FIELD = "11"
-SPW = "4,5"
-EDGE_SPW = "4:5~58,5:5~58"
+ON_AXIS_FIELDS = os.environ.get("SL1MJAX_THOL0001_ON_AXIS_FIELDS", "0,9")
+PREDICTION_FIELDS = os.environ.get("SL1MJAX_THOL0001_PREDICTION_FIELDS", "0,9,10")
+APPLY_FIELDS = os.environ.get("SL1MJAX_THOL0001_APPLY_FIELDS", "0,9,10,11")
+FLUX_FIELD = os.environ.get("SL1MJAX_THOL0001_FLUX_FIELD", "0")
+D_FIELD = os.environ.get("SL1MJAX_THOL0001_D_FIELD", "9")
+HOLORASTER_FIELD = os.environ.get("SL1MJAX_THOL0001_HOLORASTER_FIELD", "10")
+THREE_C286_FIELD = os.environ.get("SL1MJAX_THOL0001_CHECK_FIELD", "11")
+SPW = os.environ.get("SL1MJAX_THOL0001_SPW", "4,5")
+EDGE_SPW = os.environ.get("SL1MJAX_THOL0001_EDGE_SPW", "4:5~58,5:5~58")
+G0_SPW = os.environ.get("SL1MJAX_THOL0001_G0_SPW", "4:27~36,5:27~36")
 THREE_C286_FRACTIONAL_POLARISATION = 0.112
 THREE_C286_EVPA_DEG = 66.0
 SETJY_STANDARD = "Perley-Butler 2017"
@@ -94,12 +98,12 @@ def _jsonable(value):
     if hasattr(value, "tolist"):
         try:
             return _jsonable(value.tolist())
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             pass
     if hasattr(value, "item"):
         try:
             return _jsonable(value.item())
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             pass
     return str(value)
 
@@ -132,6 +136,10 @@ if (
     )
 
 vis = str(WORK_MS)
+if "upper_c" in vis and FLUX_SCANS == "2,51":
+    raise SystemExit(
+        "refusing lower-C 3C286/scan calibration on an upper-C work MS"
+    )
 try:
     flagmanager(
         vis=vis,
@@ -183,7 +191,7 @@ gaincal(
     field=FLUX_FIELD,
     scan=SOLVE_FLUX_SCAN,
     refant=REFERENCE_ANTENNA,
-    spw="4:27~36,5:27~36",
+    spw=G0_SPW,
     gaintype="G",
     calmode="p",
     solint="int",
@@ -296,6 +304,10 @@ _write(
     },
 )
 
+if os.environ.get("SL1MJAX_THOL0001_DIAGONAL_ONLY") == "1":
+    print("CAL_DONE diagonal_only")
+    raise SystemExit(0)
+
 kcross = _table("fullpol", "Kcross.cal")
 dterms = _table("fullpol", "Df.cal")
 angle = _table("fullpol", "Xf.cal")
@@ -313,7 +325,7 @@ stokes_i = 0.0
 try:
     flux0 = next(iter(setjy_flux.values()))
     stokes_i = float(flux0["0"]["fluxd"][0])
-except StopIteration, KeyError, TypeError:
+except (StopIteration, KeyError, TypeError):
     stokes_i = 7.5
 polarised = THREE_C286_FRACTIONAL_POLARISATION * stokes_i
 stokes_q = polarised * math.cos(math.radians(THREE_C286_EVPA_DEG))

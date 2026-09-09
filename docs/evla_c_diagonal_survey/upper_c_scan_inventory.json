@@ -1,0 +1,5719 @@
+{
+  "check_fields": [
+    "J0521+1638",
+    "J0542+4951"
+  ],
+  "execution": "upper_c",
+  "lower_c_scan_list_reusable": false,
+  "n_rows": 815,
+  "scans": [
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 1,
+      "state_id": 0,
+      "state_mode": "SYSTEM_CONFIGURATION#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 2,
+      "state_id": 0,
+      "state_mode": "SYSTEM_CONFIGURATION#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 3,
+      "state_id": 1,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED,CALIBRATE_FLUX#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 4,
+      "state_id": 2,
+      "state_mode": "UNSPECIFIED#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 3,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 4,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 5,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 6,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 7,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 8,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 9,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 10,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 5,
+      "state_id": 11,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 1,
+      "field_name": "C147-N",
+      "scan_number": 6,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 2,
+      "field_name": "C147-NW",
+      "scan_number": 7,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 3,
+      "field_name": "C147-W",
+      "scan_number": 8,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 4,
+      "field_name": "C147-SW",
+      "scan_number": 9,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 5,
+      "field_name": "C147-S",
+      "scan_number": 10,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 6,
+      "field_name": "C147-SE",
+      "scan_number": 11,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 7,
+      "field_name": "C147-E",
+      "scan_number": 12,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 8,
+      "field_name": "C147-NE",
+      "scan_number": 13,
+      "state_id": 12,
+      "state_mode": "OBSERVE_TARGET#UNSPECIFIED"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 15,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 16,
+      "state_id": 2,
+      "state_mode": "UNSPECIFIED#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 3,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 4,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 5,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 6,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 7,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 8,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 9,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 10,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 17,
+      "state_id": 11,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 18,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 19,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 20,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 21,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 22,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 23,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 24,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 25,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 26,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 27,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 28,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 29,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 30,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 31,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 32,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 33,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 34,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 35,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 36,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 37,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 38,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 39,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 40,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 41,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 42,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 43,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 44,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 45,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 46,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 47,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 48,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 49,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 50,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 51,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 52,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 53,
+      "state_id": 1,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED,CALIBRATE_FLUX#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 55,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 56,
+      "state_id": 2,
+      "state_mode": "UNSPECIFIED#UNSPECIFIED"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 3,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 4,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 5,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 6,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 7,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 8,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 9,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 10,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 0,
+      "field_name": "J0542+4951",
+      "scan_number": 57,
+      "state_id": 11,
+      "state_mode": "CALIBRATE_POINTING#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 58,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 59,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 60,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 61,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 62,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 63,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 64,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 65,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 66,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 67,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 68,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 69,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 70,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 71,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 72,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 73,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 74,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 75,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 76,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 77,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 78,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 79,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 80,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 81,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 82,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 83,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 84,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 85,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 86,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 87,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 88,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 89,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 90,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 91,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 92,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 93,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 94,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 95,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 96,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 97,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 98,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 14,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 15,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 16,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 17,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 18,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 19,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 20,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 21,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 22,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 23,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 24,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 25,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 26,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 27,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 28,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 29,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 30,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 31,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 32,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 33,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 10,
+      "field_name": "HOLORASTER",
+      "scan_number": 99,
+      "state_id": 34,
+      "state_mode": "MAP_ANTENNA_SURFACE#ON_SOURCE"
+    },
+    {
+      "field_id": 9,
+      "field_name": "J0542+4951",
+      "scan_number": 100,
+      "state_id": 13,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED"
+    },
+    {
+      "field_id": 11,
+      "field_name": "J0521+1638",
+      "scan_number": 101,
+      "state_id": 35,
+      "state_mode": "CALIBRATE_PHASE#UNSPECIFIED,CALIBRATE_POL_ANGLE#UNSPECIFIED,CALIBRATE_FLUX#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED"
+    }
+  ],
+  "source": "/media/stephen/astro/vla/extracted/THOL0001.sb31635131.eb31644651.57405.16003953703.ms",
+  "uses_3c138": true,
+  "uses_3c286": false
+}

@@ -44,6 +44,8 @@ def generate(
     reference_frequencies_mhz: set[int],
     gridsize: int,
     pixelsperbeam: int,
+    name_prefix: str = "vla-cband",
+    feedtaper_mode: str = "inherit",
 ) -> None:
     if gridsize < 32 or gridsize % 2:
         raise ValueError("gridsize must be even and at least 32")
@@ -59,7 +61,7 @@ def generate(
     expected_rows = _expected_rows(gridsize)
     for frequency_mhz in frequencies_mhz:
         group = "reference" if frequency_mhz in reference_frequencies_mhz else "spw4"
-        prefix = output_dir / group / f"vla-cband-{frequency_mhz}-g{gridsize}-p{pixelsperbeam}"
+        prefix = output_dir / group / f"{name_prefix}-{frequency_mhz}-g{gridsize}-p{pixelsperbeam}"
         data_path = prefix.with_suffix(".jones.dat")
         params_path = prefix.with_suffix(".params")
         if data_path.exists() and params_path.exists():
@@ -78,6 +80,12 @@ def generate(
             f"out={prefix}",
             "compute=jp",
         ]
+        if feedtaper_mode == "evla_c":
+            from sl1mjax.cassbeam_evla_c import evla_c_feedtaper_db
+
+            command.append(f"feedtaper={evla_c_feedtaper_db(frequency_mhz * 1.0e6):.4f}")
+        elif feedtaper_mode != "inherit":
+            raise ValueError(f"unknown feedtaper mode {feedtaper_mode!r}")
         completed = subprocess.run(
             command,
             check=False,
@@ -99,18 +107,41 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--gridsize", type=int, default=1024)
     parser.add_argument("--pixelsperbeam", type=int, default=32)
+    parser.add_argument("--name-prefix", type=str, default="vla-cband")
+    parser.add_argument(
+        "--feedtaper-mode",
+        choices=("inherit", "evla_c"),
+        default="inherit",
+    )
+    parser.add_argument(
+        "--frequencies-mhz",
+        type=str,
+        default="",
+        help="Comma-separated MHz list. Empty means the full SPW-4 plus 4692 set.",
+    )
     arguments = parser.parse_args()
-    spw4 = list(range(4500, 4628, 2))
-    reference = {4692}
+    frozen = Path(
+        "/media/stephen/astro/vla/beam_models/cassbeam_cband_full_jones_g1024_p32_20260906"
+    )
+    if arguments.output_dir.resolve() == frozen.resolve():
+        raise RuntimeError("refusing to write into the frozen generic CASSBEAM artifact")
+    if arguments.frequencies_mhz.strip():
+        frequencies = [int(item) for item in arguments.frequencies_mhz.split(",") if item.strip()]
+        reference = {item for item in frequencies if item == 4692}
+    else:
+        frequencies = [*range(4500, 4628, 2), 4692]
+        reference = {4692}
     generate(
         binary=arguments.binary,
         base_input=arguments.base_input,
         geometry=arguments.geometry,
         output_dir=arguments.output_dir,
-        frequencies_mhz=[*spw4, *sorted(reference)],
+        frequencies_mhz=frequencies,
         reference_frequencies_mhz=reference,
         gridsize=arguments.gridsize,
         pixelsperbeam=arguments.pixelsperbeam,
+        name_prefix=arguments.name_prefix,
+        feedtaper_mode=arguments.feedtaper_mode,
     )
     return 0
 

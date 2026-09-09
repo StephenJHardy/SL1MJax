@@ -1,0 +1,23 @@
+% EVLA C-band CASSBEAM input from CASA 6 EVLA_C BeamCalc defaults.
+% CASA stores feedpos[0] > 0 and negates it before the ray tracer.
+% The generic packaged VLA template remains the ablation, not this file.
+% Do not overwrite the frozen generic high-resolution artifact.
+name = EVLA
+sub_h = 8.47852
+feed_x = -0.94300
+feed_y = -0.249152
+feed_z = 1.67640
+geom = vla_geom
+feedtaper = 12.2595
+feedthetamax = 9.26
+legwidth = 0.27
+legfoot = 7.55
+legapex = 10.93876
+hole_radius = 2.0
+roughness = 0.00035
+freq = 4.692
+gridsize = 64
+pixelsperbeam = 6
+out = evla-cband-4692
+compute = jp
+Trec = 10

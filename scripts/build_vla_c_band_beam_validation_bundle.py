@@ -32,7 +32,18 @@ from sl1mjax.beam_validation_statistics import (
     raster_family_from_offset,
     residual_group_summary,
     scientific_voltage_masks,
+    visibility_hand_weight,
 )
+from sl1mjax.evla_c_publication import (
+    crosshand_quadrants_from_export,
+    frequency_series_from_reports,
+    holoraster_channel32_from_report,
+    offset_ring_from_c147_report,
+    residual_geometry_from_export,
+    squint_from_refresh_export,
+    supersession_ledger,
+)
+from sl1mjax.evla_c_validation_refresh import PRIMARY_ARMS, PUBLICATION_BUNDLE_VERSION
 from sl1mjax.holography import (
     THOL0001_EXECUTION_BLOCK,
     THOL0001_HOLORASTER_FIELD,
@@ -60,6 +71,10 @@ DEFAULT_OFFSET_RING = Path(
 )
 DEFAULT_FULL_JONES = Path(
     "/media/stephen/astro/vla/extracted/commissioning/validation/scientific/full_jones_unblock"
+)
+DEFAULT_COORDINATE_FEED = Path(
+    "/media/stephen/astro/vla/extracted/commissioning/validation/scientific/"
+    "holoraster_coordinate_feed_comparison_v2"
 )
 PACKAGE_HOLOGRAPHY = Path(__file__).resolve().parents[1] / "src" / "sl1mjax" / "data" / "holography_thol0001_lower_c"
 SCATTER_POINTS = 8000
@@ -89,39 +104,46 @@ def extract_holoraster_tables(
     npz_path: Path,
     *,
     antenna_names: tuple[str, ...] = THOL0001_ANTENNA_NAMES,
+    predicted_key: str = "predicted_diag",
+    full_key: str = "predicted_full",
+    offset_key: str = "offset",
+    moving_key: str = "moving",
+    reference_key: str = "reference",
+    mask_key: str | None = "mask",
 ) -> dict[str, object]:
     """Reduce the 114 MiB comparison arrays to plot tables. No new predict."""
 
     with np.load(npz_path, allow_pickle=False) as handle:
         measured = handle["measured"]
-        predicted = handle["predicted_diag"]
-        full = handle["predicted_full"]
+        predicted = handle[predicted_key]
+        full = handle[full_key]
         weight = handle["weight"]
-        offset = handle["offset"]
-        moving = handle["moving"]
-        reference = handle["reference"]
-        mask = np.asarray(handle["mask"], dtype=bool)
+        offset = handle[offset_key]
+        moving = handle[moving_key]
+        reference = handle[reference_key]
+        if mask_key is None or mask_key not in handle.files:
+            mask = np.ones(measured.shape[0], dtype=bool)
+        else:
+            mask = np.asarray(handle[mask_key], dtype=bool)
     intensity = channel32_source_i_jy()
     regions = scientific_voltage_masks(measured, weight, intensity_jy=intensity)
     choose = np.flatnonzero(mask)
     index = choose[_subsample(choose.size)]
     radius = np.hypot(offset[:, 0], offset[:, 1]) * (180.0 * 60.0 / np.pi)
-    w_rr = np.asarray(weight, dtype=np.float64)
-    if w_rr.ndim == 4:
-        w_ll = w_rr[:, 0, 1, 1]
-        w_rr = w_rr[:, 0, 0, 0]
-    else:
-        w_ll = w_rr
+    w_rr = visibility_hand_weight(weight, 0, 0)
+    w_ll = visibility_hand_weight(weight, 1, 1)
     maps = {}
-    for name, values in (
-        ("rr_measured", _hand(measured, 0, 0)),
-        ("rr_cassbeam", _hand(predicted, 0, 0)),
-        ("rr_residual", _hand(measured, 0, 0) - _hand(predicted, 0, 0)),
-        ("ll_measured", _hand(measured, 1, 1)),
-        ("ll_cassbeam", _hand(predicted, 1, 1)),
-        ("ll_residual", _hand(measured, 1, 1) - _hand(predicted, 1, 1)),
+    for name, values, hand_weight in (
+        ("rr_measured", _hand(measured, 0, 0), w_rr),
+        ("rr_cassbeam", _hand(predicted, 0, 0), w_rr),
+        ("rr_residual", _hand(measured, 0, 0) - _hand(predicted, 0, 0), w_rr),
+        ("ll_measured", _hand(measured, 1, 1), w_ll),
+        ("ll_cassbeam", _hand(predicted, 1, 1), w_ll),
+        ("ll_residual", _hand(measured, 1, 1) - _hand(predicted, 1, 1), w_ll),
     ):
-        mapped = binned_complex_map(offset[mask], values[mask], w_rr[mask], n_bin=SPATIAL_MAP_BINS)
+        mapped = binned_complex_map(
+            offset[mask], values[mask], hand_weight[mask], n_bin=SPATIAL_MAP_BINS
+        )
         maps[name] = mapped["mean"]
         maps["l_arcmin"] = mapped["l_arcmin"]
         maps["m_arcmin"] = mapped["m_arcmin"]
@@ -309,6 +331,151 @@ def extract_holoraster_tables(
     }
 
 
+def extract_coordinate_feed_tables(
+    npz_path: Path,
+    report: dict[str, Any],
+) -> dict[str, object]:
+    """Reduce the corrected-coordinate three-beam comparison for publication."""
+
+    with np.load(npz_path, allow_pickle=False) as handle:
+        arrays = {key: np.asarray(handle[key]) for key in handle.files}
+    measured = np.asarray(arrays["measured_rr_ll"], dtype=np.complex128)
+    weight = np.asarray(arrays["weight_rr_ll"], dtype=np.float64)
+    source_lm = np.asarray(arrays["source_lm_feed"], dtype=np.float64)
+    commanded = np.asarray(arrays["commanded_offset_azelgeo"], dtype=np.float64)
+    if measured.ndim != 2 or measured.shape[1] != 2:
+        raise ValueError("coordinate/feed measured rows must be (row, RR/LL)")
+    n_row = measured.shape[0]
+    models = {
+        "generic_commanded": np.asarray(
+            arrays["generic_commanded_rr_ll"], dtype=np.complex128
+        ),
+        "generic_source_lm": np.asarray(
+            arrays["generic_source_lm_rr_ll"], dtype=np.complex128
+        ),
+        "evla_c_source_lm": np.asarray(
+            arrays["evla_c_source_lm_rr_ll"], dtype=np.complex128
+        ),
+    }
+    if any(values.shape != measured.shape for values in models.values()):
+        raise ValueError("coordinate/feed prediction shapes disagree")
+    valid = np.column_stack(
+        (
+            np.asarray(arrays["rr_valid"], dtype=bool),
+            np.asarray(arrays["ll_valid"], dtype=bool),
+        )
+    )
+    splits = {
+        "development": np.ones(n_row, dtype=bool),
+        "train": np.asarray(arrays["train"], dtype=bool),
+        "spatial_holdout": np.asarray(arrays["spatial_holdout"], dtype=bool),
+        "mover_holdout": np.asarray(arrays["mover_holdout"], dtype=bool),
+        "reference_holdout": np.asarray(arrays["reference_holdout"], dtype=bool),
+    }
+    regions = {
+        "all": np.ones(n_row, dtype=bool),
+        "main_lobe": np.asarray(arrays["main_lobe"], dtype=bool),
+        "mid": np.asarray(arrays["mid"], dtype=bool),
+        "outer_diagnostic": np.asarray(arrays["outer_diagnostic"], dtype=bool),
+    }
+    intensity = float(np.asarray(arrays["source_i_jy"]).reshape(-1)[0])
+    metrics: dict[str, object] = {}
+    for model_name, predicted in models.items():
+        model_metrics: dict[str, object] = {}
+        for split_name, split_mask in splits.items():
+            split_metrics: dict[str, object] = {}
+            for region_name, region_mask in regions.items():
+                hands: dict[str, object] = {}
+                for hand_index, hand_name in enumerate(("rr", "ll")):
+                    choose = split_mask & region_mask & valid[:, hand_index]
+                    score = complex_visibility_score(
+                        measured[choose, hand_index],
+                        predicted[choose, hand_index],
+                        weight[choose, hand_index],
+                    )
+                    residual = np.abs(
+                        measured[choose, hand_index] - predicted[choose, hand_index]
+                    )
+                    score["median_abs_over_i"] = (
+                        float(np.median(residual) / intensity) if residual.size else float("nan")
+                    )
+                    hands[hand_name] = score
+                split_metrics[region_name] = hands
+            model_metrics[split_name] = split_metrics
+        metrics[model_name] = model_metrics
+
+    choose = _subsample(n_row)
+    scatter: dict[str, np.ndarray] = {
+        "source_i_jy": np.asarray(intensity, dtype=np.float64),
+        "measured_rr": measured[choose, 0].astype(np.complex64),
+        "measured_ll": measured[choose, 1].astype(np.complex64),
+        "main_lobe": regions["main_lobe"][choose],
+        "mid": regions["mid"][choose],
+        "outer_diagnostic": regions["outer_diagnostic"][choose],
+        "train": splits["train"][choose],
+        "spatial_holdout": splits["spatial_holdout"][choose],
+        "mover_holdout": splits["mover_holdout"][choose],
+    }
+    for model_name, predicted in models.items():
+        scatter[f"{model_name}_rr"] = predicted[choose, 0].astype(np.complex64)
+        scatter[f"{model_name}_ll"] = predicted[choose, 1].astype(np.complex64)
+
+    maps: dict[str, np.ndarray] = {}
+    for hand_index, hand_name in enumerate(("rr", "ll")):
+        choose_hand = valid[:, hand_index]
+        measured_map = binned_complex_map(
+            source_lm[choose_hand],
+            measured[choose_hand, hand_index],
+            weight[choose_hand, hand_index],
+            n_bin=SPATIAL_MAP_BINS,
+        )
+        maps[f"{hand_name}_measured"] = measured_map["mean"]
+        maps[f"{hand_name}_weight"] = measured_map["weight"]
+        maps["l_arcmin"] = measured_map["l_arcmin"]
+        maps["m_arcmin"] = measured_map["m_arcmin"]
+        for model_name, predicted in models.items():
+            model_map = binned_complex_map(
+                source_lm[choose_hand],
+                predicted[choose_hand, hand_index],
+                weight[choose_hand, hand_index],
+                n_bin=SPATIAL_MAP_BINS,
+            )
+            maps[f"{model_name}_{hand_name}"] = model_map["mean"]
+
+    summary = {
+        "artifact": report.get("artifact"),
+        "scope": "SPW-4 frozen development rows",
+        "frequency_hz": float(np.asarray(arrays["frequency_hz"]).reshape(-1)[0]),
+        "source_i_jy": intensity,
+        "n_rows": n_row,
+        "coordinate_contract": {
+            "commanded_offset_azelgeo": "DIRECTION - TARGET = POINTING_OFFSET",
+            "source_lm_feed": "negative commanded displacement; CASSBEAM query coordinate",
+            "axis_map": (report.get("interpretation") or {}).get("axis_map"),
+        },
+        "models": {
+            "generic_commanded": "historical generic VLA artifact at commanded offsets",
+            "generic_source_lm": "generic VLA artifact at source_lm_feed",
+            "evla_c_source_lm": "CASA-derived EVLA-C feed parameters at source_lm_feed",
+        },
+        "metrics": metrics,
+        "paired_scores": report.get("paired_scores"),
+        "interpretation": report.get("interpretation"),
+        "map_squint": report.get("map_squint"),
+        "generic_plane_centroids": report.get("generic_plane_centroids"),
+        "evla_plane_centroids": report.get("evla_plane_centroids"),
+        "width_grids": report.get("width_grids"),
+        "row_accounting": report.get("row_accounting"),
+        "development_only": True,
+        "spw5_closed": True,
+        "production_beam_frozen": False,
+        "commanded_source_max_abs_error_rad": float(
+            np.max(np.abs(source_lm + commanded))
+        ),
+    }
+    return {"summary": summary, "scatter": scatter, "maps": maps}
+
+
 def _frequency_without_publication_squint(frequency: dict[str, Any]) -> dict[str, Any]:
     """Keep copolar/cross-hand scores. Demote full-raster frequency squint."""
 
@@ -466,6 +633,7 @@ def build_from_named_products(
     holoraster_dir: Path,
     offset_ring_dir: Path,
     full_jones_dir: Path | None,
+    coordinate_feed_dir: Path,
     holography_dir: Path,
     output_dir: Path,
 ) -> Path:
@@ -497,6 +665,11 @@ def build_from_named_products(
         holoraster_dir / "channel32_comparison.npz",
         antenna_names=THOL0001_ANTENNA_NAMES,
     )
+    coordinate_feed_report = _load(coordinate_feed_dir / "report.json")
+    coordinate_feed = extract_coordinate_feed_tables(
+        coordinate_feed_dir / "channel32_model_comparison.npz",
+        coordinate_feed_report,
+    )
     fields = {
         "fields": [
             {
@@ -522,7 +695,9 @@ def build_from_named_products(
     return write_validation_bundle(
         output_dir,
         observation=_observation_summary(occupancy_summary),
-        calibration=_calibration_summary(holography_dir, report.get("calibration_hashes") or {}, applyback),
+        calibration=_calibration_summary(
+            holography_dir, report.get("calibration_hashes") or {}, applyback
+        ),
         convention_gates=_convention_gates(holography_dir, comparison, goldens),
         holoraster_channel32=channel32,
         holoraster_frequency=frequency,
@@ -540,15 +715,22 @@ def build_from_named_products(
         maps=tables["maps"],
         cells=tables["cells"],
         occupancy=tables["occupancy"],
+        coordinate_feed_comparison=coordinate_feed["summary"],
+        coordinate_feed_scatter=coordinate_feed["scatter"],
+        coordinate_feed_maps=coordinate_feed["maps"],
         provenance={
             "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
-            "revision": "outer_complex_magnitude_and_phase",
+            "revision": "evla_c_source_lm_impact",
             "source_products": {
                 "holoraster_cassbeam_comparison": "named Bacchus product",
                 "c147_offset_ring": "named Bacchus product",
                 "holography_thol0001_lower_c": "in-repo occupancy and calibration summaries",
+                "holoraster_coordinate_feed_comparison_v2": "named Bacchus product",
             },
-            "predictions_recomputed": False,
+            "predictions_recomputed": {
+                "historical_generic_commanded": False,
+                "coordinate_feed_comparison": True,
+            },
             "full_raster_squint_published": False,
             "spw5_opened": False,
             "plot_code": PUBLICATION_VERSION,
@@ -556,18 +738,234 @@ def build_from_named_products(
     )
 
 
+def build_from_existing_bundle(
+    *,
+    existing_bundle: Path,
+    coordinate_feed_dir: Path,
+    output_dir: Path,
+) -> Path:
+    """Add the corrected-coordinate comparison without reopening the MS products."""
+
+    source = Path(existing_bundle)
+    tables = source / "plot_tables"
+
+    def plot_table(name: str) -> dict[str, np.ndarray]:
+        with np.load(tables / name, allow_pickle=False) as handle:
+            return {key: np.asarray(handle[key]) for key in handle.files}
+
+    coordinate_report = _load(coordinate_feed_dir / "report.json")
+    coordinate = extract_coordinate_feed_tables(
+        coordinate_feed_dir / "channel32_model_comparison.npz",
+        coordinate_report,
+    )
+    old_manifest = _load(source / "manifest.json")
+    provenance = {
+        key: value
+        for key, value in old_manifest.items()
+        if key not in {"schema_version", "publication_version", "files", "bundle_sha256"}
+    }
+    provenance.update(
+        {
+            "revision": "evla_c_source_lm_impact",
+            "previous_bundle_sha256": old_manifest.get("bundle_sha256"),
+            "predictions_recomputed": {
+                "historical_generic_commanded": False,
+                "coordinate_feed_comparison": True,
+            },
+            "spw5_opened": False,
+        }
+    )
+    return write_validation_bundle(
+        output_dir,
+        observation=_load(source / "observation_summary.json"),
+        calibration=_load(source / "calibration_summary.json"),
+        convention_gates=_load(source / "convention_gates.json"),
+        holoraster_channel32=_load(source / "holoraster_channel32.json"),
+        holoraster_frequency=_load(source / "holoraster_frequency.json"),
+        squint=_load(source / "squint_publication.json"),
+        offset_ring=_load(source / "offset_ring.json"),
+        residual_geometry=_load(tables / "residual_geometry.json"),
+        residual_strata=_load(tables / "residual_strata.json"),
+        radial_coherence=_load(tables / "radial_coherence.json"),
+        antenna_coherence=_load(tables / "antenna_coherence.json"),
+        bright_source_examples=_load(tables / "bright_source_examples.json"),
+        frequency_series=_load(tables / "frequency_series.json"),
+        offset_ring_fields=_load(tables / "offset_ring_fields.json"),
+        crosshand_quadrants=_load(tables / "crosshand_quadrants.json"),
+        scatter=plot_table("holoraster_scatter.npz"),
+        maps=plot_table("holoraster_maps.npz"),
+        cells=plot_table("holoraster_cells.npz"),
+        occupancy=plot_table("raster_occupancy.npz"),
+        coordinate_feed_comparison=coordinate["summary"],
+        coordinate_feed_scatter=coordinate["scatter"],
+        coordinate_feed_maps=coordinate["maps"],
+        provenance=provenance,
+    )
+
+
+def build_from_refresh(
+    *,
+    refresh_dir: Path,
+    existing_bundle: Path,
+    coordinate_feed_dir: Path,
+    output_dir: Path,
+) -> Path:
+    """Build v2 from the EVLA-C refresh product. Reuse F01–F04 provenance only."""
+
+    source = Path(existing_bundle)
+    tables = source / "plot_tables"
+    channel32_report = _load(refresh_dir / "channels" / "channel32_report.json")
+    classification_path = refresh_dir / "phase4_classification.json"
+    if classification_path.is_file():
+        channel32_report = {
+            **channel32_report,
+            "classification": _load(classification_path),
+        }
+    holoraster_channel32 = holoraster_channel32_from_report(channel32_report)
+    reports = [channel32_report]
+    for path in sorted((refresh_dir / "channels").glob("channel*_report.json")):
+        if path.name == "channel32_report.json":
+            continue
+        reports.append(_load(path))
+    reports.sort(key=lambda item: int(item["channel"]))
+    frequency = frequency_series_from_reports(reports)
+    squint = squint_from_refresh_export(refresh_dir / "channels" / "channel32_export.npz")
+    extracted = extract_holoraster_tables(
+        refresh_dir / "channels" / "channel32_export.npz",
+        predicted_key=PRIMARY_ARMS[0],
+        full_key=PRIMARY_ARMS[1],
+        offset_key="source_lm_feed",
+        moving_key="moving_id",
+        reference_key="reference_id",
+        mask_key=None,
+    )
+    coordinate_report = _load(coordinate_feed_dir / "report.json")
+    coordinate = extract_coordinate_feed_tables(
+        coordinate_feed_dir / "channel32_model_comparison.npz",
+        coordinate_report,
+    )
+    ring_path = refresh_dir / "c147_ring" / "c147_report.json"
+    if ring_path.is_file():
+        offset_ring = offset_ring_from_c147_report(_load(ring_path))
+        offset_fields = {
+            "fields": offset_ring.get("fields") or [],
+            "partition": offset_ring.get("partition") or {},
+            "historical_holdout": True,
+        }
+    else:
+        offset_ring = {
+            **_load(source / "offset_ring.json"),
+            "status": "blocked",
+            "reason": "EVLA-C nine-frequency ring not yet written",
+            "historical": True,
+        }
+        offset_fields = _load(tables / "offset_ring_fields.json")
+    old_manifest = _load(source / "manifest.json")
+    provenance = {
+        "measurement_set_identity": "THOL0001.lowerC.spw45.scientific.ms",
+        "revision": "evla_c_full_jones_validation_refresh_v1",
+        "publication_version": PUBLICATION_BUNDLE_VERSION,
+        "previous_bundle_sha256": old_manifest.get("bundle_sha256"),
+        "predictions_recomputed": {
+            "historical_generic_commanded": False,
+            "evla_c_source_diagonal": True,
+            "evla_c_source_full_jones": True,
+        },
+        "full_raster_squint_published": False,
+        "spw5_opened": False,
+        "plot_code": PUBLICATION_BUNDLE_VERSION,
+        "supersession": supersession_ledger(),
+        "f01_f04_reused": True,
+        "development_only": True,
+    }
+    return write_validation_bundle(
+        output_dir,
+        observation=_load(source / "observation_summary.json"),
+        calibration=_load(source / "calibration_summary.json"),
+        convention_gates=_load(source / "convention_gates.json"),
+        holoraster_channel32=holoraster_channel32,
+        holoraster_frequency=frequency,
+        squint=squint,
+        offset_ring=offset_ring,
+        residual_geometry=residual_geometry_from_export(
+            refresh_dir / "channels" / "channel32_export.npz"
+        ),
+        residual_strata=extracted["strata"],
+        radial_coherence=extracted["radial_coherence"],
+        antenna_coherence=extracted["antenna_coherence"],
+        bright_source_examples=extracted["bright_source_examples"],
+        frequency_series=frequency,
+        offset_ring_fields=offset_fields,
+        crosshand_quadrants=crosshand_quadrants_from_export(
+            refresh_dir / "channels" / "channel32_export.npz",
+            source_i_jy=float(channel32_report.get("source_i_jy") or 8.0),
+        ),
+        scatter=extracted["scatter"],
+        maps=extracted["maps"],
+        cells=extracted["cells"],
+        occupancy=_load_occupancy(tables),
+        coordinate_feed_comparison=coordinate["summary"],
+        coordinate_feed_scatter=coordinate["scatter"],
+        coordinate_feed_maps=coordinate["maps"],
+        provenance=provenance,
+        publication_version=PUBLICATION_BUNDLE_VERSION,
+    )
+
+
+def _load_occupancy(tables: Path) -> dict[str, np.ndarray]:
+    with np.load(tables / "raster_occupancy.npz", allow_pickle=False) as handle:
+        return {key: np.asarray(handle[key]) for key in handle.files}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--holoraster-dir", type=Path, default=DEFAULT_HOLORASTER)
     parser.add_argument("--offset-ring-dir", type=Path, default=DEFAULT_OFFSET_RING)
     parser.add_argument("--full-jones-dir", type=Path, default=DEFAULT_FULL_JONES)
+    parser.add_argument("--coordinate-feed-dir", type=Path, default=DEFAULT_COORDINATE_FEED)
     parser.add_argument("--holography-dir", type=Path, default=PACKAGE_HOLOGRAPHY)
     parser.add_argument("--output-dir", type=Path, default=default_bundle_root())
+    parser.add_argument(
+        "--existing-bundle",
+        type=Path,
+        help="augment an existing schema-3 bundle without reopening its Bacchus sources",
+    )
+    parser.add_argument(
+        "--refresh-dir",
+        type=Path,
+        help="EVLA-C refresh product; writes a v2 bundle and does not overwrite v1",
+    )
     arguments = parser.parse_args()
+    if arguments.refresh_dir is not None:
+        repo = Path(__file__).resolve().parents[1]
+        v1 = repo / "src" / "sl1mjax" / "data" / PUBLICATION_VERSION
+        v2 = repo / "src" / "sl1mjax" / "data" / PUBLICATION_BUNDLE_VERSION
+        destination = arguments.output_dir
+        if destination.resolve() == v1.resolve():
+            destination = v2
+        if destination.resolve() == v1.resolve():
+            raise RuntimeError("refusing to overwrite vla_c_band_beam_validation_v1")
+        path = build_from_refresh(
+            refresh_dir=arguments.refresh_dir,
+            existing_bundle=arguments.existing_bundle or v1,
+            coordinate_feed_dir=arguments.coordinate_feed_dir,
+            output_dir=destination,
+        )
+        print(path)
+        return
+    if arguments.existing_bundle is not None:
+        path = build_from_existing_bundle(
+            existing_bundle=arguments.existing_bundle,
+            coordinate_feed_dir=arguments.coordinate_feed_dir,
+            output_dir=arguments.output_dir,
+        )
+        print(path)
+        return
     path = build_from_named_products(
         holoraster_dir=arguments.holoraster_dir,
         offset_ring_dir=arguments.offset_ring_dir,
         full_jones_dir=arguments.full_jones_dir if arguments.full_jones_dir.is_dir() else None,
+        coordinate_feed_dir=arguments.coordinate_feed_dir,
         holography_dir=arguments.holography_dir,
         output_dir=arguments.output_dir,
     )

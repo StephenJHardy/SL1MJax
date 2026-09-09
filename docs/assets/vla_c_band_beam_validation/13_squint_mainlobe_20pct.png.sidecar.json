@@ -1,29 +1,47 @@
 {
   "figure_id": "F13",
   "filename": "13_squint_mainlobe_20pct.png",
-  "image_sha256": "8f7fb37153518a831d3730fa962127c68b01270dd1017b56932344fa5a66ecc3",
+  "image_sha256": "9d6a184b276fe0f065bbca5b169645be8694fabc5733f398ae2356d38fd4d43f",
   "generating_function": "plot_publication_squint",
   "claims": [
     "C07"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:49.410964+00:00",
-  "caption": "Publication 20%-of-peak squint. Full-raster centroids are not shown. Supports C07.",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:07.871636+00:00",
+  "caption": "Publication 20%-of-peak all-data squint. Independent-mask versus common-mask sensitivity is F29. Full-raster centroids are not the publication estimator. Supports C07.",
   "table": {
     "measured": {
-      "separation_arcmin": 0.5152630312039774,
-      "rr_l_arcmin": 0.1432090233470463,
-      "rr_m_arcmin": -0.11117740228021582,
-      "ll_l_arcmin": -0.0010700563858699083,
-      "ll_m_arcmin": 0.38347352360280906
+      "separation_arcmin": 0.5260404092653528,
+      "rr_l_arcmin": -0.13873153611477865,
+      "rr_m_arcmin": 0.17298584795228278,
+      "ll_l_arcmin": 0.007434368844121974,
+      "ll_m_arcmin": -0.3323398296137849
     },
     "cassbeam": {
-      "separation_arcmin": 0.4114956291199375,
-      "rr_l_arcmin": 0.21336572750765215,
-      "rr_m_arcmin": 0.14677094162432322,
-      "ll_l_arcmin": -0.07827745912401778,
-      "ll_m_arcmin": -0.14352701647414165
+      "separation_arcmin": 0.47604180753320846,
+      "rr_l_arcmin": -0.00026707847512888076,
+      "rr_m_arcmin": 0.2811783908890156,
+      "ll_l_arcmin": -0.1466994305551342,
+      "ll_m_arcmin": -0.1717822793504674
     }
   },
-  "table_sha256": "0610f2e655b276f3e88dec79959904cdebf54d36bca17b0ac43be9135cd8d1fb"
+  "table_sha256": "244340c65b226f9628dffad54bab750c46602ebab7bfb23259abeebe6bb4236b",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

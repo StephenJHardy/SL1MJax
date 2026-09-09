@@ -1,0 +1,20 @@
+{
+  "apply_fields": "0,9,10,11",
+  "check_field": "11",
+  "check_source": "J0521+1638",
+  "d_field": "9",
+  "execution": "upper_c",
+  "flux_field": "0",
+  "flux_scans": "3,53",
+  "held_out_flux_scan": "53",
+  "holoraster_field": "10",
+  "lower_c_scan_list_reusable": false,
+  "on_axis_fields": "0,9",
+  "phase_scans": "15,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,55,58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100",
+  "prediction_fields": "0,9,10",
+  "residual_jones": "not_applied",
+  "solve_flux_scan": "3",
+  "solve_on_holoraster_movers": false,
+  "uses_3c138": true,
+  "uses_3c286": false
+}

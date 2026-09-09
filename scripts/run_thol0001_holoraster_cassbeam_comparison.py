@@ -22,8 +22,7 @@ from sl1mjax.cassbeam_highres import DEFAULT_HIGHRES_ROOT, HighresCassbeamCatalo
 from sl1mjax.holography import HolographyObservation, THOL0001_SPW4_CHANNEL_32_HZ
 from sl1mjax.holography_alignment import apparent_voltage_response, holoraster_pair_masks
 from sl1mjax.holography_beam_prior import (
-    beams_from_native_unique,
-    predict_from_moving_beams,
+    evaluate_holoraster_cassbeam,
     unique_native_jones,
     vis_planes,
 )
@@ -193,58 +192,30 @@ def _row_fields(geometry, pair, chi, rows):
 def _predict_pair(catalog, frequencies, fields, residual, source):
     convention = locked_convention()
     refuse_convention_search([convention])
-    native, valid, inverse = unique_native_jones(
+    unique = unique_native_jones(
         fields["offset"],
         fields["chi_m"],
         frequencies,
         catalog,
         convention,
     )
-    full, ok = beams_from_native_unique(
-        native,
-        valid,
-        inverse,
-        convention,
-        catalog=catalog,
-        frequencies_hz=frequencies,
-        chi=fields["chi_m"],
-        off_diagonal=True,
-        calibration_state="casa_parang_true",
-    )
-    diag, _ok_d = beams_from_native_unique(
-        native,
-        valid,
-        inverse,
-        convention,
-        catalog=catalog,
-        frequencies_hz=frequencies,
-        chi=fields["chi_m"],
-        off_diagonal=False,
-        calibration_state="casa_parang_true",
-    )
-    pred_full = predict_from_moving_beams(
-        residual,
-        fields["moving"],
-        fields["reference"],
-        fields["moving_is_p"],
-        fields["chi_m"],
-        fields["chi_r"],
-        full,
-        source,
-    )
-    pred_diag = predict_from_moving_beams(
-        residual,
-        fields["moving"],
-        fields["reference"],
-        fields["moving_is_p"],
-        fields["chi_m"],
-        fields["chi_r"],
-        diag,
-        source,
-    )
-    pred_full = np.where(ok[..., None, None], pred_full, np.nan)
-    pred_diag = np.where(ok[..., None, None], pred_diag, np.nan)
-    return pred_full, pred_diag
+    kwargs = {
+        "catalog": catalog,
+        "frequencies_hz": frequencies,
+        "convention": convention,
+        "offset_lm_rad": fields["offset"],
+        "chi_moving": fields["chi_m"],
+        "chi_reference": fields["chi_r"],
+        "moving_id": fields["moving"],
+        "reference_id": fields["reference"],
+        "moving_is_p": fields["moving_is_p"],
+        "residual_jones": residual,
+        "source": source,
+        "unique_lookup": unique,
+    }
+    full = evaluate_holoraster_cassbeam(off_diagonal=True, **kwargs)
+    diag = evaluate_holoraster_cassbeam(off_diagonal=False, **kwargs)
+    return full.visibility, diag.visibility
 
 
 def _hand_weight(observation, row_mask):

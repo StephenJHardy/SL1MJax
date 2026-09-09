@@ -1,0 +1,5 @@
+# Per-slot HOLORASTER products. Keep notes, ledgers, and summary figures.
+phase5/
+phase5_channels/
+*_export.npz
+*_report.json

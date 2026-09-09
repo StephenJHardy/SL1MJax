@@ -1,0 +1,57 @@
+{
+  "publication_version": "vla_c_band_beam_validation_v3",
+  "production_accepted": false,
+  "full_jones_is_gate": false,
+  "entries": [
+    {
+      "item": "generic commanded HOLORASTER comparison",
+      "status": "historical",
+      "reason": "Used generic VLA feed at commanded AZELGEO offsets"
+    },
+    {
+      "item": "vla_c_band_beam_validation_v2 SPW-4 refresh",
+      "status": "preserved_checkpoint",
+      "reason": "Channel-32 residual Jones reused across its series; not band-ready"
+    },
+    {
+      "item": "SPW 5",
+      "status": "declared_diagonal_frequency_transfer",
+      "reason": "Opened under identity residual Jones; not a full-Jones reopen"
+    },
+    {
+      "item": "channel-32 residual Jones apply",
+      "status": "not_applied",
+      "reason": "Survey policy is identity residual Jones"
+    },
+    {
+      "item": "width 1.04 / inherited squint / convention ladder",
+      "status": "not_inherited",
+      "reason": "Unit EVLA-C physical model only"
+    },
+    {
+      "item": "full Jones scientific acceptance",
+      "status": "diagnostic_not_gate",
+      "reason": "Refresh outcome inconclusive_sensitivity; not required for imaging"
+    },
+    {
+      "item": "3C391 seven-pointing survey smoke",
+      "status": "complete",
+      "reason": "Finite train/reload loss on C1\u2013C7 at 4536/4598/4662 MHz"
+    },
+    {
+      "item": "Pass B within-SPW extras outside SPWs 4\u20136",
+      "status": "pass_a_only",
+      "reason": "Pass A complete; Pass B limited to lower-C SPWs 4\u20136"
+    },
+    {
+      "item": "band-wide numerical convergence",
+      "status": "incomplete",
+      "reason": "No low/mid/high aperture-resolution and angular-sampling suite"
+    },
+    {
+      "item": "upper-C archive integrity",
+      "status": "unverified",
+      "reason": "Inner ms.tgz CRC error; casacore readability is not a payload checksum"
+    }
+  ]
+}

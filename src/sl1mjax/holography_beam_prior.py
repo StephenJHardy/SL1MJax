@@ -509,6 +509,8 @@ def bootstrap_complex_from_moments(
     finite = draws[np.isfinite(draws.real) & np.isfinite(draws.imag)]
     real_ci = _ci95(finite.real)
     imag_ci = _ci95(finite.imag)
+    abs_draws = np.abs(finite)
+    abs_ci = _ci95(abs_draws)
     return {
         "real": float(point.real),
         "imag": float(point.imag),
@@ -517,6 +519,8 @@ def bootstrap_complex_from_moments(
         "n_boot": int(finite.size),
         "real_ci95": real_ci,
         "imag_ci95": imag_ci,
+        "abs_ci95": abs_ci,
+        "abs_ul95": float(np.quantile(abs_draws, 0.95)) if abs_draws.size else float("nan"),
         "consistent_with_zero": _contains(real_ci, 0.0) and _contains(imag_ci, 0.0),
         "consistent_with_one": _contains(real_ci, 1.0) and _contains(imag_ci, 0.0),
     }
@@ -769,6 +773,9 @@ def spatial_convention_key(convention: CassbeamConvention) -> tuple[int, int, bo
     return (convention.l_sign, convention.m_sign, convention.swap_lm, convention.rotate_spatial)
 
 
+CASSBEAM_QUERY_DECIMALS = 12
+
+
 def unique_native_jones(
     offset_lm_rad: ArrayLike,
     chi: ArrayLike,
@@ -784,7 +791,7 @@ def unique_native_jones(
     l_q, m_q = apply_axis_convention(offset, convention)
     if convention.rotate_spatial:
         l_q, m_q = antenna_frame_lm(l_q, m_q, angle)
-    keys = np.round(np.stack([l_q, m_q], axis=1), 12)
+    keys = np.round(np.stack([l_q, m_q], axis=1), CASSBEAM_QUERY_DECIMALS)
     unique, inverse = np.unique(keys, axis=0, return_inverse=True)
     native = np.zeros((unique.shape[0], freqs.size, 2, 2), dtype=np.complex128)
     valid = np.zeros((unique.shape[0], freqs.size), dtype=bool)
@@ -815,6 +822,61 @@ def apply_parallactic_to_beams(
     raise ValueError(f"unsupported beam calibration state {state!r}")
 
 
+def feed_frame_from_native_unique(
+    native_unique: ArrayLike,
+    valid_unique: ArrayLike,
+    inverse: ArrayLike,
+    convention: CassbeamConvention,
+    *,
+    catalog: HighresCassbeamCatalog,
+    frequencies_hz: ArrayLike,
+    off_diagonal: bool,
+) -> tuple[NDArray[np.complex128], NDArray[np.bool_]]:
+    """Normalize, optionally project, and expand unique native Jones. No parallactic."""
+
+    native = np.asarray(native_unique, dtype=np.complex128)
+    ok = np.asarray(valid_unique, dtype=bool)
+    inv = np.asarray(inverse, dtype=np.int64).reshape(-1)
+    freqs = np.asarray(frequencies_hz, dtype=np.float64).reshape(-1)
+    looked = np.empty_like(native)
+    for ich, freq in enumerate(freqs):
+        origin = catalog.plane(float(freq)).origin_native()
+        looked[:, ich] = normalize_after_jones_convention(native[:, ich], origin, convention)
+    if not off_diagonal:
+        looked = diagonal_projection(looked)
+    return looked[inv], ok[inv]
+
+
+def unique_feed_frame_jones(
+    offset_lm_rad: ArrayLike,
+    catalog: HighresCassbeamCatalog,
+    frequencies_hz: ArrayLike,
+    convention: CassbeamConvention,
+    *,
+    chi: ArrayLike | None = None,
+    off_diagonal: bool = False,
+) -> tuple[NDArray[np.complex128], NDArray[np.bool_]]:
+    """Feed-frame Jones after the frozen unique-coordinate CASSBEAM lookup."""
+
+    offset = np.asarray(offset_lm_rad, dtype=np.float64).reshape(-1, 2)
+    if chi is None:
+        angle = np.zeros(offset.shape[0], dtype=np.float64)
+    else:
+        angle = np.asarray(chi, dtype=np.float64).reshape(-1)
+    native, valid, inverse = unique_native_jones(
+        offset, angle, frequencies_hz, catalog, convention
+    )
+    return feed_frame_from_native_unique(
+        native,
+        valid,
+        inverse,
+        convention,
+        catalog=catalog,
+        frequencies_hz=frequencies_hz,
+        off_diagonal=off_diagonal,
+    )
+
+
 def beams_from_native_unique(
     native_unique: ArrayLike,
     valid_unique: ArrayLike,
@@ -827,18 +889,15 @@ def beams_from_native_unique(
     off_diagonal: bool,
     calibration_state: BeamCalibrationState | str,
 ) -> tuple[NDArray[np.complex128], NDArray[np.bool_]]:
-    native = np.asarray(native_unique, dtype=np.complex128)
-    ok = np.asarray(valid_unique, dtype=bool)
-    inv = np.asarray(inverse, dtype=np.int64).reshape(-1)
-    freqs = np.asarray(frequencies_hz, dtype=np.float64).reshape(-1)
-    looked = np.empty_like(native)
-    for ich, freq in enumerate(freqs):
-        origin = catalog.plane(float(freq)).origin_native()
-        looked[:, ich] = normalize_after_jones_convention(native[:, ich], origin, convention)
-    if not off_diagonal:
-        looked = diagonal_projection(looked)
-    row_beams = looked[inv]
-    row_ok = ok[inv]
+    row_beams, row_ok = feed_frame_from_native_unique(
+        native_unique,
+        valid_unique,
+        inverse,
+        convention,
+        catalog=catalog,
+        frequencies_hz=frequencies_hz,
+        off_diagonal=off_diagonal,
+    )
     row_beams = apply_parallactic_to_beams(row_beams, chi, calibration_state)
     return row_beams, row_ok
 
@@ -858,6 +917,132 @@ def predict_from_moving_beams(
         _antenna_jones_planes(residual_jones, reference_id), chi_reference
     )
     return predict_vis_numpy(r_m, beams, source, r_r, moving_is_p)
+
+
+@dataclass(frozen=True)
+class HolorasterCassbeamStages:
+    """Shared CASSBEAM HOLORASTER stages. Feed frame has no parallactic rotation."""
+
+    feed: NDArray[np.complex128]
+    sky: NDArray[np.complex128]
+    visibility: NDArray[np.complex128]
+    ok: NDArray[np.bool_]
+
+    def as_mapping(self) -> dict[str, NDArray[np.complex128]]:
+        return {"feed": self.feed, "sky": self.sky, "visibility": self.visibility}
+
+
+def squeeze_sample_jones(values: ArrayLike) -> NDArray[np.complex128]:
+    """Drop a singleton native-channel axis. Shape becomes ``(sample, 2, 2)``."""
+
+    array = np.asarray(values, dtype=np.complex128)
+    if array.ndim == 4:
+        if array.shape[1] != 1:
+            raise ValueError("expected a single native channel")
+        array = array[:, 0]
+    if array.ndim != 3 or array.shape[-2:] != (2, 2):
+        raise ValueError("Jones/visibilities must have shape (sample, 2, 2)")
+    return array
+
+
+def evaluate_holoraster_cassbeam(
+    *,
+    catalog: HighresCassbeamCatalog,
+    frequencies_hz: ArrayLike,
+    convention: CassbeamConvention,
+    offset_lm_rad: ArrayLike,
+    chi_moving: ArrayLike,
+    chi_reference: ArrayLike,
+    moving_id: ArrayLike,
+    reference_id: ArrayLike,
+    moving_is_p: ArrayLike,
+    residual_jones: Mapping[int, ArrayLike],
+    source: ArrayLike,
+    off_diagonal: bool = False,
+    calibration_state: BeamCalibrationState | str = "casa_parang_true",
+    unique_lookup: tuple[ArrayLike, ArrayLike, ArrayLike] | None = None,
+) -> HolorasterCassbeamStages:
+    """One CASSBEAM evaluator for comparison and identity correction."""
+
+    if unique_lookup is None:
+        native, valid, inverse = unique_native_jones(
+            offset_lm_rad, chi_moving, frequencies_hz, catalog, convention
+        )
+    else:
+        native, valid, inverse = unique_lookup
+    feed, ok = feed_frame_from_native_unique(
+        native,
+        valid,
+        inverse,
+        convention,
+        catalog=catalog,
+        frequencies_hz=frequencies_hz,
+        off_diagonal=off_diagonal,
+    )
+    sky = apply_parallactic_to_beams(feed, chi_moving, calibration_state)
+    vis = predict_from_moving_beams(
+        residual_jones,
+        moving_id,
+        reference_id,
+        moving_is_p,
+        chi_moving,
+        chi_reference,
+        sky,
+        source,
+    )
+    vis = np.where(ok[..., None, None], vis, np.nan)
+    return HolorasterCassbeamStages(feed=feed, sky=sky, visibility=vis, ok=ok)
+
+
+def copolar_hand_errors(left: ArrayLike, right: ArrayLike) -> dict[str, dict[str, float]]:
+    """Maximum absolute and relative RR/LL errors."""
+
+    first = squeeze_sample_jones(left)
+    second = squeeze_sample_jones(right)
+    if first.shape != second.shape:
+        raise ValueError("compared arrays must have the same shape")
+    out: dict[str, dict[str, float]] = {}
+    for name, i, j in (("RR", 0, 0), ("LL", 1, 1)):
+        a = first[:, i, j]
+        b = second[:, i, j]
+        diff = np.abs(a - b)
+        scale = np.maximum(np.abs(a), np.abs(b))
+        rel = np.divide(diff, scale, out=np.zeros_like(diff), where=scale > 0.0)
+        finite = np.isfinite(diff)
+        out[name] = {
+            "max_abs": float(np.max(diff[finite])) if bool(np.any(finite)) else float("nan"),
+            "max_rel": float(np.max(rel[finite])) if bool(np.any(finite)) else float("nan"),
+        }
+    return out
+
+
+def compare_holoraster_stages(
+    left: Mapping[str, ArrayLike] | HolorasterCassbeamStages,
+    right: Mapping[str, ArrayLike] | HolorasterCassbeamStages,
+    *,
+    atol: float = 1.0e-12,
+) -> dict[str, object]:
+    """Report the first stage where RR or LL exceeds ``atol``."""
+
+    def _bundle(values: Mapping[str, ArrayLike] | HolorasterCassbeamStages) -> Mapping[str, ArrayLike]:
+        if isinstance(values, HolorasterCassbeamStages):
+            return values.as_mapping()
+        return values
+
+    first_map = _bundle(left)
+    second_map = _bundle(right)
+    report: dict[str, object] = {}
+    first_stage: str | None = None
+    for stage in ("feed", "sky", "visibility"):
+        errors = copolar_hand_errors(first_map[stage], second_map[stage])
+        report[stage] = errors
+        if first_stage is None and (
+            float(errors["RR"]["max_abs"]) > float(atol)
+            or float(errors["LL"]["max_abs"]) > float(atol)
+        ):
+            first_stage = stage
+    report["first_divergent_stage"] = first_stage
+    return report
 
 
 def template_increment(

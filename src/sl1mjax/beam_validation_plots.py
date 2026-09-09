@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,55 @@ FIGURE_IDS = (
     "F17",
     "F18",
     "F19",
+    "F26",
+    "F27",
+    "F28",
+    "F29",
+)
+
+_SIDECAR_PROVENANCE: ContextVar[dict[str, object] | None] = ContextVar(
+    "sidecar_provenance", default=None
+)
+
+
+def sidecar_provenance(bundle: ValidationBundle) -> dict[str, object]:
+    """Bundle-level sidecar fields required by the publication refresh."""
+
+    channel32 = bundle.holoraster_channel32
+    manifest = bundle.manifest
+    return {
+        "model": str(channel32.get("model") or "evla_c_source_lm"),
+        "coordinate_convention": str(
+            channel32.get("coordinate_query") or "source_lm_feed"
+        ),
+        "coordinate_query": str(channel32.get("coordinate_query") or "source_lm_feed"),
+        "calibration_state": (
+            "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the "
+            "field-9 native channel-32 plane"
+        ),
+        "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+        "frequency_hz": channel32.get("frequency_hz"),
+        "split": "SPW-4 development rows unless a figure names another mask",
+        "region": "named per figure in table.region / table.mask",
+        "estimator": (
+            "complex residual power and the plotted statistic named in table"
+        ),
+        "n_rows": channel32.get("n_rows") or channel32.get("n_development"),
+        "artifact_hashes": {
+            "bundle_sha256": manifest.get("bundle_sha256"),
+            "revision": manifest.get("revision"),
+            "publication_version": manifest.get("publication_version"),
+        },
+        "development_only": True,
+        "spw5_opened": False,
+        "publication_version": manifest.get("publication_version"),
+    }
+
+
+COORDINATE_FEED_MODELS = (
+    ("generic_commanded", "generic / commanded", "0.55"),
+    ("generic_source_lm", "generic / source-in-beam", "C1"),
+    ("evla_c_source_lm", "EVLA-C / source-in-beam", "C2"),
 )
 
 
@@ -97,7 +147,22 @@ def write_figure_sidecar(
         "table_sha256": hashlib.sha256(
             json.dumps(_jsonable(table), sort_keys=True).encode()
         ).hexdigest(),
+        **{
+            key: value
+            for key, value in (_SIDECAR_PROVENANCE.get() or {}).items()
+            if key not in {"table", "claims", "figure_id"}
+        },
     }
+    if "region" in table:
+        payload["region"] = table["region"]
+    if "mask" in table:
+        payload["support_mask"] = table["mask"]
+    if "estimator" in table:
+        payload["estimator"] = table["estimator"]
+    for count_key in ("n_rows", "n", "n_samples"):
+        if count_key in table:
+            payload["n_rows"] = table[count_key]
+            break
     return write_json(payload, image_path.with_suffix(image_path.suffix + ".sidecar.json"))
 
 
@@ -116,7 +181,8 @@ def _save(
     plt = _pyplot()
     destination = Path(output_dir) / filename
     destination.parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout()
+    if not fig.get_constrained_layout():
+        fig.tight_layout()
     fig.savefig(destination, dpi=140)
     plt.close(fig)
     sidecar = write_figure_sidecar(
@@ -977,8 +1043,9 @@ def plot_publication_squint(
         table=table,
         bundle_sha256=bundle_sha256,
         caption=(
-            "Publication 20%-of-peak squint. "
-            "Full-raster centroids are not shown. Supports C07."
+            "Publication 20%-of-peak all-data squint. "
+            "Independent-mask versus common-mask sensitivity is F29. "
+            "Full-raster centroids are not the publication estimator. Supports C07."
         ),
     )
 
@@ -991,7 +1058,7 @@ def plot_frequency_series(
 ) -> list[Path]:
     plt = _pyplot()
     rows = frequency_copolar_series(frequency)
-    fig, axes = plt.subplots(1, 2, figsize=(8.8, 3.6))
+    fig, axes = plt.subplots(1, 3, figsize=(12.4, 3.6))
     freq = [row["frequency_hz"] / 1e9 for row in rows]
     axes[0].plot(freq, [row["rr_correlation"] for row in rows], "o-", label="RR")
     axes[0].plot(freq, [row["ll_correlation"] for row in rows], "s-", label="LL")
@@ -999,23 +1066,38 @@ def plot_frequency_series(
     axes[0].set_title("Copolar correlation")
     axes[1].plot(freq, [row["rr_residual_power"] for row in rows], "o-", label="RR")
     axes[1].plot(freq, [row["ll_residual_power"] for row in rows], "s-", label="LL")
+    axes[1].axhline(0.01, color="0.4", ls=":", lw=0.8, label="1% main-lobe cut")
     axes[1].set_ylabel("residual power")
-    axes[1].set_title("Copolar residual power")
+    axes[1].set_title("Main-lobe copolar residual power")
+    axes[2].plot(freq, [row["rl_residual_power"] for row in rows], "o-", label="RL")
+    axes[2].plot(freq, [row["lr_residual_power"] for row in rows], "s-", label="LR")
+    axes[2].set_ylabel("residual power")
+    axes[2].set_title("Main-lobe full-Jones RL/LR residual")
     for axis in axes:
         axis.set_xlabel("frequency (GHz)")
-        axis.legend(fontsize=8)
+        axis.legend(fontsize=7)
         axis.axvline(4.564, color="k", ls="--", lw=0.7)
-    table = {"channels": rows}
+    table = {
+        "channels": rows,
+        "region": "main_lobe",
+        "estimator": "residual_power",
+        "n_main_lobe": [int(row["n_main_lobe"]) for row in rows],
+    }
     return _save(
         fig,
         output_dir,
         "16_spw4_frequency.png",
         figure_id="F16",
         function="plot_frequency_series",
-        claims=("C01", "C02"),
+        claims=("C01", "C02", "C05"),
         table=table,
         bundle_sha256=bundle_sha256,
-        caption="SPW-4 channel dependence. Frequency squint is omitted. Supports C01, C02.",
+        caption=(
+            "SPW-4 main-lobe channel dependence. Left/centre: unit EVLA-C "
+            "diagonal; the dotted line is the 1% accepted cut. Right: "
+            "experimental full-Jones RL/LR residual power on the same "
+            "support. Frequency squint is omitted. Supports C01, C02, C05."
+        ),
     )
 
 
@@ -1030,9 +1112,10 @@ def plot_offset_ring(
     fig, axes = plt.subplots(1, 2, figsize=(8.8, 3.8))
     records = list(fields.get("fields") or ())
     partitions = {
-        name: set(ids)
+        name: {int(item) for item in ids}
         for name, ids in (fields.get("partition") or {}).items()
-        if name != "notes"
+        if name in {"training", "inner_holdout", "sealed_holdout"}
+        and isinstance(ids, (list, tuple, set))
     }
     colors = {
         "training": "C0",
@@ -1046,15 +1129,21 @@ def plot_offset_ring(
             if field_id in {int(item) for item in ids}:
                 label = name
                 break
+        if "l_arcmin" in record:
+            l_arcmin = float(record["l_arcmin"])
+            m_arcmin = float(record["m_arcmin"])
+        else:
+            l_arcmin = float(np.rad2deg(float(record["l_rad"])) * 60.0)
+            m_arcmin = float(np.rad2deg(float(record["m_rad"])) * 60.0)
         axes[0].scatter(
-            [float(record["l_arcmin"])],
-            [float(record["m_arcmin"])],
+            [l_arcmin],
+            [m_arcmin],
             color=colors.get(label, "k"),
             label=label if label not in axes[0].get_legend_handles_labels()[1] else None,
         )
         axes[0].annotate(
             str(record["name"]),
-            (float(record["l_arcmin"]), float(record["m_arcmin"])),
+            (l_arcmin, m_arcmin),
             fontsize=7,
         )
     axes[0].set_aspect("equal", adjustable="box")
@@ -1085,6 +1174,7 @@ def plot_crosshand_null(
     output_dir: Path,
     *,
     bundle_sha256: str | None = None,
+    classification: Mapping[str, Any] | None = None,
 ) -> list[Path]:
     plt = _pyplot()
     fig, axes = plt.subplots(1, 2, figsize=(8.8, 4.0))
@@ -1123,7 +1213,13 @@ def plot_crosshand_null(
     )
     axes[1].set_ylim(0.0, 1.05)
     axes[1].set_title("RL |correlation| by quadrant")
-    table = {"quadrant_rl_correlation": dict(zip(labels, corrs, strict=True))}
+    outcome = str((classification or {}).get("outcome") or "not_classified")
+    table = {
+        "quadrant_rl_correlation": dict(zip(labels, corrs, strict=True)),
+        "outcome": outcome,
+        "classification": dict(classification or {}),
+        "estimator": "paired residual_power full_minus_diagonal",
+    }
     return _save(
         fig,
         output_dir,
@@ -1133,7 +1229,10 @@ def plot_crosshand_null(
         claims=("C05",),
         table=table,
         bundle_sha256=bundle_sha256,
-        caption="Experimental RL prediction versus the observed cloud. Supports C05.",
+        caption=(
+            f"EVLA-C full Jones versus diagonal on RL. Outcome: {outcome}. "
+            "Supports C05."
+        ),
     )
 
 
@@ -1156,9 +1255,303 @@ def plot_spw5_sealed(output_dir: Path, *, bundle_sha256: str | None = None) -> l
     )
 
 
+def plot_coordinate_feed_impact(
+    comparison: Mapping[str, Any],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    """Show absolute losses and paired model deltas on the frozen development split."""
+
+    plt = _pyplot()
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.1))
+    metrics = comparison.get("metrics") or {}
+    regions = ("main_lobe", "mid", "outer_diagnostic", "all")
+    x = np.arange(len(regions), dtype=np.float64)
+    width = 0.24
+    absolute: dict[str, list[float]] = {}
+    for model_index, (model, label, color) in enumerate(COORDINATE_FEED_MODELS):
+        values = []
+        for region in regions:
+            hands = (((metrics.get(model) or {}).get("development") or {}).get(region) or {})
+            values.append(
+                0.5
+                * (
+                    float((hands.get("rr") or {}).get("residual_power", np.nan))
+                    + float((hands.get("ll") or {}).get("residual_power", np.nan))
+                )
+            )
+        absolute[model] = values
+        axes[0].bar(
+            x + (model_index - 1) * width,
+            values,
+            width=width,
+            label=label,
+            color=color,
+        )
+    axes[0].set_xticks(x, [name.replace("_", "\n") for name in regions])
+    axes[0].set_ylabel("mean RR/LL residual power")
+    axes[0].set_title("Absolute fit on development rows")
+    axes[0].legend(fontsize=7)
+
+    paired = comparison.get("paired_scores") or {}
+    comparisons = (
+        ("generic_source_lm_vs_generic_commanded", "coordinate only"),
+        ("evla_c_source_lm_vs_generic_commanded", "combined change"),
+        ("evla_c_source_lm_vs_generic_source_lm", "EVLA-C feed"),
+    )
+    labels = []
+    table_pairs: dict[str, object] = {}
+    for index, (key, label) in enumerate(comparisons):
+        record = paired.get(key) or {}
+        labels.append(label)
+        table_pairs[key] = {}
+        for offset, (axis_name, marker, color) in zip(
+            (-0.08, 0.08),
+            (("spatial", "o", "C0"), ("moving", "s", "C3")),
+            strict=True,
+        ):
+            score = record.get(axis_name) or {}
+            delta = float(score.get("delta", np.nan))
+            lo = float(score.get("delta_lo", np.nan))
+            hi = float(score.get("delta_hi", np.nan))
+            axes[1].errorbar(
+                index + offset,
+                delta,
+                yerr=np.array([[delta - lo], [hi - delta]]),
+                fmt=marker,
+                color=color,
+                capsize=3,
+                label=axis_name if index == 0 else None,
+            )
+            table_pairs[key][axis_name] = dict(score)
+    axes[1].axhline(0.0, color="k", lw=0.7)
+    axes[1].set_xticks(np.arange(len(labels)), labels, rotation=12, ha="right")
+    axes[1].set_ylabel("paired ΔL (candidate − baseline)")
+    axes[1].set_title("Predeclared holdout effects (95% CI)")
+    axes[1].legend(fontsize=8)
+    table = {"absolute": absolute, "paired": table_pairs}
+    return _save(
+        fig,
+        output_dir,
+        "26_coordinate_feed_impact.png",
+        figure_id="F26",
+        function="plot_coordinate_feed_impact",
+        claims=("C01", "C07"),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Impact of correcting the query coordinate and replacing the generic "
+            "VLA feed with CASA's EVLA-C parameters. Negative paired ΔL is better. "
+            "The EVLA-C feed transfers across spatial and mover holdouts when both "
+            "models use source-in-beam coordinates."
+        ),
+    )
+
+
+def plot_coordinate_feed_scatter(
+    scatter: Mapping[str, NDArray],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    """Compare measured and predicted copolar real parts for all three models."""
+
+    plt = _pyplot()
+    fig, axes = plt.subplots(
+        2,
+        3,
+        figsize=(13.2, 7.0),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True,
+    )
+    intensity = float(np.asarray(scatter["source_i_jy"]).reshape(-1)[0])
+    main = np.asarray(scatter["main_lobe"], dtype=bool)
+    table: dict[str, object] = {"source_i_jy": intensity, "region": "main_lobe"}
+    for column, (model, label, _color) in enumerate(COORDINATE_FEED_MODELS):
+        for row, hand in enumerate(("rr", "ll")):
+            observed = np.asarray(scatter[f"measured_{hand}"])[main].real / intensity
+            predicted = np.asarray(scatter[f"{model}_{hand}"])[main].real / intensity
+            axis = axes[row, column]
+            axis.scatter(predicted, observed, s=3, alpha=0.15, linewidths=0)
+            finite = np.isfinite(observed) & np.isfinite(predicted)
+            if bool(np.any(finite)):
+                lo = float(min(np.min(observed[finite]), np.min(predicted[finite])))
+                hi = float(max(np.max(observed[finite]), np.max(predicted[finite])))
+                axis.plot([lo, hi], [lo, hi], "k-", lw=0.7)
+            axis.set_title(f"{hand.upper()}: {label}")
+            axis.set_xlabel("predicted Re(V)/I")
+            axis.set_ylabel("measured Re(V)/I")
+            table[f"{model}_{hand}_n"] = int(np.sum(finite))
+    return _save(
+        fig,
+        output_dir,
+        "27_coordinate_feed_scatter.png",
+        figure_id="F27",
+        function="plot_coordinate_feed_scatter",
+        claims=("C01",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Main-lobe measured versus predicted copolar real visibility for the "
+            "historical model, the coordinate correction alone, and EVLA-C at the "
+            "correct source-in-beam coordinate."
+        ),
+    )
+
+
+def plot_coordinate_feed_residual_maps(
+    maps: Mapping[str, NDArray],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    """Compare spatial residual magnitude for the same three model predictions."""
+
+    plt = _pyplot()
+    fig, axes = plt.subplots(
+        2,
+        3,
+        figsize=(13.2, 7.0),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True,
+    )
+    l_axis = np.asarray(maps["l_arcmin"], dtype=np.float64)
+    m_axis = np.asarray(maps["m_arcmin"], dtype=np.float64)
+    extent = (float(l_axis[0]), float(l_axis[-1]), float(m_axis[0]), float(m_axis[-1]))
+    residuals = []
+    for hand in ("rr", "ll"):
+        measured = np.asarray(maps[f"{hand}_measured"])
+        support = np.asarray(maps[f"{hand}_weight"], dtype=np.float64) > 0.0
+        for model, _label, _color in COORDINATE_FEED_MODELS:
+            residual = np.abs(measured - np.asarray(maps[f"{model}_{hand}"]))
+            residuals.append(residual[support])
+    finite = np.concatenate([item[np.isfinite(item)] for item in residuals if item.size])
+    vmax = float(np.quantile(finite, 0.98)) if finite.size else 1.0
+    table: dict[str, object] = {"scale_max_jy": vmax, "coordinate": "source_lm_feed"}
+    for row, hand in enumerate(("rr", "ll")):
+        measured = np.asarray(maps[f"{hand}_measured"])
+        support = np.asarray(maps[f"{hand}_weight"], dtype=np.float64) > 0.0
+        for column, (model, label, _color) in enumerate(COORDINATE_FEED_MODELS):
+            residual = np.abs(measured - np.asarray(maps[f"{model}_{hand}"]))
+            image = axes[row, column].imshow(
+                np.ma.masked_where(~support, residual),
+                origin="lower",
+                extent=extent,
+                cmap="magma",
+                aspect="equal",
+                vmin=0.0,
+                vmax=vmax,
+            )
+            axes[row, column].set_title(f"{hand.upper()}: {label}")
+            axes[row, column].set_xlabel("source l in feed frame (arcmin)")
+            axes[row, column].set_ylabel("source m in feed frame (arcmin)")
+            table[f"{model}_{hand}_median_jy"] = float(np.nanmedian(residual[support]))
+    fig.colorbar(image, ax=axes.ravel().tolist(), shrink=0.82, pad=0.02, label="|ΔV| (Jy)")
+    return _save(
+        fig,
+        output_dir,
+        "28_coordinate_feed_residual_maps.png",
+        figure_id="F28",
+        function="plot_coordinate_feed_residual_maps",
+        claims=("C01", "C02", "C03"),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "Copolar residual maps on the corrected source-in-beam axes. All panels "
+            "use one colour scale, so the EVLA-C feed effect can be compared directly."
+        ),
+    )
+
+
+def plot_coordinate_feed_squint(
+    comparison: Mapping[str, Any],
+    output_dir: Path,
+    *,
+    bundle_sha256: str | None = None,
+) -> list[Path]:
+    """Plot explicitly named R-minus-L squint vectors in one source/feed frame."""
+
+    plt = _pyplot()
+    fig, axis = plt.subplots(figsize=(5.4, 5.0))
+    measured = (
+        ((comparison.get("map_squint") or {}).get("source_lm_labels") or {}).get(
+            "independent_masks"
+        )
+        or {}
+    )
+    generic = comparison.get("generic_plane_centroids") or {}
+    evla = comparison.get("evla_plane_centroids") or {}
+
+    def vector(record: Mapping[str, Any]) -> tuple[float, float]:
+        explicit = record.get("r_minus_l")
+        if isinstance(explicit, Mapping) and explicit.get("r_minus_l") is not None:
+            values = explicit["r_minus_l"]
+            return float(values[0]), float(values[1])
+        return (
+            float(record.get("rr_l_arcmin", np.nan))
+            - float(record.get("ll_l_arcmin", np.nan)),
+            float(record.get("rr_m_arcmin", np.nan))
+            - float(record.get("ll_m_arcmin", np.nan)),
+        )
+
+    records = (
+        ("measured development map", measured, "C0"),
+        ("generic VLA", generic, "0.55"),
+        ("EVLA-C", evla, "C2"),
+    )
+    table: dict[str, object] = {"vector_kind": "r_minus_l", "frame": "source_lm_feed"}
+    for label, record, color in records:
+        dl, dm = vector(record)
+        axis.arrow(0.0, 0.0, dl, dm, width=0.008, length_includes_head=True, color=color)
+        axis.text(dl, dm, f" {label}", color=color, fontsize=9)
+        table[label] = {
+            "dl_arcmin": dl,
+            "dm_arcmin": dm,
+            "separation_arcmin": float(np.hypot(dl, dm)),
+        }
+    memo = float(measured.get("memo195_separation_arcmin", np.nan))
+    axis.add_patch(plt.Circle((0.0, 0.0), memo, fill=False, ls=":", color="k"))
+    axis.axhline(0.0, color="k", lw=0.4)
+    axis.axvline(0.0, color="k", lw=0.4)
+    axis.set_aspect("equal", adjustable="box")
+    axis.set_xlim(-0.85, 0.85)
+    axis.set_ylim(-0.85, 0.85)
+    axis.set_xlabel("R−L Δl (arcmin)")
+    axis.set_ylabel("R−L Δm (arcmin)")
+    axis.set_title("Squint vectors after coordinate/feed audit")
+    table["memo195_separation_arcmin"] = memo
+    return _save(
+        fig,
+        output_dir,
+        "29_coordinate_feed_squint.png",
+        figure_id="F29",
+        function="plot_coordinate_feed_squint",
+        claims=("C07",),
+        table=table,
+        bundle_sha256=bundle_sha256,
+        caption=(
+            "R-minus-L squint vectors in source-in-beam/feed-frame labels. The measured "
+            "vector is the training-only independent-mask development estimate, not the "
+            "all-data 0.515 arcmin publication magnitude. The EVLA-C feed recovers the "
+            "expected separation and substantially reduces the direction discrepancy."
+        ),
+    )
+
+
 def write_all_figures(bundle: ValidationBundle, output_dir: Path) -> list[Path]:
     """Write every publication figure and sidecar from the bundle."""
 
+    token = _SIDECAR_PROVENANCE.set(sidecar_provenance(bundle))
+    try:
+        return _write_all_figures_body(bundle, output_dir)
+    finally:
+        _SIDECAR_PROVENANCE.reset(token)
+
+
+def _write_all_figures_body(bundle: ValidationBundle, output_dir: Path) -> list[Path]:
     from sl1mjax.beam_validation_statistics import offset_ring_diagonal_closure
 
     bundle_sha = str(bundle.manifest.get("bundle_sha256") or "")
@@ -1233,9 +1626,32 @@ def write_all_figures(bundle: ValidationBundle, output_dir: Path) -> list[Path]:
             bundle.crosshand_quadrants,
             output_dir,
             bundle_sha256=bundle_sha,
+            classification=bundle.holoraster_channel32.get("classification") or {},
         )
     )
     written.extend(plot_spw5_sealed(output_dir, bundle_sha256=bundle_sha))
+    coordinate_scatter = bundle.plot_table("coordinate_feed_scatter.npz")
+    coordinate_maps = bundle.plot_table("coordinate_feed_maps.npz")
+    written.extend(
+        plot_coordinate_feed_impact(
+            bundle.coordinate_feed_comparison, output_dir, bundle_sha256=bundle_sha
+        )
+    )
+    written.extend(
+        plot_coordinate_feed_scatter(
+            coordinate_scatter, output_dir, bundle_sha256=bundle_sha
+        )
+    )
+    written.extend(
+        plot_coordinate_feed_residual_maps(
+            coordinate_maps, output_dir, bundle_sha256=bundle_sha
+        )
+    )
+    written.extend(
+        plot_coordinate_feed_squint(
+            bundle.coordinate_feed_comparison, output_dir, bundle_sha256=bundle_sha
+        )
+    )
     write_json(
         {
             "bundle_sha256": bundle_sha,

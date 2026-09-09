@@ -42,6 +42,7 @@ from sl1mjax.phase6_protocol import (
 )
 from sl1mjax.voltage_reconstruction import (
     DIAGNOSTIC_STOKES_I_BEAMS,
+    OPT_IN_SURVEY_BEAM,
     PRODUCTION_STOKES_I_BEAMS,
     VoltageReconstructionConfig,
     merge_hysteresis_from_records,
@@ -95,7 +96,7 @@ def _source_manifest(path: Path | None = None) -> dict[str, Any]:
             ).strip()
             diff = subprocess.check_output(["git", "diff", "HEAD"], cwd=git_root, text=True)
             break
-        except subprocess.CalledProcessError, FileNotFoundError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             continue
     lock = ROOT / "uv.lock"
     if not lock.is_file() and source_root:
@@ -123,9 +124,11 @@ def load_pointing_blocks(
 
 
 def load_antenna_positions(path: Path, antenna_count: int) -> np.ndarray:
+    here = str(Path(__file__).resolve().parent)
     scripts_directory = str(ROOT / "scripts")
-    if scripts_directory not in sys.path:
-        sys.path.insert(0, scripts_directory)
+    for candidate in (here, scripts_directory):
+        if candidate not in sys.path:
+            sys.path.insert(0, candidate)
     from diagnose_3c391_voltage_beam_transfer import load_antenna_positions as load_positions
 
     return load_positions(
@@ -241,8 +244,16 @@ def run_one(
     source: dict[str, Any],
     hysteresis=None,
     allow_diagnostic_full_jones: bool = False,
+    survey_catalog_root: Path | None = None,
+    survey_catalog_digest: str | None = None,
 ) -> dict[str, Any]:
-    if beam_mode == "full_jones":
+    if beam_mode == OPT_IN_SURVEY_BEAM:
+        if survey_catalog_root is None or not survey_catalog_digest:
+            raise ValueError(
+                "evla_c_diagonal_survey_v1 requires --survey-catalog-root "
+                "and --survey-catalog-digest"
+            )
+    elif beam_mode == "full_jones":
         if not allow_diagnostic_full_jones:
             raise ValueError(f"{beam_mode} is not a production Stokes-I candidate")
     elif beam_mode not in PRODUCTION_STOKES_I_BEAMS:
@@ -272,7 +283,10 @@ def run_one(
             start_config = replace_rounds(start_config, resumed_rounds)
         print(f"=== resume {resume_kind} {stage} {beam_mode} ===", flush=True)
     beam = stokes_i_beam(
-        beam_mode, allow_unfrozen_full_jones=allow_diagnostic_full_jones
+        beam_mode,
+        allow_unfrozen_full_jones=allow_diagnostic_full_jones,
+        survey_catalog_root=survey_catalog_root,
+        survey_catalog_digest=survey_catalog_digest,
     )
     print(
         f"=== {stage} {beam_mode} {pointing_ids} "
@@ -447,6 +461,17 @@ def main() -> int:
         help="Permit experimental full Jones as a labelled diagnostic, not a freeze.",
     )
     parser.add_argument(
+        "--survey-catalog-root",
+        type=Path,
+        default=None,
+        help="Opt-in EVLA-C survey catalog root. Required for evla_c_diagonal_survey_v1.",
+    )
+    parser.add_argument(
+        "--survey-catalog-digest",
+        default=None,
+        help="Expected survey catalog digest. Required for evla_c_diagonal_survey_v1.",
+    )
+    parser.add_argument(
         "--operator-mode",
         choices=("vjp", "explicit_jax"),
         default="vjp",
@@ -462,11 +487,17 @@ def main() -> int:
     os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
     beams = tuple(item.strip() for item in arguments.beams.split(",") if item.strip())
-    allowed_beams = PRODUCTION_STOKES_I_BEAMS
+    allowed_beams = list(PRODUCTION_STOKES_I_BEAMS)
     if arguments.allow_diagnostic_full_jones:
-        allowed_beams = PRODUCTION_STOKES_I_BEAMS + DIAGNOSTIC_STOKES_I_BEAMS
+        allowed_beams.extend(DIAGNOSTIC_STOKES_I_BEAMS)
+    if arguments.survey_catalog_root is not None and arguments.survey_catalog_digest:
+        allowed_beams.append(OPT_IN_SURVEY_BEAM)
     if any(item not in allowed_beams for item in beams):
-        parser.error(f"beams must be a subset of {allowed_beams}")
+        parser.error(f"beams must be a subset of {tuple(allowed_beams)}")
+    survey_kwargs = {
+        "survey_catalog_root": arguments.survey_catalog_root,
+        "survey_catalog_digest": arguments.survey_catalog_digest,
+    }
     if "full_jones" in beams and arguments.stage == "full":
         parser.error("diagnostic full Jones must not start a topology round")
     source = _source_manifest(arguments.source_manifest)
@@ -518,6 +549,7 @@ def main() -> int:
                     output=arguments.output,
                     source=source,
                     allow_diagnostic_full_jones=arguments.allow_diagnostic_full_jones,
+                    **survey_kwargs,
                 )
         elif stage == "commissioning-c4":
             blocks = load_pointing_blocks(arguments.native_root, ("C4",))
@@ -548,6 +580,7 @@ def main() -> int:
                     output=arguments.output,
                     source=source,
                     allow_diagnostic_full_jones=arguments.allow_diagnostic_full_jones,
+                    **survey_kwargs,
                 )
         elif stage == "baseline":
             blocks = load_pointing_blocks(arguments.native_root, POINTINGS)
@@ -578,6 +611,7 @@ def main() -> int:
                     output=arguments.output,
                     source=source,
                     allow_diagnostic_full_jones=arguments.allow_diagnostic_full_jones,
+                    **survey_kwargs,
                 )
         else:
             blocks = load_pointing_blocks(arguments.native_root, POINTINGS)
@@ -608,6 +642,7 @@ def main() -> int:
                     output=arguments.output,
                     source=source,
                     allow_diagnostic_full_jones=arguments.allow_diagnostic_full_jones,
+                    **survey_kwargs,
                 )
             print(
                 "=== one topology round written; "

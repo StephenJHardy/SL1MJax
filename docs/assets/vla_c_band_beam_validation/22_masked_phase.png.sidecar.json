@@ -1,21 +1,39 @@
 {
   "figure_id": "F22",
   "filename": "22_masked_phase.png",
-  "image_sha256": "f257aac6d987f64805488c0aa25483b2f3950c74cc90cf1461b949e7d6019b5b",
+  "image_sha256": "329b24c5ff01eda76efa97d3d67f6b00157244a5372456140a0b55d89c05fefa",
   "generating_function": "plot_masked_phase_maps",
   "claims": [
     "C03"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:48.971135+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:07.451374+00:00",
   "caption": "Masked phase maps. Cells below 0.05 Jy or poorly occupied are grey. Phase is exploratory and is not a C03 metric.",
   "table": {
     "amp_floor_jy": 0.05,
     "phase_status": "exploratory",
-    "rr_n_phase": 560,
-    "rr_median_phase_deg": 0.32589653020547105,
+    "rr_n_phase": 551,
+    "rr_median_phase_deg": 0.14780186404613246,
     "ll_n_phase": 549,
-    "ll_median_phase_deg": 0.3452766024963842
+    "ll_median_phase_deg": 0.3062386183146323
   },
-  "table_sha256": "37343cc39b9455f7dada127b4ba416f3a1542a73885451a8e269badbaa986cd5"
+  "table_sha256": "8ea18125fde836c29c12a4c352233ce9b2a41f7185cdb0531225dc0cea566bb7",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

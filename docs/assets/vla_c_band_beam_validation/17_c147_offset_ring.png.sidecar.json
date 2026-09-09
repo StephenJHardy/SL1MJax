@@ -1,83 +1,205 @@
 {
   "figure_id": "F17",
   "filename": "17_c147_offset_ring.png",
-  "image_sha256": "ab60391ec2d655b9ead665de01094c9b4cd4a50710b37a5abccb1dbac3db3c3e",
+  "image_sha256": "00965512804f407b79a9ba24a234e448d3c5125150b14bcab3f7a3a34b2dc29a",
   "generating_function": "plot_offset_ring",
   "claims": [
     "C04",
     "C05"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:49.680874+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:08.087748+00:00",
   "caption": "Independent C147-* ring geometry and diagonal closure. Supports C04.",
   "table": {
     "fields": [
       {
         "field_id": 1,
+        "l_rad": 7.737169820300748e-10,
+        "m_rad": -0.0010544698045880097,
+        "n_rad": 0.9999994440465609,
         "name": "C147-N",
-        "l_arcmin": 2.6598430564753585e-06,
-        "m_arcmin": -3.625000165612656,
-        "radius_arcmin": 3.625000165613632
+        "phase_centre_rad": [
+          1.4948845327,
+          0.8711361714
+        ],
+        "position_angle_deg": 179.99995795923468,
+        "position_angle_rad": 3.141591919840018,
+        "radius_arcmin": 3.625000165613632,
+        "radius_rad": 0.0010544698045882935,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 2,
+        "l_rad": 0.0007408399757200286,
+        "m_rad": -0.0007453179931993792,
+        "n_rad": 0.9999994478284573,
         "name": "C147-NW",
-        "l_arcmin": 2.546820234199921,
-        "m_arcmin": -2.5622145243290775,
-        "radius_arcmin": 3.6126495227205506
+        "phase_centre_rad": [
+          1.4937355243,
+          0.870827345
+        ],
+        "position_angle_deg": 135.17264027852036,
+        "position_angle_rad": 2.359207631474085,
+        "radius_arcmin": 3.6126495227205506,
+        "radius_rad": 0.001050877148201255,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 3,
+        "l_rad": 0.0010456154142619446,
+        "m_rad": 6.478725563252574e-07,
+        "n_rad": 0.9999994533438434,
         "name": "C147-W",
-        "l_arcmin": 3.594561013861956,
-        "m_arcmin": 0.0022272217883873373,
-        "radius_arcmin": 3.5945617038650477
+        "phase_centre_rad": [
+          1.4932628309,
+          0.8700817016
+        ],
+        "position_angle_deg": 89.96449903293016,
+        "position_angle_rad": 1.5701767180318857,
+        "radius_arcmin": 3.5945617038650477,
+        "radius_rad": 0.0010456156149757077,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 4,
+        "l_rad": 0.0007408399757200286,
+        "m_rad": 0.0007459682593700112,
+        "n_rad": 0.9999994473435905,
         "name": "C147-SW",
-        "l_arcmin": 2.546820234199921,
-        "m_arcmin": 2.564449974757318,
-        "radius_arcmin": 3.6142353241540532
+        "phase_centre_rad": [
+          1.4937355243,
+          0.8693360582
+        ],
+        "position_angle_deg": 44.80237677116349,
+        "position_angle_rad": 0.781948987375829,
+        "radius_arcmin": 3.6142353241540532,
+        "radius_rad": 0.001051338439139546,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 5,
+        "l_rad": 7.737169820300748e-10,
+        "m_rad": 0.0010544694045881986,
+        "n_rad": 0.9999994440469828,
         "name": "C147-S",
-        "l_arcmin": 2.6598430564753585e-06,
-        "m_arcmin": 3.6249987905145975,
-        "radius_arcmin": 3.624998790515573
+        "phase_centre_rad": [
+          1.4948845327,
+          0.8690272318
+        ],
+        "position_angle_deg": 4.204078128300663e-05,
+        "position_angle_rad": 7.337500534992718e-07,
+        "radius_arcmin": 3.624998790515573,
+        "radius_rad": 0.0010544694045884824,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 6,
+        "l_rad": -0.0007408384282870861,
+        "m_rad": 0.0007459682580118199,
+        "n_rad": 0.9999994473447378,
         "name": "C147-SE",
-        "l_arcmin": -2.54681491451732,
-        "m_arcmin": 2.5644499700882006,
-        "radius_arcmin": 3.6142315722561604
+        "phase_centre_rad": [
+          1.4960335411,
+          0.8693360582
+        ],
+        "position_angle_deg": -44.802316986270554,
+        "position_angle_rad": -0.7819479439326043,
+        "radius_arcmin": 3.6142315722561604,
+        "radius_rad": 0.001051337347756689,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 7,
+        "l_rad": -0.0010456138668300155,
+        "m_rad": 6.478706381929378e-07,
+        "n_rad": 0.9999994533454615,
         "name": "C147-E",
-        "l_arcmin": -3.59455569418284,
-        "m_arcmin": 0.0022272151943341497,
-        "radius_arcmin": 3.594556384182866
+        "phase_centre_rad": [
+          1.4965062345,
+          0.8700817016
+        ],
+        "position_angle_deg": -89.96449908549786,
+        "position_angle_rad": -1.5701767189493654,
+        "radius_arcmin": 3.594556384182866,
+        "radius_rad": 0.0010456140675428871,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       },
       {
         "field_id": 8,
+        "l_rad": -0.0007408384282870861,
+        "m_rad": -0.0007453179945592914,
+        "n_rad": 0.9999994478296026,
         "name": "C147-NE",
-        "l_arcmin": -2.54681491451732,
-        "m_arcmin": -2.5622145290041107,
-        "radius_arcmin": 3.612645775805818
+        "phase_centre_rad": [
+          1.4960335411,
+          0.870827345
+        ],
+        "position_angle_deg": -135.17270016817898,
+        "position_angle_rad": -2.359208676745816,
+        "radius_arcmin": 3.612645775805818,
+        "radius_rad": 0.0010508760582679405,
+        "source_from": "source_table_agrees_field_0",
+        "source_radec_rad": [
+          1.4948845339,
+          0.8700817014
+        ]
       }
     ],
     "closure": {
-      "rr": 0.011685097778069658,
-      "ll": 0.00900312429954719,
+      "rr": 0.009084030947264246,
+      "ll": 0.005506648850203247,
       "passed": 1,
-      "n_rr": 61776,
-      "n_ll": 61776,
+      "n_rr": 30888,
+      "n_ll": 30888,
       "radius_arcmin": 3.6134405474883557,
       "q_u_is_frequency_holdout": 0
     }
   },
-  "table_sha256": "82ef50f228c36e2fbd06aa1e6b090bb0bd60d6af2cdae10c8e25123f2ac5d23d"
+  "table_sha256": "3ab9f388aec830e06750a31e9cd59ce118f538a63d3f1a3be10b149f5c8e3d37",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

@@ -1,0 +1,99 @@
+{
+  "project": "THOL0001",
+  "scheduling_block": "sb31628704",
+  "execution_block": "eb31629959",
+  "source": "3C147",
+  "holoraster_field": "HOLORASTER",
+  "on_axis_field_ids": [
+    0,
+    9
+  ],
+  "offset_field_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "native_frequencies_hz": [
+    4564000000.0,
+    4692000000.0
+  ],
+  "version1_frequency_hz": 4564000000.0,
+  "spw5_frequency_hz": 4692000000.0,
+  "spw5_status": "sealed",
+  "pointing_offset_frame": "AZELGEO",
+  "on_source_is_selection": false,
+  "snap_pass2_to_memo_lattice": false,
+  "antenna_names": [
+    "ea02",
+    "ea03",
+    "ea04",
+    "ea05",
+    "ea06",
+    "ea07",
+    "ea08",
+    "ea09",
+    "ea10",
+    "ea11",
+    "ea12",
+    "ea13",
+    "ea14",
+    "ea15",
+    "ea16",
+    "ea17",
+    "ea18",
+    "ea19",
+    "ea20",
+    "ea21",
+    "ea22",
+    "ea23",
+    "ea24",
+    "ea25",
+    "ea26",
+    "ea27",
+    "ea28"
+  ],
+  "reference_antenna_names": [
+    "ea02",
+    "ea03",
+    "ea07",
+    "ea12",
+    "ea14",
+    "ea24",
+    "ea26"
+  ],
+  "reference_antenna": "ea02",
+  "occupancy": {
+    "n_clustered_cells": 797,
+    "n_dense_family": 191,
+    "n_sparse_family": 606,
+    "pass1_cells": 275,
+    "pass2_cells": 529
+  },
+  "timeline": [
+    {
+      "label": "flux/bandpass",
+      "scan_start": 2,
+      "n_scans": 1
+    },
+    {
+      "label": "pass 1 raster",
+      "scan_start": 18,
+      "n_scans": 17
+    },
+    {
+      "label": "on-axis 3C147",
+      "scan_start": 51,
+      "n_scans": 1
+    },
+    {
+      "label": "pass 2 raster",
+      "scan_start": 57,
+      "n_scans": 23
+    }
+  ]
+}

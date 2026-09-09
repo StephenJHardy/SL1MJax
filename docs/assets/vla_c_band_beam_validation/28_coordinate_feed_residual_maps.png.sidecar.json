@@ -1,0 +1,43 @@
+{
+  "figure_id": "F28",
+  "filename": "28_coordinate_feed_residual_maps.png",
+  "image_sha256": "f79e43c2dc2918d758852fcebeea599c291db7a5d2e69e634c2bce323c0485af",
+  "generating_function": "plot_coordinate_feed_residual_maps",
+  "claims": [
+    "C01",
+    "C02",
+    "C03"
+  ],
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:08.790341+00:00",
+  "caption": "Copolar residual maps on the corrected source-in-beam axes. All panels use one colour scale, so the EVLA-C feed effect can be compared directly.",
+  "table": {
+    "scale_max_jy": 0.5485032416063226,
+    "coordinate": "source_lm_feed",
+    "generic_commanded_rr_median_jy": 0.12458633271411321,
+    "generic_source_lm_rr_median_jy": 0.12283684154264682,
+    "evla_c_source_lm_rr_median_jy": 0.12007795244654756,
+    "generic_commanded_ll_median_jy": 0.12975113731432864,
+    "generic_source_lm_ll_median_jy": 0.12377631989071364,
+    "evla_c_source_lm_ll_median_jy": 0.12143439516611174
+  },
+  "table_sha256": "ed4fab2a313cba96e2f9945c277fe19341bbcd0e34d4da63e37d1c463008affd",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
+}

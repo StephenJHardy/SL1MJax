@@ -965,6 +965,22 @@ def commanded_pointing_lm_rad(
     return np.column_stack((l_rad, m_rad))
 
 
+def commanded_offset_from_direction_target(
+    table: AntennaPointingTable,
+    phase_centre_rad: tuple[float, float],
+) -> NDArray[np.float64]:
+    """Return ``DIRECTION-TARGET`` in the same tangent frame as ``commanded_pointing_lm_rad``.
+
+    For THOL0001 AZELGEO holography this is the stored ``POINTING_OFFSET``.
+    It is the commanded antenna displacement, not the source coordinate
+    inside the moved beam.
+    """
+
+    direction = commanded_pointing_lm_rad(table.column("DIRECTION"), phase_centre_rad)
+    target = commanded_pointing_lm_rad(table.column("TARGET"), phase_centre_rad)
+    return direction - target
+
+
 def source_relative_lm_rad(
     sky_lm_rad: ArrayLike,
     pointing_delta_lm_rad: ArrayLike,
@@ -1396,9 +1412,16 @@ def pointing_convention_diagnostics(
     selected_column: str = "DIRECTION",
     residual_limit_arcmin: float = 0.05,
 ) -> PointingConventionDiagnostics:
-    """Fail if a sign flip or axis swap matches POINTING_OFFSET better."""
+    """Score the physical pointing chain, not a column against itself.
 
-    if "POINTING_OFFSET" not in [column.name for column in table.columns]:
+    ``POINTING_OFFSET`` is the commanded displacement. When that column is
+    selected, the diagnostic compares ``DIRECTION-TARGET`` with the stored
+    offset. Comparing ``POINTING_OFFSET`` to itself cannot test the beam
+    query sign.
+    """
+
+    names = [column.name for column in table.columns]
+    if "POINTING_OFFSET" not in names:
         return PointingConventionDiagnostics(
             selected_column=selected_column,
             commanded_residual_arcmin=float("nan"),
@@ -1407,7 +1430,24 @@ def pointing_convention_diagnostics(
             status="not_run",
             notes=("POINTING_OFFSET is absent; convention residual cannot be scored",),
         )
-    commanded = commanded_pointing_lm_rad(table.column(selected_column), phase_centre_rad)
+    notes: list[str] = []
+    if selected_column == "POINTING_OFFSET":
+        if "DIRECTION" not in names or "TARGET" not in names:
+            return PointingConventionDiagnostics(
+                selected_column=selected_column,
+                commanded_residual_arcmin=float("nan"),
+                flipped_residual_arcmin=float("nan"),
+                swapped_residual_arcmin=float("nan"),
+                status="fail",
+                notes=(
+                    "POINTING_OFFSET cannot be scored against itself; "
+                    "DIRECTION and TARGET are required for DIRECTION-TARGET",
+                ),
+            )
+        commanded = commanded_offset_from_direction_target(table, phase_centre_rad)
+        notes.append("POINTING_OFFSET is scored as DIRECTION-TARGET, not against itself")
+    else:
+        commanded = commanded_pointing_lm_rad(table.column(selected_column), phase_centre_rad)
     stored = table.column("POINTING_OFFSET").values_rad
     nonzero = np.hypot(stored[:, 0], stored[:, 1]) > np.deg2rad(0.05 / 60.0)
     if not np.any(nonzero):
@@ -1428,11 +1468,10 @@ def pointing_convention_diagnostics(
     status: HolographyGateStatus = (
         "pass" if unique_winner and commanded_r <= residual_limit_arcmin else "fail"
     )
-    notes = []
     if not unique_winner:
         notes.append("sign flip or axis swap is not uniquely worse than commanded_pointing")
     if commanded_r > residual_limit_arcmin:
-        notes.append("DIRECTION to POINTING_OFFSET residual exceeds the limit")
+        notes.append("DIRECTION-TARGET to POINTING_OFFSET residual exceeds the limit")
     return PointingConventionDiagnostics(
         selected_column=selected_column,
         commanded_residual_arcmin=commanded_r,

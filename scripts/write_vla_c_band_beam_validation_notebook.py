@@ -25,9 +25,11 @@ MARKDOWN = [
     (
         "## 1. Executive summary\n"
         "\n"
-        "CASSBEAM is the reference diagonal C-band beam inside a stated validity "
-        "domain. The claim registry below is loaded from the bundle. The notebook "
-        "does not invent claim status."
+        "This notebook reports EVLA-C CASSBEAM at `source_lm_feed` on the nine "
+        "THOL0001 SPW-4 publication channels (4.500–4.626 GHz). It does not "
+        "validate the whole C band. No production beam is frozen. The claim "
+        "registry and residual table are loaded from the compact bundle. "
+        "Historical generic/commanded scores belong in the appendix controls."
     ),
     (
         "## 2. Why a measured voltage beam is needed\n"
@@ -47,8 +49,10 @@ MARKDOWN = [
     (
         "## 3. THOL0001 observation\n"
         "\n"
-        "`POINTING_OFFSET` is an AZELGEO antenna coordinate. `ON_SOURCE` is not a "
-        "valid selection field. Version 1 publishes 4.564 GHz only."
+        "`POINTING_OFFSET` is the commanded AZELGEO antenna displacement. The source "
+        "at the phase centre therefore appears at its negative in the beam: "
+        "`source_lm_feed = -commanded_offset_azelgeo`. `ON_SOURCE` is not a valid "
+        "selection field. Version 1 publishes 4.564 GHz only."
     ),
     (
         "## 4. Calibration and source model\n"
@@ -61,13 +65,16 @@ MARKDOWN = [
         "## 5. Convention and software correctness\n"
         "\n"
         "These residuals lock CASA/JAX apply semantics. They are not evidence that "
-        "CASSBEAM is physically correct. The 128-member convention search is closed."
+        "CASSBEAM is physically correct. The Jones packing remains native; the "
+        "128-member convention search is closed."
     ),
     (
-        "## 6–8. Direct HOLORASTER comparison\n"
+        "## 7–9. Direct HOLORASTER comparison (historical baseline)\n"
         "\n"
-        "Every calibrated moving–reference visibility is compared with CASSBEAM at "
-        "the measured AZELGEO coordinate. No coefficient is fitted. The source is "
+        "These panels preserve the frozen generic-VLA comparison at commanded "
+        "coordinates. The update in Section 6 supersedes that model as the leading "
+        "SPW-4 development candidate. Every calibrated moving–reference visibility "
+        "is compared without a fitted coefficient. The source is "
         "at the phase centre, so the geometric fringe is identically one.\n"
         "\n"
         "On axis, $V_{mr}\\simeq S$ with $E_m(0)=E_r(0)=1$. Flux calibration cannot "
@@ -108,50 +115,76 @@ MARKDOWN = [
         "terms, and for antenna-dependent Jones beams."
     ),
     (
-        "## 9. R/L squint\n"
+        "## 10. R/L squint\n"
         "\n"
         "The publication estimator is the 20%-of-peak main-lobe power centroid, "
         "with independent RR and LL flags and weights. The full-raster centroid "
-        "is a bias diagnostic only."
+        "is a bias diagnostic only. Section 6 compares explicitly named R-minus-L "
+        "vectors in the corrected source/feed frame."
     ),
     (
-        "## 10. C147-* offset ring\n"
+        "## 11. C147-* offset ring\n"
         "\n"
         "Fields 1–8 were unused prediction data. Offsets come from `FIELD.PHASE_DIR`. "
         "The CASA fringe $\\exp(+2\\pi i[ul+vm+w(n-1)])$ is required. The already-written "
         "ring Q/U used all 64 channels and is not a frequency holdout."
     ),
     (
-        "## 11. Frequency transfer\n"
+        "## 12. Frequency transfer\n"
         "\n"
         "This section is `not_run`. SPW 5 at 4.692 GHz remains sealed."
     ),
     (
-        "## 12. Experimental full Jones\n"
+        "## 13. Experimental full Jones\n"
         "\n"
-        "The locked mount-frame CASSBEAM full-Jones prediction is labelled "
-        "experimental. The diagonal prediction is the null. A correlation near "
-        "zero and residual power near one means the template explains almost none "
-        "of the RL/LR variance. Because the observed cloud is larger than the "
-        "predicted signal, this is a sensitivity-limited non-detection, not a "
-        "clean rejection of CASSBEAM leakage physics."
+        "The current cross-hand panel compares EVLA-C diagonal and full Jones at "
+        "`source_lm_feed`. The diagonal prediction is the null. Paired loss is "
+        "candidate minus diagonal; negative is better. The bounded outcomes are "
+        "`supported_on_spw4_development`, `disfavoured_on_tested_support`, "
+        "`inconclusive_sensitivity`, and `blocked_implementation_or_contract`. "
+        "Absence of improvement is not by itself a disfavour. Residual Jones is "
+        "the channel-32 field-9 plane applied to all publication channels. "
+        "Historical generic/commanded cross-hand scores are appendix controls."
     ),
     (
-        "## 13. Conclusions and limitations\n"
+        "## 14. Conclusions and limitations\n"
         "\n"
-        "Use CASSBEAM as the diagonal structural prior. Trust the main beam most "
-        "strongly. Treat the mid beam as qualified. Attach substantial model "
+        "Use EVLA-C CASSBEAM at `source_lm_feed` as the leading SPW-4 diagonal "
+        "development model. Keep the generic VLA artifact as an ablation. Trust the "
+        "main beam most strongly. Treat the mid beam as qualified. Attach substantial model "
         "uncertainty outside it. Keep explicit bright out-of-field source terms, "
         "because CASSBEAM alone can misestimate their apparent flux by factors of "
         "roughly two or more at particular outer locations. Do not infer a general "
         "outer phase correction from the current phase means.\n"
         "\n"
-        "The next scientific work is a validation-selected low-order diagonal "
-        "correction. Outer-field corrections should be admitted only if they "
-        "transfer across movers and spatial holdouts; otherwise bright outer "
-        "sources should get source-specific nuisance terms or peeling rather than "
-        "a globally corrected beam. Full Jones remains an experimental "
-        "non-detection. SPW 5 remains sealed."
+        "The next bounded full-Jones step is a residual-Jones frequency axis; "
+        "do not retune the current gates. The next diagonal step remains a "
+        "validation-selected low-order correction or a sealed frequency-transfer "
+        "test. Outer-field corrections should be admitted only if they transfer "
+        "across movers and spatial holdouts; otherwise bright outer sources "
+        "should get source-specific nuisance terms or peeling rather than a "
+        "globally corrected beam. Full Jones is classified from the bundle "
+        "outcome and is not a production acceptance. SPW 5 remains sealed."
+    ),
+    (
+        "## 6. Corrected coordinate and EVLA-C feed update\n"
+        "\n"
+        "The physical query coordinate is the source direction relative to the "
+        "commanded antenna pointing, expressed on the CASSBEAM feed axes. For the "
+        "HOLORASTER source at the phase centre this is\n"
+        "\n"
+        "$$s_{\\rm feed}=-\\Delta_{\\rm commanded}. $$\n"
+        "\n"
+        "Three predictions are evaluated on exactly the same calibrated SPW-4 "
+        "development rows: generic VLA at the historical commanded coordinate, "
+        "generic VLA at the corrected source coordinate, and EVLA-C feed parameters "
+        "at the corrected source coordinate. The paired spatial and mover holdouts "
+        "separate the coordinate effect from the feed-parameter effect. These are "
+        "development holdouts, not the still-sealed SPW-5 transfer test."
+        "\n\n"
+        "The corrected-frame squint vector uses the training-only independent-mask "
+        "map estimate to compare direction. It does not replace the all-data "
+        "publication squint magnitude in Section 10."
     ),
 ]
 
@@ -186,6 +219,7 @@ for row in rows:
     print(f"{row['id']:<4} {row['status']:<10} {str(row.get('support_class','')):<28} {row['title']}")
 """,
     """residuals = residual_power_table(bundle.holoraster_channel32)
+print("EVLA-C / source_lm_feed region table from the compact bundle.")
 print("Quoted % residual power is not a flux error.")
 print("region            RR power   RR RMS vis   RR med|dV|/I   LL power   LL RMS vis   LL med|dV|/I")
 for name in ("main_lobe", "mid", "outer_diagnostic", "all"):
@@ -280,7 +314,9 @@ show("13_squint_mainlobe_20pct.png", "16_spw4_frequency.png")
 """,
     """ring = offset_ring_diagonal_closure(bundle.offset_ring)
 print(ring)
-print("inner/sealed scores", bundle.offset_ring["scores"])
+print("channel-32 closure", bundle.offset_ring.get("closure"))
+print("empty inner-holdout channels", bundle.offset_ring.get("empty_inner_holdout_channels"))
+print("historical_holdout", bundle.offset_ring.get("historical_holdout"))
 print("Q/U is frequency holdout", ring["q_u_is_frequency_holdout"])
 show("17_c147_offset_ring.png")
 """,
@@ -296,6 +332,28 @@ show("18_experimental_crosshand.png")
 print("convention search reopened", bundle.convention_gates.get("cassbeam_convention", {}).get("note"))
 for row in claim_table(bundle):
     print(row["id"], row["status"], row["evidence"])
+""",
+    """comparison = bundle.coordinate_feed_comparison
+print("scope", comparison["scope"])
+print("coordinate", comparison["coordinate_contract"])
+print("interpretation", comparison["interpretation"])
+print("updated EVLA-C/source-in-beam region metrics")
+for region, hands in comparison["metrics"]["evla_c_source_lm"]["development"].items():
+    print(region, {hand: row["residual_power"] for hand, row in hands.items()})
+for name, score in comparison["paired_scores"].items():
+    print(name)
+    for axis in ("spatial", "moving"):
+        row = score[axis]
+        print(axis, "delta", row["delta"], "95% CI", (row["delta_lo"], row["delta_hi"]),
+              "improves", bool(row["improves"]))
+print("measured source-frame squint", comparison["map_squint"]["source_lm_labels"]["independent_masks"])
+print("EVLA-C plane squint", comparison["evla_plane_centroids"])
+show(
+    "26_coordinate_feed_impact.png",
+    "27_coordinate_feed_scatter.png",
+    "28_coordinate_feed_residual_maps.png",
+    "29_coordinate_feed_squint.png",
+)
 """,
 ]
 
@@ -316,6 +374,8 @@ def build_notebook() -> nbformat.NotebookNode:
         nbformat.v4.new_markdown_cell(MARKDOWN[5]),
         nbformat.v4.new_code_cell(CODE[5]),
         nbformat.v4.new_code_cell(CODE[8]),
+        nbformat.v4.new_markdown_cell(MARKDOWN[12]),
+        nbformat.v4.new_code_cell(CODE[16]),
         nbformat.v4.new_markdown_cell(MARKDOWN[6]),
         nbformat.v4.new_code_cell(CODE[9]),
         nbformat.v4.new_code_cell(CODE[10]),

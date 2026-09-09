@@ -1,0 +1,25 @@
+{
+  "channel32_residual_jones": {
+    "apply": false,
+    "reason": "channel-32 residual is not a band-ready frequency model",
+    "sha256": "ff6aee560ab1521da1472ce833393ad01d3f64bbc1200f6e71b4b5088aef12bc"
+  },
+  "full_jones_is_gate": false,
+  "new_spws": {
+    "do_not_overwrite_full_ms": true,
+    "do_not_overwrite_scientific_ms": true,
+    "require_new_work_copies": true,
+    "source_ms": "/media/stephen/astro/vla/extracted/THOL0001.sb31628704.eb31629959.57401.169024456016.ms",
+    "work_root": "/media/stephen/astro/vla/extracted/commissioning/validation/scientific/evla_c_diagonal_survey_v1/work_ms"
+  },
+  "residual_jones": "not_applied",
+  "reuse_incompatible_tables": false,
+  "scientific_spw45": {
+    "overwrite": false,
+    "path": "/media/stephen/astro/vla/extracted/commissioning/work/THOL0001.lowerC.spw45.scientific.ms",
+    "residual_jones": "not_applied",
+    "role": "reuse_for_spw4_and_spw5_diagonal_only"
+  },
+  "solve_on_holoraster_movers": false,
+  "spw5_role": "declared_diagonal_frequency_transfer"
+}

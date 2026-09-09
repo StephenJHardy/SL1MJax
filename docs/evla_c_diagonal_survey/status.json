@@ -1,0 +1,86 @@
+{
+  "blocked": [],
+  "convention_ladder_reopened": false,
+  "experiment_id": "evla_c_diagonal_survey_v1",
+  "full_jones_is_gate": false,
+  "outcome": "pass_a_complete_pass_b_limited",
+  "production_accepted": false,
+  "residual_jones_policy": "not_applied",
+  "schema_version": 1,
+  "spw5_role": "declared_diagonal_frequency_transfer",
+  "numerical_qualification": "incomplete_no_band_wide_convergence",
+  "upper_c_archive_integrity": "unverified",
+  "pass_b_scope": "lower_c_spw_4_6_only",
+  "tasks": {
+    "phase0_manifest": {
+      "artifact": "docs/evla_c_diagonal_survey/experiment_manifest.json",
+      "reason": "method, sampling, and frozen paths locked",
+      "state": "complete"
+    },
+    "phase1_lower_c_inventory": {
+      "artifact": "docs/evla_c_diagonal_survey/frequency_table.json",
+      "reason": "3.988–6.010 GHz science SPWs 0–15",
+      "state": "complete"
+    },
+    "phase1_upper_c_identity": {
+      "artifact": "docs/evla_c_diagonal_survey/execution_inventory.json",
+      "reason": "18 January is upper-C; inner ms.tgz CRC error recorded",
+      "state": "complete"
+    },
+    "phase1_upper_c_inventory": {
+      "artifact": "docs/evla_c_diagonal_survey/frequency_table.json",
+      "reason": "5.988–8.010 GHz science SPWs 0–15; archive integrity unverified",
+      "state": "complete"
+    },
+    "phase2_calibration_policy": {
+      "artifact": "docs/evla_c_diagonal_survey/calibration_policy.json",
+      "reason": "identity residual Jones; upper-C uses 3C147 scans 3,53",
+      "state": "complete"
+    },
+    "phase2_excursion_diagnosis": {
+      "artifact": "docs/evla_c_diagonal_survey/pass_b_mainlobe.png",
+      "reason": "SPW-4 ch24 LL and ch40 RR persist without residual Jones; unexplained",
+      "state": "complete"
+    },
+    "phase3_planes": {
+      "artifact": "/media/stephen/astro/vla/beam_models/cassbeam_evla_c_diagonal_survey_v1/manifest.json",
+      "reason": "Pass-A planes 4052–7948 MHz plus Pass-B and imaging nodes",
+      "state": "complete"
+    },
+    "phase3_convergence": {
+      "artifact": null,
+      "reason": "low/mid/high aperture-resolution and angular-sampling suite not run; do not inherit SPW-4 refresh as band-wide",
+      "state": "pending"
+    },
+    "phase4_pass_a": {
+      "artifact": "docs/evla_c_diagonal_survey/suitability_table.json",
+      "reason": "All science Pass-A centres scored on both executions",
+      "state": "complete"
+    },
+    "phase4_pass_b": {
+      "artifact": "docs/evla_c_diagonal_survey/suitability_table.json",
+      "reason": "Pass B limited to lower-C SPWs 4–6; other extras are pass_a_only",
+      "state": "complete"
+    },
+    "phase5_plots": {
+      "artifact": "docs/evla_c_diagonal_survey/phase5/phase5_diagnostics.json",
+      "reason": "44 scored exports; coarse radial minimum is not a first null",
+      "state": "complete"
+    },
+    "phase6_catalog": {
+      "artifact": "docs/evla_c_diagonal_survey/catalog_record.json",
+      "reason": "evla_c_diagonal_survey_v1 digest 828c9ece…; interpolation refused",
+      "state": "complete"
+    },
+    "phase6_imaging_adapter": {
+      "artifact": "docs/evla_c_diagonal_survey/smoke_summary.json",
+      "reason": "opt-in seven-pointing smoke at 4536/4598/4662; engineering check only",
+      "state": "complete"
+    },
+    "phase7_publication": {
+      "artifact": "src/sl1mjax/data/vla_c_band_beam_validation_v3/manifest.json",
+      "reason": "v3 pack; v2 checksum unchanged",
+      "state": "complete"
+    }
+  }
+}

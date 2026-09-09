@@ -416,55 +416,107 @@ def _holoraster_channel_block(
     if last < first or first < 0 or last >= frequencies.size:
         raise ValueError(f"channel range [{first}, {last + 1}) is outside SPW {spectral_window_id}")
     n_chan = last - first + 1
-    query = (
-        f"SELECT FROM '{measurement_set}' "
-        f"WHERE FIELD_ID={HOLORASTER_FIELD} AND DATA_DESC_ID={int(data_desc_id)}"
-    )
-    with tables.taql(query) as selected:
-        if selected.nrows() == 0:
-            raise ValueError(f"no HOLORASTER rows for DATA_DESC_ID {data_desc_id}")
-        columns = set(selected.colnames())
-        if data_column not in columns:
-            raise ValueError(f"{data_column} is not in {measurement_set}")
-        if "MODEL_DATA" not in columns:
-            raise ValueError(
-                "HOLORASTER recovery requires MODEL_DATA on the same rows as "
-                f"{data_column}; a scalar Stokes I is not S_pq"
+    from sl1mjax.evla_c_diagonal_survey import survey_holoraster_row_cache
+
+    cache_path = survey_holoraster_row_cache(measurement_set, int(data_desc_id))
+    parent = None
+    selected_cm = None
+    if cache_path is not None and cache_path.is_file():
+        row_ids = np.load(cache_path)
+        parent = tables.table(str(measurement_set), readonly=True, ack=False)
+        selected_cm = parent.selectrows(np.asarray(row_ids, dtype=np.int64))
+    if selected_cm is None:
+        query = (
+            f"SELECT FROM '{measurement_set}' "
+            f"WHERE FIELD_ID={HOLORASTER_FIELD} AND DATA_DESC_ID={int(data_desc_id)}"
+        )
+        selected_cm = tables.taql(query)
+    try:
+        with selected_cm as selected:
+            if selected.nrows() == 0:
+                raise ValueError(f"no HOLORASTER rows for DATA_DESC_ID {data_desc_id}")
+            columns = set(selected.colnames())
+            if data_column not in columns:
+                raise ValueError(f"{data_column} is not in {measurement_set}")
+            if "MODEL_DATA" not in columns:
+                raise ValueError(
+                    "HOLORASTER recovery requires MODEL_DATA on the same rows as "
+                    f"{data_column}; a scalar Stokes I is not S_pq"
+                )
+            visibility = np.asarray(selected.getcolslice(data_column, [first, 0], [last, -1]))
+            model = np.asarray(selected.getcolslice("MODEL_DATA", [first, 0], [last, -1]))
+            flag = np.asarray(selected.getcolslice("FLAG", [first, 0], [last, -1]), dtype=bool)
+            flag_row = (
+                np.asarray(selected.getcol("FLAG_ROW"), dtype=bool)
+                if "FLAG_ROW" in columns
+                else None
             )
-        visibility = np.asarray(selected.getcolslice(data_column, [first, 0], [last, -1]))
-        model = np.asarray(selected.getcolslice("MODEL_DATA", [first, 0], [last, -1]))
-        flag = np.asarray(selected.getcolslice("FLAG", [first, 0], [last, -1]), dtype=bool)
-        # This MS has a WEIGHT_SPECTRUM column with missing tiled arrays.
-        # Broadcast the validated per-row WEIGHT across native channels.
-        weight = np.repeat(
-            np.asarray(selected.getcol("WEIGHT"), dtype=np.float64)[:, None, :],
-            n_chan,
-            axis=1,
-        )
-        correlations = (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL)
-        source = circular_visibility_to_source_coherency(model, correlations)
-        block = VisibilityBlock(
-            uvw_m=np.asarray(selected.getcol("UVW"), dtype=np.float64),
-            frequency_hz=frequencies[first : last + 1],
-            visibility=visibility,
-            weight=weight,
-            flag=flag,
-            time_s=np.asarray(selected.getcol("TIME"), dtype=np.float64),
-            antenna1=np.asarray(selected.getcol("ANTENNA1"), dtype=np.int32),
-            antenna2=np.asarray(selected.getcol("ANTENNA2"), dtype=np.int32),
-            field_id=np.asarray(selected.getcol("FIELD_ID"), dtype=np.int32),
-            scan_id=np.asarray(selected.getcol("SCAN_NUMBER"), dtype=np.int32),
-            correlations=correlations,
-            receptor_basis=ReceptorBasis.CIRCULAR,
-            phase_centre_rad=_read_field_phase_centre(tables, measurement_set, "HOLORASTER"),
-            data_description_id=int(data_desc_id),
-            spectral_window_id=int(spectral_window_id),
-            provenance={
-                "source": str(measurement_set),
-                "column": data_column,
-                "model_column": "MODEL_DATA",
-            },
-        )
+            from sl1mjax.evla_c_survey_ms_contract import (
+                combine_channel_and_row_flags,
+                require_circular_correlation_order,
+                select_row_or_spectrum_weight,
+            )
+
+            flag = combine_channel_and_row_flags(flag, flag_row)
+            spectrum = None
+            spectrum_defined = False
+            if "WEIGHT_SPECTRUM" in columns and selected.iscelldefined("WEIGHT_SPECTRUM", 0):
+                spectrum = np.asarray(
+                    selected.getcolslice("WEIGHT_SPECTRUM", [first, 0], [last, -1]),
+                    dtype=np.float64,
+                )
+                spectrum_defined = True
+            weight = select_row_or_spectrum_weight(
+                selected.getcol("WEIGHT"),
+                weight_spectrum=spectrum,
+                spectrum_defined=spectrum_defined,
+                n_chan=n_chan,
+            )
+            corr_type = None
+            with tables.table(
+                str(measurement_set / "DATA_DESCRIPTION"), readonly=True, ack=False
+            ) as description:
+                pol_id = int(description.getcell("POLARIZATION_ID", int(data_desc_id)))
+            with tables.table(
+                str(measurement_set / "POLARIZATION"), readonly=True, ack=False
+            ) as polarization:
+                corr_type = [
+                    int(code)
+                    for code in np.asarray(polarization.getcell("CORR_TYPE", pol_id)).ravel()
+                ]
+            correlations = require_circular_correlation_order(
+                (Correlation.RR, Correlation.RL, Correlation.LR, Correlation.LL),
+                corr_type=corr_type,
+            )
+            source = circular_visibility_to_source_coherency(model, correlations)
+            block = VisibilityBlock(
+                uvw_m=np.asarray(selected.getcol("UVW"), dtype=np.float64),
+                frequency_hz=frequencies[first : last + 1],
+                visibility=visibility,
+                weight=weight,
+                flag=flag,
+                time_s=np.asarray(selected.getcol("TIME"), dtype=np.float64),
+                antenna1=np.asarray(selected.getcol("ANTENNA1"), dtype=np.int32),
+                antenna2=np.asarray(selected.getcol("ANTENNA2"), dtype=np.int32),
+                field_id=np.asarray(selected.getcol("FIELD_ID"), dtype=np.int32),
+                scan_id=np.asarray(selected.getcol("SCAN_NUMBER"), dtype=np.int32),
+                correlations=correlations,
+                receptor_basis=ReceptorBasis.CIRCULAR,
+                phase_centre_rad=_read_field_phase_centre(tables, measurement_set, "HOLORASTER"),
+                data_description_id=int(data_desc_id),
+                spectral_window_id=int(spectral_window_id),
+                provenance={
+                    "source": str(measurement_set),
+                    "column": data_column,
+                    "model_column": "MODEL_DATA",
+                    "holoraster_row_cache": str(cache_path) if cache_path is not None else None,
+                },
+            )
+            if cache_path is not None and not cache_path.is_file():
+                np.save(cache_path, np.asarray(selected.rownumbers(), dtype=np.int64))
+    finally:
+        if parent is not None:
+            parent.close()
     return block, source
 
 

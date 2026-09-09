@@ -1,0 +1,306 @@
+{
+  "airy_fallback": false,
+  "catalog_id": "evla_c_diagonal_survey_v1",
+  "digest": "828c9ece95d3bc6c95bed8091840a6bceea3214e59b42895530b23224973d843",
+  "full_jones_is_gate": false,
+  "imaging_node_mhz": [
+    4536,
+    4598,
+    4662
+  ],
+  "interpolation_policy": "refused",
+  "model_id": "cassbeam_evla_c_diagonal_survey_v1",
+  "nearest_plane_substitution": false,
+  "planes": [
+    {
+      "frequency_hz": 4692000000.0,
+      "frequency_mhz": 4692,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4052000000.0,
+      "frequency_mhz": 4052,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4180000000.0,
+      "frequency_mhz": 4180,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4308000000.0,
+      "frequency_mhz": 4308,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4436000000.0,
+      "frequency_mhz": 4436,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4516000000.0,
+      "frequency_mhz": 4516,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4536000000.0,
+      "frequency_mhz": 4536,
+      "interpolation_validated": false,
+      "support": "imaging_node_interpolation_unvalidated"
+    },
+    {
+      "frequency_hz": 4548000000.0,
+      "frequency_mhz": 4548,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4564000000.0,
+      "frequency_mhz": 4564,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4580000000.0,
+      "frequency_mhz": 4580,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4598000000.0,
+      "frequency_mhz": 4598,
+      "interpolation_validated": false,
+      "support": "imaging_node_interpolation_unvalidated"
+    },
+    {
+      "frequency_hz": 4599000000.0,
+      "frequency_mhz": 4599,
+      "interpolation_validated": false,
+      "support": "generated_uncompared"
+    },
+    {
+      "frequency_hz": 4612000000.0,
+      "frequency_mhz": 4612,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4644000000.0,
+      "frequency_mhz": 4644,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4662000000.0,
+      "frequency_mhz": 4662,
+      "interpolation_validated": false,
+      "support": "imaging_node_interpolation_unvalidated"
+    },
+    {
+      "frequency_hz": 4676000000.0,
+      "frequency_mhz": 4676,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4708000000.0,
+      "frequency_mhz": 4708,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4740000000.0,
+      "frequency_mhz": 4740,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4772000000.0,
+      "frequency_mhz": 4772,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4804000000.0,
+      "frequency_mhz": 4804,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4820000000.0,
+      "frequency_mhz": 4820,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4836000000.0,
+      "frequency_mhz": 4836,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4868000000.0,
+      "frequency_mhz": 4868,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 4948000000.0,
+      "frequency_mhz": 4948,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5052000000.0,
+      "frequency_mhz": 5052,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5180000000.0,
+      "frequency_mhz": 5180,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5308000000.0,
+      "frequency_mhz": 5308,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5436000000.0,
+      "frequency_mhz": 5436,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5564000000.0,
+      "frequency_mhz": 5564,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5692000000.0,
+      "frequency_mhz": 5692,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5820000000.0,
+      "frequency_mhz": 5820,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 5948000000.0,
+      "frequency_mhz": 5948,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6052000000.0,
+      "frequency_mhz": 6052,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6180000000.0,
+      "frequency_mhz": 6180,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6308000000.0,
+      "frequency_mhz": 6308,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6436000000.0,
+      "frequency_mhz": 6436,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6564000000.0,
+      "frequency_mhz": 6564,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6692000000.0,
+      "frequency_mhz": 6692,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6820000000.0,
+      "frequency_mhz": 6820,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 6948000000.0,
+      "frequency_mhz": 6948,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 7052000000.0,
+      "frequency_mhz": 7052,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 7180000000.0,
+      "frequency_mhz": 7180,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 7308000000.0,
+      "frequency_mhz": 7308,
+      "interpolation_validated": false,
+      "support": "empirically_compared"
+    },
+    {
+      "frequency_hz": 7436000000.0,
+      "frequency_mhz": 7436,
+      "interpolation_validated": false,
+      "support": "generated_uncompared"
+    },
+    {
+      "frequency_hz": 7564000000.0,
+      "frequency_mhz": 7564,
+      "interpolation_validated": false,
+      "support": "generated_uncompared"
+    },
+    {
+      "frequency_hz": 7692000000.0,
+      "frequency_mhz": 7692,
+      "interpolation_validated": false,
+      "support": "generated_uncompared"
+    },
+    {
+      "frequency_hz": 7820000000.0,
+      "frequency_mhz": 7820,
+      "interpolation_validated": false,
+      "support": "generated_uncompared"
+    },
+    {
+      "frequency_hz": 7948000000.0,
+      "frequency_mhz": 7948,
+      "interpolation_validated": false,
+      "support": "generated_uncompared"
+    }
+  ],
+  "production_accepted": false,
+  "residual_jones_policy": "not_applied"
+}

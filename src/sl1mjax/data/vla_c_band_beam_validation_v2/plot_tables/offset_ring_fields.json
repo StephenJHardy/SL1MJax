@@ -1,0 +1,189 @@
+{
+  "fields": [
+    {
+      "field_id": 1,
+      "l_rad": 7.737169820300748e-10,
+      "m_rad": -0.0010544698045880097,
+      "n_rad": 0.9999994440465609,
+      "name": "C147-N",
+      "phase_centre_rad": [
+        1.4948845327,
+        0.8711361714
+      ],
+      "position_angle_deg": 179.99995795923468,
+      "position_angle_rad": 3.141591919840018,
+      "radius_arcmin": 3.625000165613632,
+      "radius_rad": 0.0010544698045882935,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 2,
+      "l_rad": 0.0007408399757200286,
+      "m_rad": -0.0007453179931993792,
+      "n_rad": 0.9999994478284573,
+      "name": "C147-NW",
+      "phase_centre_rad": [
+        1.4937355243,
+        0.870827345
+      ],
+      "position_angle_deg": 135.17264027852036,
+      "position_angle_rad": 2.359207631474085,
+      "radius_arcmin": 3.6126495227205506,
+      "radius_rad": 0.001050877148201255,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 3,
+      "l_rad": 0.0010456154142619446,
+      "m_rad": 6.478725563252574e-07,
+      "n_rad": 0.9999994533438434,
+      "name": "C147-W",
+      "phase_centre_rad": [
+        1.4932628309,
+        0.8700817016
+      ],
+      "position_angle_deg": 89.96449903293016,
+      "position_angle_rad": 1.5701767180318857,
+      "radius_arcmin": 3.5945617038650477,
+      "radius_rad": 0.0010456156149757077,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 4,
+      "l_rad": 0.0007408399757200286,
+      "m_rad": 0.0007459682593700112,
+      "n_rad": 0.9999994473435905,
+      "name": "C147-SW",
+      "phase_centre_rad": [
+        1.4937355243,
+        0.8693360582
+      ],
+      "position_angle_deg": 44.80237677116349,
+      "position_angle_rad": 0.781948987375829,
+      "radius_arcmin": 3.6142353241540532,
+      "radius_rad": 0.001051338439139546,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 5,
+      "l_rad": 7.737169820300748e-10,
+      "m_rad": 0.0010544694045881986,
+      "n_rad": 0.9999994440469828,
+      "name": "C147-S",
+      "phase_centre_rad": [
+        1.4948845327,
+        0.8690272318
+      ],
+      "position_angle_deg": 4.204078128300663e-05,
+      "position_angle_rad": 7.337500534992718e-07,
+      "radius_arcmin": 3.624998790515573,
+      "radius_rad": 0.0010544694045884824,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 6,
+      "l_rad": -0.0007408384282870861,
+      "m_rad": 0.0007459682580118199,
+      "n_rad": 0.9999994473447378,
+      "name": "C147-SE",
+      "phase_centre_rad": [
+        1.4960335411,
+        0.8693360582
+      ],
+      "position_angle_deg": -44.802316986270554,
+      "position_angle_rad": -0.7819479439326043,
+      "radius_arcmin": 3.6142315722561604,
+      "radius_rad": 0.001051337347756689,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 7,
+      "l_rad": -0.0010456138668300155,
+      "m_rad": 6.478706381929378e-07,
+      "n_rad": 0.9999994533454615,
+      "name": "C147-E",
+      "phase_centre_rad": [
+        1.4965062345,
+        0.8700817016
+      ],
+      "position_angle_deg": -89.96449908549786,
+      "position_angle_rad": -1.5701767189493654,
+      "radius_arcmin": 3.594556384182866,
+      "radius_rad": 0.0010456140675428871,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    },
+    {
+      "field_id": 8,
+      "l_rad": -0.0007408384282870861,
+      "m_rad": -0.0007453179945592914,
+      "n_rad": 0.9999994478296026,
+      "name": "C147-NE",
+      "phase_centre_rad": [
+        1.4960335411,
+        0.870827345
+      ],
+      "position_angle_deg": -135.17270016817898,
+      "position_angle_rad": -2.359208676745816,
+      "radius_arcmin": 3.612645775805818,
+      "radius_rad": 0.0010508760582679405,
+      "source_from": "source_table_agrees_field_0",
+      "source_radec_rad": [
+        1.4948845339,
+        0.8700817014
+      ]
+    }
+  ],
+  "partition": {
+    "inner_holdout": [
+      3,
+      7
+    ],
+    "inner_score": 0.0012395865900969875,
+    "notes": [
+      "Partitions use reconstructed (l, m) only",
+      "Sealed pair is the most opposite similar-radius pair",
+      "Inner pair is the remaining opposite pair most orthogonal to the sealed axis",
+      "Every row of a field stays in exactly one partition"
+    ],
+    "sealed_holdout": [
+      1,
+      5
+    ],
+    "sealed_score": 1.5623341908568691e-06,
+    "training": [
+      2,
+      4,
+      6,
+      8
+    ]
+  },
+  "historical_holdout": true
+}

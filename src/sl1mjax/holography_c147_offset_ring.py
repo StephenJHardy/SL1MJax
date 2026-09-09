@@ -14,22 +14,17 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from sl1mjax.coordinates import radec_to_lmn
-from sl1mjax.rime import SPEED_OF_LIGHT_M_S
 from sl1mjax.holography_beam_prior import (
     ComplexMoments,
     accumulate_hand_moments,
     bootstrap_complex_from_moments,
-    contiguous_channel_block_masks,
-    fit_frequency_smooth_alpha,
-    fit_unit_and_scalar,
     flatten_row_channel,
-    paired_power_improves,
-    residual_power_at,
     stack_moments,
 )
 from sl1mjax.holography_calibration import C147_OFFSET_FIELD_IDS
 from sl1mjax.holography_commissioning import ON_AXIS_3C147_NAMES
 from sl1mjax.holography_highres_cassbeam import DEFAULT_CONVENTION, QU_NUISANCE_PAIRS
+from sl1mjax.rime import SPEED_OF_LIGHT_M_S
 
 C147_OFFSET_RING = "c147_offset_ring_highres_cassbeam"
 SMOKE_CHANNEL = 32
@@ -554,11 +549,85 @@ def moments_for_increment(
 def select_training_qu(
     scores: Mapping[tuple[float, float], float],
 ) -> tuple[float, float]:
-    """Pick the training Q/U pair with the lowest declared score."""
+    """Pick the training Q/U pair with the lowest declared score.
+
+    The score must be a training-only cross-hand or joint four-hand
+    residual. RR/LL-only loss does not see Q/U in the circular basis.
+    """
 
     if not scores:
         return 0.0, 0.0
     return min(scores.items(), key=lambda item: (float(item[1]), item[0][0], item[0][1]))[0]
+
+
+def filter_moments_by_channel(
+    moments: Sequence[ComplexMoments],
+    channel_mask: ArrayLike,
+    *,
+    allow_empty: bool = False,
+) -> tuple[ComplexMoments, ...]:
+    """Keep moments whose native channel is True in ``channel_mask``."""
+
+    keep = np.asarray(channel_mask, dtype=bool).reshape(-1)
+    selected = tuple(
+        item
+        for item in moments
+        if 0 <= int(item.channel) < keep.size and bool(keep[int(item.channel)])
+    )
+    if not selected and not allow_empty:
+        raise ValueError("channel mask removed every moment")
+    return selected
+
+
+def hand_residual_power(
+    measured: ArrayLike,
+    predicted: ArrayLike,
+    weight: ArrayLike,
+    *,
+    hands: Sequence[tuple[str, int, int]] = (
+        ("rr", 0, 0),
+        ("ll", 1, 1),
+        ("rl", 0, 1),
+        ("lr", 1, 0),
+    ),
+) -> dict[str, object]:
+    """Weighted relative residual power on the requested visibility hands."""
+
+    vis = np.asarray(measured, dtype=np.complex128)
+    pred = np.asarray(predicted, dtype=np.complex128)
+    wgt = np.asarray(weight, dtype=np.float64)
+    if vis.ndim == 4:
+        vis, _, _ = flatten_row_channel(vis)
+        pred, _, _ = flatten_row_channel(pred)
+        wgt, _, _ = flatten_row_channel(wgt)
+    out: dict[str, object] = {}
+    total = 0.0
+    finite_total = True
+    for name, row, col in hands:
+        obs = vis[:, row, col]
+        hat = pred[:, row, col]
+        ww = wgt[:, row, col]
+        finite = np.isfinite(obs) & np.isfinite(hat) & np.isfinite(ww) & (ww > 0.0)
+        denom = float(np.sum(ww[finite] * np.abs(obs[finite]) ** 2))
+        numer = float(np.sum(ww[finite] * np.abs(obs[finite] - hat[finite]) ** 2))
+        rel = numer / denom if denom > 0.0 else float("nan")
+        out[name] = {"relative_power": rel, "n": int(np.sum(finite))}
+        if np.isfinite(rel):
+            total += rel
+        else:
+            finite_total = False
+    out["total"] = total if finite_total else float("nan")
+    return out
+
+
+def four_hand_residual_power(
+    measured: ArrayLike,
+    predicted: ArrayLike,
+    weight: ArrayLike,
+) -> dict[str, object]:
+    """Joint RR/LL/RL/LR residual used to select the Q/U nuisance."""
+
+    return hand_residual_power(measured, predicted, weight)
 
 
 def apply_channel_holdout(
@@ -594,7 +663,7 @@ def clustered_null_upper_limit(
     n_perm: int = 400,
     seed: int = 11,
 ) -> OffsetRingUpperLimit:
-    """Real 95% UL from held-out likelihood and a clustered sign-flip null."""
+    """Radial 95% UL on |α| from held-out likelihood and a clustered null."""
 
     stacked = stack_moments(moments)
     labels = np.asarray([item.cluster_id for item in moments], dtype=np.int64)
@@ -624,10 +693,7 @@ def clustered_null_upper_limit(
     if finite_null.size < 20:
         raise ValueError("clustered null distribution is empty; refusing a placeholder")
     boot = bootstrap_complex_from_moments(moments, n_boot=int(n_perm), seed=int(seed) + 1)
-    boot_abs = float(boot["abs"])
-    real_ci = tuple(float(v) for v in boot["real_ci95"])
-    imag_ci = tuple(float(v) for v in boot["imag_ci95"])
-    boot_ul = max(abs(real_ci[0]), abs(real_ci[1]), abs(imag_ci[0]), abs(imag_ci[1]), boot_abs)
+    boot_ul = float(boot["abs_ul95"])
     null_95 = float(np.percentile(finite_null, 95))
     ul_alpha = float(max(abs_hat, boot_ul, null_95))
     detected = bool(abs_hat > null_95 and boot.get("consistent_with_zero") is False)
@@ -644,6 +710,7 @@ def clustered_null_upper_limit(
         notes=(
             "Upper limit uses held-out α = Σw t* r / Σw |t|²",
             "Null flips the sign of each scan×baseline cluster's matched filter",
+            "α_ul95 is the clustered bootstrap 95th percentile of |α|",
             "coherent_voltage_ul95 = α_ul95 × median |t| on RL/LR",
         ),
     )
@@ -950,9 +1017,9 @@ def write_offset_ring_plots(
     import matplotlib
 
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
     from pathlib import Path
+
+    import matplotlib.pyplot as plt
 
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=True)

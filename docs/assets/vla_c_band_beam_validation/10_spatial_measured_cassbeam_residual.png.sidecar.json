@@ -1,18 +1,36 @@
 {
   "figure_id": "F10",
   "filename": "10_spatial_measured_cassbeam_residual.png",
-  "image_sha256": "56eb59389afea3d74df1a6356ad9a364e03a55aebca18af8df909755597a2a21",
+  "image_sha256": "3c1b4eebeb52987a0b0db81945b99488426e53d53f7fa5563960784bb7a78678",
   "generating_function": "plot_spatial_residual_maps",
   "claims": [
     "C01",
     "C02",
     "C03"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:47.898522+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:06.394892+00:00",
   "caption": "Visibility-domain RR/LL |V| on a linear Jy scale. Sidelobes are compressed; see F20 for dB. Supports C01\u2013C03.",
   "table": {
     "n_supported": 698
   },
-  "table_sha256": "8449a5431af92e2e5a60113bb503cc9a7ea313fa249d35420357e55788eb049d"
+  "table_sha256": "8449a5431af92e2e5a60113bb503cc9a7ea313fa249d35420357e55788eb049d",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

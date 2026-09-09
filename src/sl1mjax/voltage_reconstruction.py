@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Literal
 
@@ -66,6 +67,7 @@ from sl1mjax.voltage_flux_refit import _time_batches
 
 PRODUCTION_STOKES_I_BEAMS = ("static_scalar", "streamed_scalar", "diagonal_copolar")
 DIAGNOSTIC_STOKES_I_BEAMS = ("full_jones",)
+OPT_IN_SURVEY_BEAM = "evla_c_diagonal_survey_v1"
 
 
 @dataclass(frozen=True)
@@ -165,10 +167,33 @@ def stokes_i_beam(
     mode: str,
     *,
     allow_unfrozen_full_jones: bool = False,
+    survey_catalog_root: Path | str | None = None,
+    survey_catalog_digest: str | None = None,
+    survey_expected_raster: tuple[int, int, int, int] | None = None,
 ) -> Any:
-    """Return a production Stokes-I candidate, or refuse full Jones."""
+    """Return a production Stokes-I candidate, or refuse full Jones.
+
+    The survey catalog is opt-in and requires an explicit root and digest.
+    It does not replace ``diagonal_copolar`` or promote full Jones.
+    """
 
     selected = str(mode)
+    if selected == OPT_IN_SURVEY_BEAM:
+        if survey_catalog_root is None or not survey_catalog_digest:
+            raise ValueError(
+                "evla_c_diagonal_survey_v1 requires survey_catalog_root "
+                "and survey_catalog_digest"
+            )
+        from sl1mjax.evla_c_survey_beam import voltage_beam_for_survey_catalog
+
+        kwargs: dict[str, object] = {}
+        if survey_expected_raster is not None:
+            kwargs["expected_raster"] = survey_expected_raster
+        return voltage_beam_for_survey_catalog(
+            root=Path(survey_catalog_root),
+            digest=str(survey_catalog_digest),
+            **kwargs,
+        )
     if selected == "full_jones":
         if not allow_unfrozen_full_jones:
             raise ValueError(
@@ -1480,7 +1505,7 @@ def _plan_table(
 ) -> IntegrationPlannerReport:
     n_active = sum(1 for item in table.components if item.active)
     print(f"plan integration parents={n_active}", flush=True)
-    return plan_integration(
+    report = plan_integration(
         table,
         tuple(blocks),
         beam,
@@ -1490,6 +1515,13 @@ def _plan_table(
         config=config.operator,
         pointing_ids=pointing_ids,
     )
+    print(
+        "plan integration done "
+        f"assignments={len(report.assignments)} "
+        f"max_depth={config.tolerance.max_depth}",
+        flush=True,
+    )
+    return report
 
 
 def _representative_haar_gram(

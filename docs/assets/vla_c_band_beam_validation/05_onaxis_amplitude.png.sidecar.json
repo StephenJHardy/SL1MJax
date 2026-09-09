@@ -1,22 +1,40 @@
 {
   "figure_id": "F05",
   "filename": "05_onaxis_amplitude.png",
-  "image_sha256": "2e428fde7c2504f4bb1dfcecd8eade07dbf405de1d81491f7a550ee3f749213c",
+  "image_sha256": "adea8555e1a0560b0db8059f0ccdd26397c6755a5f01c11cdb69040a6a7513bd",
   "generating_function": "plot_onaxis_amp",
   "claims": [
     "C01"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:47.511263+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:05.954682+00:00",
   "caption": "On-axis |V|/I_model. Boresight is marked at one. Supports C01.",
   "table": {
     "source_i_jy": 8.028518676757812,
-    "n_onaxis_rr": 18,
-    "n_onaxis_ll": 18,
-    "median_obs_rr": 8.11170768737793,
-    "median_pred_rr": 8.048805236816406,
-    "median_obs_rr_over_i": 1.010361671447754,
-    "median_pred_rr_over_i": 1.0025267601013184
+    "n_onaxis_rr": 12,
+    "n_onaxis_ll": 12,
+    "median_obs_rr": 8.101688385009766,
+    "median_pred_rr": 8.065074920654297,
+    "median_obs_rr_over_i": 1.0091136693954468,
+    "median_pred_rr_over_i": 1.0045533180236816
   },
-  "table_sha256": "3a7a375f3014653b9f6ea54015793a43299442e64095c957ec2ed85c815f57a0"
+  "table_sha256": "a140bfcd7f1792195c74ae13d801e4a5cdc912b39e55984c4050fba495666f90",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

@@ -1,0 +1,64 @@
+{
+  "copolar": {
+    "LL": {
+      "delta": -9.703384063267095e-09,
+      "diagonal_loss": 0.005599360788762092,
+      "full_loss": 0.005599351085378029,
+      "limit": 0.002,
+      "passes": true
+    },
+    "RR": {
+      "delta": -4.190543684799708e-08,
+      "diagonal_loss": 0.006160125312689845,
+      "full_loss": 0.006160083407252997,
+      "limit": 0.002,
+      "passes": true
+    },
+    "passes": true
+  },
+  "injection_detects_unit": false,
+  "injection_zero_is_null": true,
+  "mover_improves": false,
+  "mover_units": {
+    "at_least_four": false,
+    "movers": [
+      {
+        "delta": 0.0006203826250235078,
+        "improves": false,
+        "moving_id": 6,
+        "n": 12632
+      },
+      {
+        "delta": 0.000615353059957191,
+        "improves": false,
+        "moving_id": 11,
+        "n": 12632
+      },
+      {
+        "delta": 0.0012337544255078825,
+        "improves": false,
+        "moving_id": 16,
+        "n": 12617
+      },
+      {
+        "delta": 0.0005377681133332812,
+        "improves": false,
+        "moving_id": 20,
+        "n": 12632
+      },
+      {
+        "delta": 0.00090210482225489,
+        "improves": false,
+        "moving_id": 26,
+        "n": 12602
+      }
+    ],
+    "n_holdout": 5,
+    "n_improving": 0
+  },
+  "outcome": "inconclusive_sensitivity",
+  "production_accepted": false,
+  "reason": "unit-model injection was not recovered on holdout copies",
+  "residual_jones_frequency_policy": "explicit_channel32_field9_plane_applied_to_all_publication_channels",
+  "spatial_improves": false
+}

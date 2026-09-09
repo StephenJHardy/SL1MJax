@@ -9,15 +9,22 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 PUBLICATION_VERSION = "vla_c_band_beam_validation_v1"
+PUBLICATION_VERSION_V2 = "vla_c_band_beam_validation_v2"
+PUBLICATION_VERSION_V3 = "vla_c_band_beam_validation_v3"
+ALLOWED_PUBLICATION_VERSIONS = (
+    PUBLICATION_VERSION,
+    PUBLICATION_VERSION_V2,
+    PUBLICATION_VERSION_V3,
+)
 BUNDLE_DIRNAME = PUBLICATION_VERSION
 PLOT_TABLE_DIRNAME = "plot_tables"
 
@@ -31,6 +38,7 @@ REQUIRED_JSON = (
     "holoraster_frequency.json",
     "squint_publication.json",
     "offset_ring.json",
+    "coordinate_feed_comparison.json",
 )
 REQUIRED_PLOT_TABLES = (
     "holoraster_scatter.npz",
@@ -45,6 +53,8 @@ REQUIRED_PLOT_TABLES = (
     "frequency_series.json",
     "offset_ring_fields.json",
     "crosshand_quadrants.json",
+    "coordinate_feed_scatter.npz",
+    "coordinate_feed_maps.npz",
 )
 BANNED_LOAD_PREFIXES = (
     "/media/stephen",
@@ -64,9 +74,13 @@ PROVENANCE_PATH_KEYS = frozenset(
 
 
 def default_bundle_root() -> Path:
-    """Committed publication bundle inside the installed package data."""
+    """Prefer v2 when present; otherwise the committed v1 bundle."""
 
-    return Path(__file__).resolve().parent / "data" / BUNDLE_DIRNAME
+    parent = Path(__file__).resolve().parent / "data"
+    v2 = parent / PUBLICATION_VERSION_V2
+    if (v2 / "manifest.json").is_file():
+        return v2
+    return parent / BUNDLE_DIRNAME
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -147,7 +161,7 @@ def validate_manifest(manifest: Mapping[str, Any], root: Path) -> None:
 
     if int(manifest.get("schema_version", -1)) != SCHEMA_VERSION:
         raise ValueError("bundle schema_version does not match the loader")
-    if str(manifest.get("publication_version")) != PUBLICATION_VERSION:
+    if str(manifest.get("publication_version")) not in ALLOWED_PUBLICATION_VERSIONS:
         raise ValueError("bundle publication_version does not match the loader")
     files = manifest.get("files")
     if not isinstance(files, Mapping) or not files:
@@ -190,6 +204,7 @@ class ValidationBundle:
     frequency_series: dict[str, Any]
     offset_ring_fields: dict[str, Any]
     crosshand_quadrants: dict[str, Any]
+    coordinate_feed_comparison: dict[str, Any]
 
     def plot_table(self, name: str) -> dict[str, NDArray]:
         path = self.root / PLOT_TABLE_DIRNAME / name
@@ -249,6 +264,7 @@ def load_bundle(root: Path | None = None) -> ValidationBundle:
         frequency_series=frequency,
         offset_ring_fields=fields,
         crosshand_quadrants=quadrants,
+        coordinate_feed_comparison=payload["coordinate_feed_comparison.json"],
     )
 
 
@@ -290,14 +306,24 @@ def write_validation_bundle(
     maps: Mapping[str, ArrayLike],
     cells: Mapping[str, ArrayLike],
     occupancy: Mapping[str, ArrayLike],
+    coordinate_feed_comparison: Mapping[str, Any],
+    coordinate_feed_scatter: Mapping[str, ArrayLike],
+    coordinate_feed_maps: Mapping[str, ArrayLike],
     provenance: Mapping[str, Any] | None = None,
+    publication_version: str | None = None,
 ) -> Path:
     """Write a complete checksummed publication bundle."""
 
     from sl1mjax.beam_validation_claims import refuse_full_raster_squint
     from sl1mjax.beam_validation_statistics import build_claims
 
+    version = str(publication_version or PUBLICATION_VERSION)
+    if version not in ALLOWED_PUBLICATION_VERSIONS:
+        raise ValueError(f"unsupported publication_version {version}")
     destination = Path(root)
+    for frozen in (PUBLICATION_VERSION, PUBLICATION_VERSION_V2):
+        if frozen in destination.parts and version != frozen:
+            raise RuntimeError(f"refusing to overwrite frozen publication bundle {frozen}")
     if destination.exists():
         for path in destination.rglob("*"):
             if path.is_file():
@@ -315,6 +341,9 @@ def write_validation_bundle(
         "holoraster_frequency.json": sanitize_provenance_paths(dict(holoraster_frequency)),
         "squint_publication.json": sanitize_provenance_paths(dict(squint)),
         "offset_ring.json": sanitize_provenance_paths(dict(offset_ring)),
+        "coordinate_feed_comparison.json": sanitize_provenance_paths(
+            dict(coordinate_feed_comparison)
+        ),
     }
     for name, payload in documents.items():
         write_json(payload, destination / name)
@@ -354,9 +383,11 @@ def write_validation_bundle(
     write_plot_npz(tables / "holoraster_maps.npz", maps)
     write_plot_npz(tables / "holoraster_cells.npz", cells)
     write_plot_npz(tables / "raster_occupancy.npz", occupancy)
+    write_plot_npz(tables / "coordinate_feed_scatter.npz", coordinate_feed_scatter)
+    write_plot_npz(tables / "coordinate_feed_maps.npz", coordinate_feed_maps)
     placeholder = {
         "schema_version": SCHEMA_VERSION,
-        "publication_version": PUBLICATION_VERSION,
+        "publication_version": version,
         "files": {},
         "bundle_sha256": "",
         **{key: value for key, value in dict(provenance or {}).items() if key != "files"},
@@ -381,13 +412,20 @@ def write_validation_bundle(
         frequency_series=load_json(tables / "frequency_series.json"),
         offset_ring_fields=load_json(tables / "offset_ring_fields.json"),
         crosshand_quadrants=load_json(tables / "crosshand_quadrants.json"),
+        coordinate_feed_comparison=load_json(
+            destination / "coordinate_feed_comparison.json"
+        ),
     )
     write_json(build_claims(draft), destination / "claims.json")
+    science_hashes = file_checksums(destination)
+    science_hashes.pop("manifest.json", None)
+    hashed = replace(draft, manifest={**placeholder, "files": science_hashes})
+    write_json(build_claims(hashed), destination / "claims.json")
     checksums = file_checksums(destination)
     checksums.pop("manifest.json", None)
     manifest = {
         "schema_version": SCHEMA_VERSION,
-        "publication_version": PUBLICATION_VERSION,
+        "publication_version": version,
         "files": checksums,
         **dict(provenance or {}),
     }

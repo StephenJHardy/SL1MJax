@@ -1,0 +1,51 @@
+{
+  "figure_id": "F29",
+  "filename": "29_coordinate_feed_squint.png",
+  "image_sha256": "efba5ebb642809c6a877d7e6dfcbc96df1661df48e3ff880b810291572e01109",
+  "generating_function": "plot_coordinate_feed_squint",
+  "claims": [
+    "C07"
+  ],
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:08.850167+00:00",
+  "caption": "R-minus-L squint vectors in source-in-beam/feed-frame labels. The measured vector is the training-only independent-mask development estimate, not the all-data 0.515 arcmin publication magnitude. The EVLA-C feed recovers the expected separation and substantially reduces the direction discrepancy.",
+  "table": {
+    "vector_kind": "r_minus_l",
+    "frame": "source_lm_feed",
+    "measured development map": {
+      "dl_arcmin": -0.2524449142921338,
+      "dm_arcmin": 0.6747099228808453,
+      "separation_arcmin": 0.7203901129151059
+    },
+    "generic VLA": {
+      "dl_arcmin": 0.3566153634310375,
+      "dm_arcmin": 0.3566162645938602,
+      "separation_arcmin": 0.504330920733529
+    },
+    "EVLA-C": {
+      "dl_arcmin": 0.11878403637217773,
+      "dm_arcmin": 0.5023975456210703,
+      "separation_arcmin": 0.5162489139387533
+    },
+    "memo195_separation_arcmin": 0.525854513584575
+  },
+  "table_sha256": "abae3c2e254b3aa2d5d820f52c511ebb94754c7e5267852293099a60120e084d",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
+}

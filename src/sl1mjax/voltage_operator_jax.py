@@ -41,6 +41,7 @@ from sl1mjax.cassbeam_beam import (
     load_cassbeam_cband_artifact,
 )
 from sl1mjax.data.canonical import VisibilityBlock
+from sl1mjax.evla_c_survey_beam import EvlaCSurveyVoltageBeam
 from sl1mjax.finite_pixel import IntegrationPlan, ManufacturedVoltageBeam
 from sl1mjax.objective import effective_weight, weighted_complex_mse
 from sl1mjax.polarization import Correlation
@@ -300,6 +301,66 @@ def _require_nearest_cassbeam_node(frequency_hz: np.ndarray) -> None:
             "frequency is farther than "
             f"{MAX_NEAREST_NODE_SEPARATION_HZ / 1e6:.0f} MHz from a CASSBEAM node"
         )
+
+
+_SURVEY_TABLES_CACHE: dict[tuple[object, ...], dict[str, Any]] = {}
+
+
+def _survey_tables(
+    beam: EvlaCSurveyVoltageBeam, frequency_hz: ArrayLike
+) -> dict[str, Any]:
+    """Exact-frequency survey planes. Never the packaged 33×33 artifact."""
+
+    freqs = np.asarray(frequency_hz, dtype=np.float64).reshape(-1)
+    mhz_list: list[int] = []
+    for hz in freqs:
+        mhz = beam.catalog.require_exact_mhz(float(hz))
+        if mhz not in mhz_list:
+            mhz_list.append(mhz)
+    key = (beam.digest, tuple(mhz_list), tuple(beam.catalog.expected_raster))
+    cached = _SURVEY_TABLES_CACHE.get(key)
+    if cached is not None and not _is_tracer(cached["frequency_hz"]):
+        return cached
+    if _is_tracer(jnp.asarray(0.0)):
+        raise RuntimeError("survey CASSBEAM tables must be materialised on the host before JIT")
+    planes = [beam.catalog.plane(float(mhz) * 1.0e6) for mhz in mhz_list]
+    tables = {
+        "jones": jnp.stack(
+            [jnp.asarray(plane.jones_norm, dtype=jnp.complex128) for plane in planes]
+        ),
+        "l_axis": jnp.stack([jnp.asarray(plane.l_rad, dtype=jnp.float64) for plane in planes]),
+        "m_axis": jnp.stack([jnp.asarray(plane.m_rad, dtype=jnp.float64) for plane in planes]),
+        "frequency_hz": jnp.asarray(
+            [plane.frequency_hz for plane in planes], dtype=jnp.float64
+        ),
+        "l_origin": jnp.asarray([plane.l_origin_index for plane in planes], dtype=jnp.int32),
+        "m_origin": jnp.asarray([plane.m_origin_index for plane in planes], dtype=jnp.int32),
+        "frequency_hz_host": np.asarray(
+            [plane.frequency_hz for plane in planes], dtype=np.float64
+        ),
+    }
+    _SURVEY_TABLES_CACHE[key] = tables
+    return tables
+
+
+def _prepare_raster_tables(
+    beam: VoltageBeamModel, frequency_hz: ArrayLike
+) -> dict[str, Any] | None:
+    if isinstance(beam, EvlaCSurveyVoltageBeam):
+        return _survey_tables(beam, frequency_hz)
+    if isinstance(beam, CassbeamCBandVoltageBeam):
+        _require_nearest_cassbeam_node(np.asarray(frequency_hz))
+        return _cassbeam_tables()
+    return None
+
+
+def _materialise_raster_tables(beam: VoltageBeamModel, frequency_hz: ArrayLike) -> None:
+    if isinstance(beam, EvlaCSurveyVoltageBeam):
+        _survey_tables(beam, frequency_hz)
+        return
+    if isinstance(beam, CassbeamCBandVoltageBeam):
+        _ensure_host_cassbeam_tables()
+        _require_nearest_cassbeam_node(np.asarray(frequency_hz))
 
 
 def _bilinear_plane(
@@ -905,6 +966,21 @@ def _evaluate_beam_jones(
         if beam.off_diagonal:
             return jones, valid, off_valid
         return jones, valid, valid
+    if isinstance(beam, EvlaCSurveyVoltageBeam):
+        if cassbeam_tables is None:
+            raise ValueError("survey Jones needs prepared exact-frequency tables")
+        jones, valid, _off_valid = cassbeam_jones_jax(
+            l_rad,
+            m_rad,
+            frequency_hz,
+            chi,
+            tables=cassbeam_tables,
+            off_diagonal=False,
+            calibration_state=calibration_state,
+            outer_jones=None,
+            outer_valid=None,
+        )
+        return jones, valid, valid
     if isinstance(beam, ManufacturedVoltageBeam):
         return manufactured_jones_jax(beam, l_rad, m_rad, frequency_hz, chi, calibration_state)
     if isinstance(beam, Perley2016CBandVoltageBeam):
@@ -1099,9 +1175,7 @@ def _predict_voltage_beam_jax_arrays(
             key: jnp.asarray(value)
             for key, value in _perley_channel_polynomials(np.asarray(block.frequency_hz)).items()
         }
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        cassbeam_tables = _cassbeam_tables()
-        _require_nearest_cassbeam_node(block.frequency_hz)
+    cassbeam_tables = _prepare_raster_tables(beam, block.frequency_hz)
     width = None if width_rad is None else jnp.asarray(width_rad, dtype=jnp.float64).reshape(-1)
     nodes = None if node_valid is None else jnp.asarray(node_valid, dtype=bool).reshape(-1)
     return _predict_voltage_beam_device(
@@ -1315,9 +1389,7 @@ def _adjoint_voltage_beam_jax_arrays(
             key: jnp.asarray(value)
             for key, value in _perley_channel_polynomials(np.asarray(block.frequency_hz)).items()
         }
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        cassbeam_tables = _cassbeam_tables()
-        _require_nearest_cassbeam_node(block.frequency_hz)
+    cassbeam_tables = _prepare_raster_tables(beam, block.frequency_hz)
     width = None if width_rad is None else jnp.asarray(width_rad, dtype=jnp.float64).reshape(-1)
     nodes = None if node_valid is None else jnp.asarray(node_valid, dtype=bool).reshape(-1)
     parents = (
@@ -1583,9 +1655,7 @@ def evaluate_antenna_jones_jax(
             key: jnp.asarray(value)
             for key, value in _perley_channel_polynomials(np.asarray(block.frequency_hz)).items()
         }
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        cassbeam_tables = _cassbeam_tables()
-        _require_nearest_cassbeam_node(block.frequency_hz)
+    cassbeam_tables = _prepare_raster_tables(beam, block.frequency_hz)
     positions_j = jnp.asarray(positions, dtype=jnp.float64)
     unique_j = jnp.asarray(unique_times, dtype=jnp.float64)
 
@@ -1706,9 +1776,7 @@ def off_diagonal_support_mask_jax(
         polynomials = {
             key: jnp.asarray(value) for key, value in _perley_channel_polynomials(frequency).items()
         }
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        cassbeam_tables = _cassbeam_tables()
-        _require_nearest_cassbeam_node(frequency)
+    cassbeam_tables = _prepare_raster_tables(beam, frequency)
     chi_j = jnp.asarray(chi_array, dtype=jnp.float64)
     frequency_j = jnp.asarray(frequency, dtype=jnp.float64)
     support = np.ones(l_array.size, dtype=bool)
@@ -1803,9 +1871,7 @@ def predict_voltage_from_plan_value_and_grad_jax(
     parent = jnp.asarray(parent_flux, dtype=jnp.float64).reshape(-1)
     if int(parent.size) != plan.parent_count:
         raise ValueError("parent_flux must match the number of fitted parents")
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        _ensure_host_cassbeam_tables()
-        _require_nearest_cassbeam_node(np.asarray(block.frequency_hz))
+    _materialise_raster_tables(beam, np.asarray(block.frequency_hz))
     selected = config or BeamOperatorConfig()
     local_l, local_m = plan.local_directions(block.phase_centre_rad)
     sample = np.asarray(block.active if train_mask is None else train_mask, dtype=bool)
@@ -2031,6 +2097,14 @@ def _beam_cache_key(beam: object) -> tuple[Any, ...]:
             beam.allow_unfrozen,
             outer,
         )
+    if isinstance(beam, EvlaCSurveyVoltageBeam):
+        return (
+            *identity,
+            beam.model_id,
+            beam.digest,
+            tuple(beam.catalog.frequency_mhz_list()),
+            tuple(beam.catalog.expected_raster),
+        )
     return (*identity, id(beam))
 
 
@@ -2225,9 +2299,7 @@ def predict_voltage_from_plan_value_and_grad_explicit_jax(
     parent = jnp.asarray(parent_flux, dtype=jnp.float64).reshape(-1)
     if int(parent.size) != plan.parent_count:
         raise ValueError("parent_flux must match the number of fitted parents")
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        _ensure_host_cassbeam_tables()
-        _require_nearest_cassbeam_node(np.asarray(block.frequency_hz))
+    _materialise_raster_tables(beam, np.asarray(block.frequency_hz))
     selected = config or BeamOperatorConfig()
     state = require_beam_calibration_state(calibration_state)
     approximation = GaussianApproximation(plan.approximation)
@@ -2269,8 +2341,7 @@ def predict_voltage_from_plan_value_and_grad_explicit_jax(
             key: jnp.asarray(value)
             for key, value in _perley_channel_polynomials(np.asarray(block.frequency_hz)).items()
         }
-    if isinstance(beam, CassbeamCBandVoltageBeam):
-        cassbeam_tables = _cassbeam_tables()
+    cassbeam_tables = _prepare_raster_tables(beam, block.frequency_hz)
     key = _explicit_kernel_key(
         beam,
         block.correlations,

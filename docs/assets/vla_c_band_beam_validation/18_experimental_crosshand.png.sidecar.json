@@ -1,23 +1,107 @@
 {
   "figure_id": "F18",
   "filename": "18_experimental_crosshand.png",
-  "image_sha256": "db414b2355c7e4830fd1911be6c0cee2ac94268e29f905bce8daa4e0da0c47db",
+  "image_sha256": "57ba43d71e8d695579a3b3e4ea1544bd4f56840d9efaf18b45fbd49a6a6d0727",
   "generating_function": "plot_crosshand_null",
   "claims": [
     "C05"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:49.761526+00:00",
-  "caption": "Experimental RL prediction versus the observed cloud. Supports C05.",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:08.174746+00:00",
+  "caption": "EVLA-C full Jones versus diagonal on RL. Outcome: inconclusive_sensitivity. Supports C05.",
   "table": {
     "quadrant_rl_correlation": {
-      "east": 0.0710555093767605,
-      "west": 0.06451089298066796,
-      "north": 0.07361501935962478,
-      "south": 0.01895108465599866,
-      "east_west": 0.06756260133296392,
-      "north_south": 0.04804942744385647
-    }
+      "east": 0.2104796643939733,
+      "west": 0.027844462242324917,
+      "north": 0.08301986493089125,
+      "south": 0.09248068550421397,
+      "east_west": 0.11487346787069036,
+      "north_south": 0.0884027453553657
+    },
+    "outcome": "inconclusive_sensitivity",
+    "classification": {
+      "copolar": {
+        "LL": {
+          "delta": -9.703384063267095e-09,
+          "diagonal_loss": 0.005599360788762092,
+          "full_loss": 0.005599351085378029,
+          "limit": 0.002,
+          "passes": 1
+        },
+        "RR": {
+          "delta": -4.190543684799708e-08,
+          "diagonal_loss": 0.006160125312689845,
+          "full_loss": 0.006160083407252997,
+          "limit": 0.002,
+          "passes": 1
+        },
+        "passes": 1
+      },
+      "injection_detects_unit": 0,
+      "injection_zero_is_null": 1,
+      "mover_improves": 0,
+      "mover_units": {
+        "at_least_four": 0,
+        "movers": [
+          {
+            "delta": 0.0006203826250235078,
+            "improves": 0,
+            "moving_id": 6,
+            "n": 12632
+          },
+          {
+            "delta": 0.000615353059957191,
+            "improves": 0,
+            "moving_id": 11,
+            "n": 12632
+          },
+          {
+            "delta": 0.0012337544255078825,
+            "improves": 0,
+            "moving_id": 16,
+            "n": 12617
+          },
+          {
+            "delta": 0.0005377681133332812,
+            "improves": 0,
+            "moving_id": 20,
+            "n": 12632
+          },
+          {
+            "delta": 0.00090210482225489,
+            "improves": 0,
+            "moving_id": 26,
+            "n": 12602
+          }
+        ],
+        "n_holdout": 5,
+        "n_improving": 0
+      },
+      "outcome": "inconclusive_sensitivity",
+      "production_accepted": 0,
+      "reason": "unit-model injection was not recovered on holdout copies",
+      "residual_jones_frequency_policy": "explicit_channel32_field9_plane_applied_to_all_publication_channels",
+      "spatial_improves": 0
+    },
+    "estimator": "paired residual_power full_minus_diagonal"
   },
-  "table_sha256": "e83616bedbab942a7db3e7cc4e3d84254e8402fcfb665be765fe7fad66f284da"
+  "table_sha256": "ee3336f5edcc2110bdb4f5d51bd33901dcda3524e8576b62ece8e0dc36ccd16b",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "paired residual_power full_minus_diagonal",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

@@ -80,6 +80,13 @@ Installing the binary is not enough. Before accepting any output, pin:
 - circular basis and transmit-to-receive conversion;
 - output checksums.
 
+CASA 6 `EVLA_C` defaults are now recorded as a separate input family
+(`evla-cband-4564.in`, `evla-cband-4692.in`): feed
+`(-0.94300, -0.249152, 1.67640)` after CASA's `feedpos[0]` negation,
+and taper `12.75 + 0.375 × (νGHz - 6.0)`. Keep the generic packaged
+VLA inputs as an ablation. Do not overwrite the frozen generic
+high-resolution artifact.
+
 The generic VLA template is a starting geometry only. Jagannathan et al.
 2017 already note that L/S/C can need diffraction beyond geometric
 optics. A C-band input must be verified against Memo 195 scalar width

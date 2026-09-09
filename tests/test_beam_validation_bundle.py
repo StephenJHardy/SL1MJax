@@ -13,14 +13,16 @@ from sl1mjax.beam_validation_outputs import (
     load_bundle,
     write_validation_bundle,
 )
-from sl1mjax.beam_validation_plots import write_all_figures
+from sl1mjax.beam_validation_plots import plot_offset_ring, write_all_figures
 from sl1mjax.beam_validation_statistics import (
     build_claims,
+    classify_diagonal_region_support,
     complex_visibility_score,
     phase_valid_mask,
     publication_squint_pair,
     residual_power_table,
     scientific_voltage_masks,
+    visibility_hand_weight,
 )
 
 
@@ -227,6 +229,42 @@ def manufactured_products() -> dict[str, object]:
         "ll_residual": 0.06 * np.ones((8, 8), dtype=np.complex128),
     }
     occupancy = {"l_arcmin": grid, "m_arcmin": grid, "count": np.ones((8, 8))}
+    coordinate_feed_scatter = {
+        "source_i_jy": np.asarray(8.028518676757812),
+        "measured_rr": np.ones(n, dtype=np.complex64),
+        "measured_ll": np.ones(n, dtype=np.complex64),
+        "generic_commanded_rr": np.full(n, 0.90, dtype=np.complex64),
+        "generic_commanded_ll": np.full(n, 0.90, dtype=np.complex64),
+        "generic_source_lm_rr": np.full(n, 0.92, dtype=np.complex64),
+        "generic_source_lm_ll": np.full(n, 0.92, dtype=np.complex64),
+        "evla_c_source_lm_rr": np.full(n, 0.98, dtype=np.complex64),
+        "evla_c_source_lm_ll": np.full(n, 0.98, dtype=np.complex64),
+        "main_lobe": np.ones(n, dtype=bool),
+        "mid": np.zeros(n, dtype=bool),
+        "outer_diagnostic": np.zeros(n, dtype=bool),
+        "train": np.ones(n, dtype=bool),
+        "spatial_holdout": np.zeros(n, dtype=bool),
+        "mover_holdout": np.zeros(n, dtype=bool),
+    }
+    coordinate_feed_maps = {
+        "l_arcmin": grid,
+        "m_arcmin": grid,
+        "rr_weight": np.ones((8, 8)),
+        "ll_weight": np.ones((8, 8)),
+        "rr_measured": np.ones((8, 8), dtype=np.complex64),
+        "ll_measured": np.ones((8, 8), dtype=np.complex64),
+    }
+    for model, value in (
+        ("generic_commanded", 0.90),
+        ("generic_source_lm", 0.92),
+        ("evla_c_source_lm", 0.98),
+    ):
+        coordinate_feed_maps[f"{model}_rr"] = np.full(
+            (8, 8), value, dtype=np.complex64
+        )
+        coordinate_feed_maps[f"{model}_ll"] = np.full(
+            (8, 8), value, dtype=np.complex64
+        )
     return {
         "observation": {
             "project": "THOL0001",
@@ -417,6 +455,80 @@ def manufactured_products() -> dict[str, object]:
         "maps": maps,
         "cells": cells,
         "occupancy": occupancy,
+        "coordinate_feed_comparison": {
+            "scope": "SPW-4 frozen development rows",
+            "development_only": True,
+            "spw5_closed": True,
+            "production_beam_frozen": False,
+            "models": {
+                "generic_commanded": "historical",
+                "generic_source_lm": "corrected coordinate",
+                "evla_c_source_lm": "corrected coordinate and feed",
+            },
+            "metrics": {
+                model: {
+                    "development": {
+                        region: {
+                            hand: {"residual_power": loss}
+                            for hand in ("rr", "ll")
+                        }
+                        for region, loss in (
+                            ("main_lobe", value),
+                            ("mid", value * 2.0),
+                            ("outer_diagnostic", value * 3.0),
+                            ("all", value * 2.5),
+                        )
+                    }
+                }
+                for model, value in (
+                    ("generic_commanded", 0.010),
+                    ("generic_source_lm", 0.009),
+                    ("evla_c_source_lm", 0.007),
+                )
+            },
+            "paired_scores": {
+                key: {
+                    axis: {
+                        "delta": delta,
+                        "delta_lo": delta - 0.001,
+                        "delta_hi": delta + 0.001,
+                        "improves": delta + 0.001 < 0.0,
+                    }
+                    for axis in ("spatial", "moving")
+                }
+                for key, delta in (
+                    ("generic_source_lm_vs_generic_commanded", -0.001),
+                    ("evla_c_source_lm_vs_generic_commanded", -0.003),
+                    ("evla_c_source_lm_vs_generic_source_lm", -0.002),
+                )
+            },
+            "interpretation": {"evla_c_beats_generic_source": True},
+            "map_squint": {
+                "source_lm_labels": {
+                    "independent_masks": {
+                        "rr_l_arcmin": 0.1,
+                        "rr_m_arcmin": 0.3,
+                        "ll_l_arcmin": -0.1,
+                        "ll_m_arcmin": -0.2,
+                        "memo195_separation_arcmin": 0.526,
+                    }
+                }
+            },
+            "generic_plane_centroids": {
+                "rr_l_arcmin": 0.2,
+                "rr_m_arcmin": 0.1,
+                "ll_l_arcmin": -0.2,
+                "ll_m_arcmin": -0.1,
+            },
+            "evla_plane_centroids": {
+                "rr_l_arcmin": 0.06,
+                "rr_m_arcmin": 0.25,
+                "ll_l_arcmin": -0.06,
+                "ll_m_arcmin": -0.25,
+            },
+        },
+        "coordinate_feed_scatter": coordinate_feed_scatter,
+        "coordinate_feed_maps": coordinate_feed_maps,
     }
 
 
@@ -441,6 +553,9 @@ def test_bundle_round_trip_and_claims(tmp_path: Path) -> None:
     root = write_manufactured_bundle(tmp_path / "bundle")
     bundle = load_bundle(root)
     assert bundle.manifest["publication_version"] == PUBLICATION_VERSION
+    assert bundle.coordinate_feed_comparison["interpretation"][
+        "evla_c_beats_generic_source"
+    ]
     residuals = residual_power_table(bundle.holoraster_channel32)
     assert residuals["main_lobe"]["rr"] < 0.01
     assert residuals["main_lobe"]["rr_rms"] == pytest.approx(0.0064**0.5)
@@ -494,6 +609,10 @@ def test_shared_plots_write_sidecars(tmp_path: Path) -> None:
     assert "23_radial_coherence.png" in names
     assert "24_antenna_coherence.png" in names
     assert "25_bright_source_examples.png" in names
+    assert "26_coordinate_feed_impact.png" in names
+    assert "27_coordinate_feed_scatter.png" in names
+    assert "28_coordinate_feed_residual_maps.png" in names
+    assert "29_coordinate_feed_squint.png" in names
     for image in pngs:
         sidecar = Path(str(image) + ".sidecar.json")
         assert sidecar.is_file()
@@ -501,6 +620,11 @@ def test_shared_plots_write_sidecars(tmp_path: Path) -> None:
         assert payload["figure_id"].startswith("F")
         assert payload["table_sha256"]
         assert payload["claims"]
+        assert payload["coordinate_query"]
+        assert payload["coordinate_convention"]
+        assert payload["model"]
+        assert "frequency_hz" in payload
+        assert "artifact_hashes" in payload
     scatter_sidecar = json.loads(
         (tmp_path / "figures" / "08_cassbeam_scatter_main_lobe.png.sidecar.json").read_text()
     )
@@ -538,10 +662,63 @@ def test_scientific_voltage_masks_use_model_intensity() -> None:
     assert masks["outer_diagnostic"].tolist() == [False, False, True]
 
 
+def test_ll_map_weights_are_not_the_rr_weights() -> None:
+    weight = np.zeros((4, 2, 2), dtype=np.float64)
+    weight[:, 0, 0] = 1.0
+    weight[:, 1, 1] = np.array([4.0, 3.0, 2.0, 1.0])
+    np.testing.assert_allclose(visibility_hand_weight(weight, 0, 0), 1.0)
+    np.testing.assert_allclose(visibility_hand_weight(weight, 1, 1), [4.0, 3.0, 2.0, 1.0])
+    cube = weight[:, None, :, :]
+    np.testing.assert_allclose(visibility_hand_weight(cube, 1, 1), [4.0, 3.0, 2.0, 1.0])
+
+
+def test_main_lobe_gate_rejects_a_50_percent_residual() -> None:
+    support = classify_diagonal_region_support(
+        {
+            "main_lobe": {"rr": {"residual_power": 0.50}, "ll": {"residual_power": 0.50}},
+            "mid": {"rr": {"residual_power": 0.08}, "ll": {"residual_power": 0.09}},
+            "outer_diagnostic": {"rr": {"residual_power": 0.32}, "ll": {"residual_power": 0.35}},
+        }
+    )
+    assert support["main_lobe"] == "rejected"
+    assert support["mid_beam"] == "qualified"
+
+
 def test_checksum_mismatch_is_rejected(tmp_path: Path) -> None:
     root = write_manufactured_bundle(tmp_path / "bundle")
     claims = json.loads((root / "claims.json").read_text())
+    hashes = claims["claims"][0]["input_hashes"]
+    assert hashes["holoraster_channel32"]
+    assert hashes["offset_ring"]
     claims["tampered"] = True
     (root / "claims.json").write_text(json.dumps(claims) + "\n")
     with pytest.raises(ValueError, match="checksum"):
         load_bundle(root)
+
+
+def test_offset_ring_plot_accepts_c147_geometry(tmp_path: Path) -> None:
+    fields = {
+        "fields": [
+            {
+                "field_id": 3,
+                "name": "C147-W",
+                "l_rad": 0.001047,
+                "m_rad": 0.0,
+                "radius_arcmin": 3.6,
+            }
+        ],
+        "partition": {
+            "training": [2],
+            "inner_holdout": [3],
+            "sealed_holdout": [1],
+            "inner_score": 0.009,
+            "notes": ["historical"],
+        },
+    }
+    written = plot_offset_ring(
+        fields,
+        {"rr": 0.009, "ll": 0.006},
+        tmp_path,
+    )
+    names = {path.name for path in written}
+    assert "17_c147_offset_ring.png" in names

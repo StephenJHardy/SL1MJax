@@ -213,9 +213,11 @@ def evaluate_highres_cassbeam_jones(
 ) -> tuple[NDArray[np.complex128], NDArray[np.bool_]]:
     """Exact-frequency high-res lookup. No nearest-node substitution.
 
-    AZELGEO offsets are native raster coordinates. Spatial parallactic
-    rotation is applied only when ``convention.rotate_spatial`` is true.
-    Jones-basis parallactic rotation is applied afterwards.
+    Query coordinates must already be source-in-beam CASSBEAM ``(l, m)``.
+    Commanded AZELGEO ``POINTING_OFFSET`` is not that coordinate.
+    Spatial parallactic rotation is applied only when
+    ``convention.rotate_spatial`` is true. Jones-basis parallactic
+    rotation is applied afterwards.
     """
 
     state = require_beam_calibration_state(calibration_state)

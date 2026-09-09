@@ -1,0 +1,27 @@
+{
+  "blocked": [],
+  "convention_ladder_reopened": false,
+  "experiment_id": "evla_c_full_jones_validation_refresh_v1",
+  "outcome": "inconclusive_sensitivity",
+  "production_accepted": false,
+  "schema_version": 1,
+  "spw5_opened": false,
+  "publication_bundle": "vla_c_band_beam_validation_v2",
+  "publication_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "tasks": {
+    "phase0_inventory": {"state": "complete", "artifact": "experiment_manifest.json", "reason": null},
+    "phase1_independent_rime": {"state": "complete", "artifact": "src/sl1mjax/evla_c_independent_rime.py", "reason": null},
+    "phase1_identity_channel32": {"state": "complete", "artifact": "phase1_identity_channel32.json", "reason": null},
+    "phase1_calibration_fixtures": {"state": "complete", "artifact": "tests/test_casa_golden.py", "reason": null},
+    "phase2_generate_nine_planes": {"state": "complete", "artifact": "phase2_planes.json", "reason": null},
+    "phase2_convergence": {"state": "complete", "artifact": "phase2_convergence_mainlobe.json", "reason": null},
+    "phase3_score_channel32": {"state": "complete", "artifact": "channels/channel32_report.json", "reason": null},
+    "phase3_frequency": {"state": "complete", "artifact": "channels/", "reason": null},
+    "phase4_injections": {"state": "complete", "artifact": "phase4_injections.json", "reason": null},
+    "phase4_classify": {"state": "complete", "artifact": "phase4_classification.json", "reason": "inconclusive_sensitivity"},
+    "phase5_c147_ring": {"state": "complete", "artifact": "c147_ring/c147_report.json", "reason": null},
+    "phase6_bundle": {"state": "complete", "artifact": "src/sl1mjax/data/vla_c_band_beam_validation_v2", "reason": null},
+    "phase6_notebook": {"state": "complete", "artifact": "notebooks/vla_c_band_beam_validation.ipynb", "reason": null},
+    "phase7_verify": {"state": "complete", "artifact": "docs/evla_c_full_jones_validation_refresh/HANDOFF.md", "reason": null}
+  }
+}

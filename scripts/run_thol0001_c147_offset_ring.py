@@ -47,15 +47,17 @@ from sl1mjax.holography_c147_offset_ring import (
     FieldSkyRecord,
     SourceSkyRecord,
     antenna_power_share,
+    apply_channel_holdout,
     channel32_smoke_gates,
     classify_c147_offset_ring,
-    apply_channel_holdout,
-    diagnose_directional_disagreement,
-    clustered_null_upper_limit,
     cluster_ids_scan_baseline,
+    clustered_null_upper_limit,
     declare_field_partitions,
+    diagnose_directional_disagreement,
     diagonal_rr_ll_closure,
     field_partition_masks,
+    filter_moments_by_channel,
+    four_hand_residual_power,
     geometry_to_dict,
     locked_convention,
     moments_for_increment,
@@ -72,7 +74,6 @@ from sl1mjax.holography_c147_offset_ring import (
     write_offset_ring_plots,
 )
 from sl1mjax.holography_calibration import (
-    C147_OFFSET_FIELD_IDS,
     hash_path,
     write_json,
 )
@@ -84,7 +85,13 @@ from sl1mjax.holography_full_jones import _antenna_jones_planes
 from sl1mjax.holography_highres_cassbeam import artifact_checksum_report, run_software_gates
 from sl1mjax.holography_ms import _read_antennas, _tables, audit_holography_measurement_set
 from sl1mjax.holography_reference_jones import deserialize_reference_jones
-from sl1mjax.polarization import Correlation, Receptor, ReceptorBasis, circular_stokes_to_coherency, pack_coherency
+from sl1mjax.polarization import (
+    Correlation,
+    Receptor,
+    ReceptorBasis,
+    circular_stokes_to_coherency,
+    pack_coherency,
+)
 
 SCIENTIFIC_MS = Path(
     "/media/stephen/astro/vla/extracted/commissioning/work/THOL0001.lowerC.spw45.scientific.ms"
@@ -840,14 +847,12 @@ def main() -> int:
                 stacked["uvw_m"],
                 stacked["sky_lm"],
             )
-            closure_q = diagonal_rr_ll_closure(
+            qu_loss = four_hand_residual_power(
                 apply_channel_holdout(stacked["visibility"][train], channel_masks["train"]),
                 apply_channel_holdout(pred[train], channel_masks["train"]),
                 apply_channel_holdout(stacked["weight"][train], channel_masks["train"]),
             )
-            qu_scores[(q_over_i, u_over_i)] = float(
-                closure_q["rr"]["relative_power"] + closure_q["ll"]["relative_power"]
-            )
+            qu_scores[(q_over_i, u_over_i)] = float(qu_loss["total"])
         q_over_i, u_over_i = select_training_qu(qu_scores)
         source = _setjy_source(frequencies, q_over_i, u_over_i, stacked["visibility"].shape[0])
         pred_diag = _predict(
@@ -882,7 +887,7 @@ def main() -> int:
         )
         increment = pred_full - pred_diag
         residual_vis = stacked["visibility"] - pred_diag
-        train_moments = _moments(
+        train_moments_all = _moments(
             increment[train],
             residual_vis[train],
             stacked["weight"][train],
@@ -892,6 +897,7 @@ def main() -> int:
             stacked["antenna2"][train],
             ("rl", "lr"),
         )
+        train_moments = filter_moments_by_channel(train_moments_all, channel_masks["train"])
         inner = masks["inner_holdout"]
         sealed = masks["sealed_holdout"]
         inner_x = _moments(
@@ -939,28 +945,27 @@ def main() -> int:
         field_alphas = []
         for field_id in partition.training:
             mask = train & (stacked["field_id"] == field_id)
-            moments = _moments(
-                increment[mask],
-                residual_vis[mask],
-                stacked["weight"][mask],
-                stacked["field_id"][mask],
-                stacked["scan"][mask],
-                stacked["antenna1"][mask],
-                stacked["antenna2"][mask],
-                ("rl", "lr"),
+            moments = filter_moments_by_channel(
+                _moments(
+                    increment[mask],
+                    residual_vis[mask],
+                    stacked["weight"][mask],
+                    stacked["field_id"][mask],
+                    stacked["scan"][mask],
+                    stacked["antenna1"][mask],
+                    stacked["antenna2"][mask],
+                    ("rl", "lr"),
+                ),
+                channel_masks["train"],
             )
             field_alphas.append(complex(fit_unit_and_scalar(moments)["alpha_hat"]))
-        # Channel compatibility uses training-field rows; reserved channels stay scored, not fit.
-        train_chan_moments = [
-            item
-            for item in train_moments
-            if 0 <= int(item.channel) < frequencies.size and not channel_masks["holdout"][int(item.channel)]
-        ]
-        hold_chan_moments = [
-            item
-            for item in train_moments
-            if 0 <= int(item.channel) < frequencies.size and channel_masks["holdout"][int(item.channel)]
-        ]
+        # Reserved channels stay scored, not fit.
+        train_chan_moments = list(train_moments)
+        hold_chan_moments = list(
+            filter_moments_by_channel(
+                train_moments_all, channel_masks["holdout"], allow_empty=True
+            )
+        )
         chan_alphas = []
         if train_chan_moments:
             chan_alphas.append(complex(fit_unit_and_scalar(train_chan_moments)["alpha_hat"]))

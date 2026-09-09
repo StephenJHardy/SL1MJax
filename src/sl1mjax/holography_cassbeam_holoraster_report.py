@@ -14,13 +14,16 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from sl1mjax.beam_conventions import evla195_total_squint_rad
+from sl1mjax.beam_validation_statistics import (
+    classify_diagonal_region_support as classify_region_thresholds,
+)
 from sl1mjax.holography_alignment import (
     apparent_voltage_response,
     score_copolar_residuals,
     voltage_response_region_masks,
 )
 from sl1mjax.holography_beam_prior import flatten_row_channel, vis_planes
-from sl1mjax.beam_conventions import evla195_total_squint_rad
 from sl1mjax.holography_c147_offset_ring import ns_ew_masks
 from sl1mjax.holography_diagonal_diagnostics import SQUINT_MAINLOBE_POWER_FRACTION
 from sl1mjax.holography_highres_cassbeam import DEFAULT_CONVENTION
@@ -531,29 +534,10 @@ def classify_diagonal_region_support(
 ) -> dict[str, object]:
     """Region-qualified diagonal support. Not a single whole-raster label."""
 
-    regions: dict[str, object] = {}
-    for name, support in REGION_SUPPORT_CLASS.items():
-        hands = hand_residual_power.get(name) or {}
-        rr = float((hands.get("rr") or {}).get("residual_power", np.nan))
-        ll = float((hands.get("ll") or {}).get("residual_power", np.nan))
-        if name == "main_lobe":
-            matches = bool(np.isfinite(rr) and np.isfinite(ll) and rr <= MAIN_LOBE_ACCEPTED_MAX and ll <= MAIN_LOBE_ACCEPTED_MAX)
-        elif name == "mid":
-            matches = bool(np.isfinite(rr) and np.isfinite(ll) and rr <= MID_BEAM_QUALIFIED_MAX and ll <= MID_BEAM_QUALIFIED_MAX)
-        else:
-            matches = True
-        regions[name] = {
-            "class": support,
-            "residual_power_rr": rr,
-            "residual_power_ll": ll,
-            "matches_class": matches,
-        }
+    classified = classify_region_thresholds(hand_residual_power)
     return {
         "artifact": CASSBEAM_DIAGONAL_REFERENCE,
-        "main_lobe": "accepted",
-        "mid_beam": "qualified",
-        "outer_raster": "diagnostic",
-        "regions": regions,
+        **classified,
         "full_jones": "experimental_non_detection",
         "spw5_role": "sealed_diagonal_frequency_transfer",
         "convention_search_reopened": False,

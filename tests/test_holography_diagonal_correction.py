@@ -28,6 +28,7 @@ from sl1mjax.holography_diagonal_correction import (
     PairedLossDifference,
     bootstrap_paired_delta,
     complex_visibility_loss,
+    copolar_loss_parts,
     frozen_protocol_payload,
     mover_paired_deltas,
     protocol_as_mapping,
@@ -245,6 +246,11 @@ def test_selection_uses_paired_delta_and_per_mover_gates() -> None:
     assert four_of_five.passes()
     assert not three_of_five.passes()
     assert not mainlobe_hit.passes()
+    missing = _movers([-0.02, -0.01, np.nan, -0.008, -0.004])
+    assert not missing.passes()
+    assert (
+        select_nested_correction(better_spatial, better_mover, missing) == "keep_baseline"
+    )
     assert (
         select_nested_correction(better_spatial, better_mover, four_of_five) == "accept_candidate"
     )
@@ -305,6 +311,12 @@ def test_complex_loss_is_not_a_magnitude_ratio() -> None:
         refuse_magnitude_loss("db_ratio")
     with pytest.raises(RuntimeError, match="individual visibilities"):
         refuse_visibility_bootstrap("visibility_row")
+    with pytest.raises(ValueError, match="exactly one channel"):
+        copolar_loss_parts(
+            np.zeros((3, 2, 2, 2), dtype=np.complex128),
+            np.zeros((3, 2, 2, 2), dtype=np.complex128),
+            np.ones((3, 2, 2, 2)),
+        )
 
 
 def test_mover_paired_deltas_report_every_held_out_antenna() -> None:

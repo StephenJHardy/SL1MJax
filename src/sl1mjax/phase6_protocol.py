@@ -523,6 +523,81 @@ def peak_rss_bytes() -> int:
     return rss * 1024
 
 
+def write_smoke_reconstruction_products(
+    directory: Path,
+    result: VoltageReconstructionResult,
+    blocks: Sequence[VisibilityBlock],
+    *,
+    pointing_ids: Sequence[str],
+    config: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Write table, Stokes-I image, and unsealed pointing files.
+
+    A 32-row smoke subset does not have one active time bin per Phase-6
+    fold. Do not call ``phase6_folds`` here.
+    """
+
+    directory.mkdir(parents=True, exist_ok=True)
+    table_path = directory / "component_table.json"
+    table_path.write_text(
+        json.dumps(
+            {
+                "mosaic_phase_centre_rad": list(result.table.mosaic_phase_centre_rad),
+                "source": result.table.source,
+                "components": sky_table_to_records(result.table),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    spec = phase5_render_spec(result.table.mosaic_phase_centre_rad)
+    image = render_intrinsic_stokes_i(result.table, spec=spec)
+    coordinates = spec.to_arrays()
+    np.savez_compressed(
+        directory / "intrinsic_stokes_i.npz",
+        image=image,
+        grid_size=np.asarray(coordinates["grid_size"]),
+        pixel_size_rad=np.asarray(coordinates["pixel_size_rad"]),
+        phase_centre_ra_rad=np.asarray(coordinates["phase_centre_ra_rad"]),
+        phase_centre_dec_rad=np.asarray(coordinates["phase_centre_dec_rad"]),
+        half_width_rad=np.asarray(coordinates["half_width_rad"]),
+        l_increases_with_x=np.asarray(coordinates["l_increases_with_x"]),
+        m_increases_with_y=np.asarray(coordinates["m_increases_with_y"]),
+        reference_pixel_y=np.asarray(coordinates["reference_pixel_y"]),
+        reference_pixel_x=np.asarray(coordinates["reference_pixel_x"]),
+        center_pixel=np.asarray(coordinates["center_pixel"]),
+    )
+    for pointing_id, block, prediction, residual in zip(
+        pointing_ids,
+        blocks,
+        result.fit.predictions,
+        result.fit.residuals,
+        strict=True,
+    ):
+        np.savez_compressed(
+            directory / f"pointing_{pointing_id}.npz",
+            prediction=np.asarray(prediction),
+            residual=np.asarray(residual),
+            visibility=np.asarray(block.visibility),
+            weight=np.asarray(block.weight),
+            time_s=block.time_s,
+        )
+    payload = {
+        "product": "evla_c_diagonal_survey_smoke",
+        "fold_products": "skipped_insufficient_time_bins",
+        "train_loss": result.fit.train_loss,
+        "n_pointing": len(pointing_ids),
+        "n_component": len(result.table.components),
+        "config": dict(config),
+        "manifest": dict(manifest),
+    }
+    (directory / "summary.json").write_text(
+        json.dumps(payload, indent=2), encoding="utf-8"
+    )
+    return payload
+
+
 def write_reconstruction_products(
     directory: Path,
     result: VoltageReconstructionResult,

@@ -1,17 +1,35 @@
 {
   "figure_id": "F20",
   "filename": "20_amplitude_db.png",
-  "image_sha256": "bf177e9d17cff1fc54232be7d57b3798e0972d716fe2ccee7602798d4026d0c2",
+  "image_sha256": "6a4191f4de4595347e127a1f28ab3beeb5178a5849cd30554053451b624e51b3",
   "generating_function": "plot_amplitude_db_maps",
   "claims": [
     "C03"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:48.366877+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:06.870099+00:00",
   "caption": "Normalized |V|/I in dB from 0 to \u221240. The ratio panel is 20 log10(|measured|/|CASSBEAM|). Where CASSBEAM is 0.05\u20130.15 Jy and the residual floor is ~0.2 Jy, ratios are biased upward and are not a multiplicative correction. Supports C03.",
   "table": {
     "peak_jy": 8.028518676757812,
     "db_floor": -40.0
   },
-  "table_sha256": "b7a57934f455c7767427f76e2bc3e0cc6b65b155e4d7608b4ab550c9f0be0641"
+  "table_sha256": "b7a57934f455c7767427f76e2bc3e0cc6b65b155e4d7608b4ab550c9f0be0641",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

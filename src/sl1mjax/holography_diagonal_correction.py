@@ -193,6 +193,10 @@ class MoverPairedDeltas:
     def passes(self) -> bool:
         if self.names != SPW4_HOLDOUT_MOVING_ANTENNA_NAMES:
             raise ValueError("mover consistency gate requires the five frozen holdout movers")
+        if not bool(np.all(np.isfinite(self.delta))) or not bool(
+            np.all(np.isfinite(self.mainlobe_delta))
+        ):
+            return False
         return (
             self.n_improving >= MIN_MOVERS_IMPROVING and self.n_material_mainlobe_regression == 0
         )
@@ -360,21 +364,19 @@ def _ids_for_names(antenna_names: Sequence[str], wanted: Sequence[str]) -> NDArr
     return np.asarray([lookup[name] for name in wanted], dtype=np.int32)
 
 
-def spw4_correction_holdouts(
+def holoraster_correction_holdouts(
     observation: HolographyObservation,
     antenna_names: Sequence[str],
     *,
     holoraster_field_id: int = HOLORASTER_FIELD_ID,
 ) -> Spw4CorrectionHoldouts:
-    """Build the frozen SPW-4 train / spatial / mover / reference masks."""
+    """Same antenna/spatial split as the frozen SPW-4 protocol.
+
+    This builder does not seal a spectral window. The SPW-4 correction
+    product still goes through ``spw4_correction_holdouts``.
+    """
 
     require_disjoint_antenna_cover()
-    frequencies = np.asarray(observation.block.frequency_hz, dtype=np.float64)
-    if frequencies.size and bool(
-        np.all(np.isclose(frequencies, SPW5_FREQUENCY_HZ, rtol=0.0, atol=0.5e6))
-    ):
-        refuse_spw5(frequency_hz=SPW5_FREQUENCY_HZ)
-    refuse_spw5(spectral_window_id=int(observation.block.spectral_window_id))
     names = tuple(str(name) for name in antenna_names)
     if len(names) < int(observation.block.antenna_count):
         raise ValueError("antenna_names must cover every antenna id in the block")
@@ -418,6 +420,27 @@ def spw4_correction_holdouts(
     )
 
 
+def spw4_correction_holdouts(
+    observation: HolographyObservation,
+    antenna_names: Sequence[str],
+    *,
+    holoraster_field_id: int = HOLORASTER_FIELD_ID,
+) -> Spw4CorrectionHoldouts:
+    """Build the frozen SPW-4 train / spatial / mover / reference masks."""
+
+    frequencies = np.asarray(observation.block.frequency_hz, dtype=np.float64)
+    if frequencies.size and bool(
+        np.all(np.isclose(frequencies, SPW5_FREQUENCY_HZ, rtol=0.0, atol=0.5e6))
+    ):
+        refuse_spw5(frequency_hz=SPW5_FREQUENCY_HZ)
+    refuse_spw5(spectral_window_id=int(observation.block.spectral_window_id))
+    return holoraster_correction_holdouts(
+        observation,
+        antenna_names,
+        holoraster_field_id=holoraster_field_id,
+    )
+
+
 def refuse_visibility_bootstrap(cluster_kind: str) -> None:
     """Individual visibilities are not independent evidence."""
 
@@ -446,6 +469,17 @@ def mover_cluster_ids(moving_id: ArrayLike, mask: ArrayLike) -> NDArray[np.int64
     return np.asarray(moving_id, dtype=np.int64).reshape(-1)[choose]
 
 
+def _require_single_channel_planes(values: ArrayLike, name: str) -> NDArray:
+    array = np.asarray(values)
+    if array.ndim == 4:
+        if array.shape[1] != 1:
+            raise ValueError(f"{name} must contain exactly one channel")
+        return array[:, 0]
+    if array.ndim != 3:
+        raise ValueError(f"{name} must have shape (sample, 2, 2) or (sample, 1, 2, 2)")
+    return array
+
+
 def copolar_loss_parts(
     measured: ArrayLike,
     predicted: ArrayLike,
@@ -453,13 +487,9 @@ def copolar_loss_parts(
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Per-sample complex residual and observed power on RR and LL."""
 
-    meas = np.asarray(measured, dtype=np.complex128)
-    pred = np.asarray(predicted, dtype=np.complex128)
-    wgt = np.asarray(weight, dtype=np.float64)
-    if meas.ndim == 4:
-        meas = meas[:, 0]
-        pred = pred[:, 0]
-        wgt = wgt[:, 0]
+    meas = _require_single_channel_planes(measured, "measured")
+    pred = _require_single_channel_planes(predicted, "predicted")
+    wgt = _require_single_channel_planes(weight, "weight")
     if meas.shape != pred.shape or meas.shape[:-2] != wgt.shape[:-2]:
         raise ValueError("measured, predicted, and weight must share the sample axis")
     numer = np.zeros(meas.shape[0], dtype=np.float64)

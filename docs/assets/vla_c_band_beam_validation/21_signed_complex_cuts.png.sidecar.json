@@ -1,18 +1,36 @@
 {
   "figure_id": "F21",
   "filename": "21_signed_complex_cuts.png",
-  "image_sha256": "7103ee678b4bf41b14f09bb52bca8ebb855a090bb2c13f87beb09efb779d09c6",
+  "image_sha256": "be7ce1c8b988c1a6d2fd49de331246c2fd58ab70ea8070536aba2c2a5b6c1ae9",
   "generating_function": "plot_signed_complex_cuts",
   "claims": [
     "C03"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:48.739761+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:07.222390+00:00",
   "caption": "Signed Re/Im voltage cuts. Top: symmetric-log so distant lobes remain visible. Bottom: linear outer-only inset (|offset| \u2265 15\u2032). Solid/dashed are measured/CASSBEAM real; lighter/dotted are imaginary. Supports C03.",
   "table": {
     "source_i_jy": 8.028518676757812,
     "outer_min_arcmin": 15.0,
     "symlog_linthresh": 0.05
   },
-  "table_sha256": "9568f29100ab9888484bd36d015da9b41104af0a3310a157918c6faae8eb8ec3"
+  "table_sha256": "9568f29100ab9888484bd36d015da9b41104af0a3310a157918c6faae8eb8ec3",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

@@ -31,3 +31,12 @@ data/3c391
 data/holography
 tmp/*
 .DS_Store
+
+# HOLORASTER slot dumps. Ledgers and notes stay tracked.
+docs/evla_c_diagonal_survey/phase5/
+docs/evla_c_diagonal_survey/phase5_channels/
+docs/evla_c_diagonal_survey/*_export.npz
+docs/evla_c_diagonal_survey/*_report.json
+docs/evla_c_full_jones_validation_refresh/channels/
+docs/evla_c_full_jones_validation_refresh/c147_ring/
+docs/evla_c_full_jones_validation_refresh/stage/

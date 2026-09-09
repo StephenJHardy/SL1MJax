@@ -46,33 +46,37 @@ an unfrozen beam or turn a warning into a pass.
 
 ## Current scientific position
 
-The first notebook release should describe the completed SPW-4 work. It should
-not wait for SPW 5 or imply that SPW 5 has been examined.
+The publication refresh is `vla_c_band_beam_validation_v2`. It reports EVLA-C
+CASSBEAM at `source_lm_feed` on the nine THOL0001 SPW-4 publication channels
+(4.500–4.626 GHz). It does not validate the whole C band. SPW 5 remains sealed.
 
-The current conclusions are:
+Authoritative numbers live in the compact bundle and
+`docs/vla_c_band_beam_validation.md`. Do not treat this proposal section as a
+second results table.
 
-- CASSBEAM is the reference diagonal C-band beam within a stated validity
-  domain. At SPW 4 channel 32, direct HOLORASTER prediction gives about
-  0.64% RR and 0.76% LL residual power in the main lobe. Residual power rises
-  to about 8% in the middle beam and 30--35% in the outer raster.
-- The C147 offset ring independently supports the diagonal model at a radius
-  of about 3.62 arcmin. The geometric fringe for an offset phase centre is a
-  required part of that comparison.
-- The CASSBEAM full-Jones beam remains an experimental physics prior. Neither
-  the raster nor the sealed offset-ring comparison detects a transferable
-  CASSBEAM-shaped RL/LR signal. This is a non-detection at the sensitivity and
-  systematic floor of THOL0001, not a rejection of the physical model.
-- No full-Jones model is selected or frozen. The production factory is
-  unchanged.
-- SPW 5 remains sealed. It is reserved for a predeclared frequency-replication
-  test after the SPW-4 diagonal specification or correction has been frozen.
+Locked refresh conclusions, from bundle `vla_c_band_beam_validation_v2`:
 
-Some reported statistics still require a cheap corrected rescore before they
-enter the publication bundle. In particular, squint must use the established
-20%-of-peak main-lobe estimator. Any C147 offset-ring frequency holdout, Q/U
-nuisance result, smooth leakage-scale comparison, and upper limit must come
-from code that closes the corresponding review findings. The bundle builder
-must reject superseded results rather than copying the newest file by path.
+- The unit physical EVLA-C diagonal at source-in-beam coordinates is the
+  leading SPW-4 development model. Channel 32 main-lobe residual power is
+  0.62% / 0.56% (RR/LL) with correlation 0.997. Mid-beam residual power is
+  4.03% / 3.77% (qualified). Outer-raster residual power is 29.5% / 29.0%
+  (diagnostic). Only channels 16 and 32 pass the 1% main-lobe cut on both
+  hands.
+- Full Jones is classified `inconclusive_sensitivity`. Channel-32
+  development evidence shows opposite RL/LR behaviour, a pooled interval
+  above zero, and 0/5 holdout movers improving. Unit injection is not
+  recovered; a 3× template is. A usable production full-Jones beam is not
+  accepted.
+- Residual Jones is the field-9 channel-32 plane applied to all publication
+  channels. That frequency limit is explicit.
+- C147-* field partitions remain historical development diagnostics.
+  Channel-32 inner-holdout closure is 0.91% / 0.55%; channels 0 and 63
+  have empty scored hands.
+- No production factory is changed. The 128-member convention ladder stays
+  closed. Width 1.04 and empirical squint fits are not inherited.
+
+Generic/commanded HOLORASTER scores are historical controls. They are not
+current EVLA-C evidence.
 
 ## Intended outcome
 
@@ -751,6 +755,27 @@ manifest.
 
 Not every figure must appear in the executive summary. All accepted claim
 figures should appear in the notebook and rendered documentation.
+
+### Refresh coverage of the proposed figure set
+
+v2 replaces every previously published panel or marks it sealed. Proposal
+IDs that were never built as recovered-voltage archives stay unimplemented
+and are covered by an existing diagnostic, not a new placeholder:
+
+| ID | v2 treatment |
+|---|---|
+| F01–F04 | Reused after provenance check. Observation, occupancy, antennas, CASA/JAX apply. Not HOLORASTER or beam evidence. |
+| F05 | Recomputed EVLA-C / source-in-beam on-axis \|V\|/I. |
+| F06, F07 | Not built. Recovered antenna-voltage maps were never a v1 publication panel. Occupied measured/predicted maps are F10 and F20–F22. |
+| F08, F10, F12, F15 | Replaced with EVLA-C / source predictions. |
+| F09 | Not a standalone recovered-voltage panel. Antenna variation is F15 and F24. |
+| F11 | Not built as recovered-minus-CASSBEAM phase. Masked measured/model/residual phase is F22. |
+| F13 | Publication 20%-of-peak all-data estimator. Independent-mask vs common-mask sensitivity, and voltage-grid vs visibility-domain notes, are F29 / the coordinate-feed table. |
+| F14 | Not a new recovered-voltage holdout archive. Paired ΔL holdouts are F18, F26, and the Phase 4 table. |
+| F16–F18 | Replaced (nine-channel diagonal + cross-hand; C147 ring; EVLA-C full vs diagonal). |
+| F19 | Explicitly sealed / not_run. |
+| F20–F25 | Recomputed from EVLA-C predicted complex arrays. |
+| F26–F29 | Labelled historical generic/commanded controls plus matched EVLA-C / source-in-beam comparisons. |
 
 ## Plotting methodology
 

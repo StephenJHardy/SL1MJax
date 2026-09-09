@@ -1,17 +1,35 @@
 {
   "figure_id": "F24",
   "filename": "24_antenna_coherence.png",
-  "image_sha256": "36e5d2e6bfeb5884b1361fa4dd97f7966e28612b8176b0046dbbdaeb9c2eb859",
+  "image_sha256": "290e0f0dba2d59dbe94e59090720327606d0fc9686c7f477e71dfcf23021a75e",
   "generating_function": "plot_antenna_coherence",
   "claims": [
     "C03"
   ],
-  "bundle_sha256": "1048a28070ae96a8a2b2d233d9e4479b3e52c9bcdebe424229fc81a85188f775",
-  "created_utc": "2026-09-07T05:05:49.151493+00:00",
+  "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+  "created_utc": "2026-09-08T06:21:07.620631+00:00",
   "caption": "Per-moving-antenna RR radial coherence. Grey lines are dishes; black is the median. Exploratory. Supports C03.",
   "table": {
     "n_movers": 20,
     "phase_status": "exploratory"
   },
-  "table_sha256": "cecebe198da00a3b03656fdb13922bd680ce4e04f2e16160c800799c1663211b"
+  "table_sha256": "cecebe198da00a3b03656fdb13922bd680ce4e04f2e16160c800799c1663211b",
+  "model": "evla_c_source_lm",
+  "coordinate_convention": "source_lm_feed",
+  "coordinate_query": "source_lm_feed",
+  "calibration_state": "HOLORASTER field 10 CORRECTED_DATA; residual Jones is the field-9 native channel-32 plane",
+  "source_state": "per-row MODEL_DATA / resolved 3C147 I, Q, U, V",
+  "frequency_hz": 4564000000.0,
+  "split": "SPW-4 development rows unless a figure names another mask",
+  "region": "named per figure in table.region / table.mask",
+  "estimator": "complex residual power and the plotted statistic named in table",
+  "n_rows": 538489,
+  "artifact_hashes": {
+    "bundle_sha256": "fa01cc15f715e75ace7088ed1bc16a7fac75cfafd2b5b68fda071986f024d5d9",
+    "revision": "evla_c_full_jones_validation_refresh_v1",
+    "publication_version": "vla_c_band_beam_validation_v2"
+  },
+  "development_only": true,
+  "spw5_opened": false,
+  "publication_version": "vla_c_band_beam_validation_v2"
 }

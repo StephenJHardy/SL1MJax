@@ -1,0 +1,338 @@
+{
+  "algebra_recovers_full": true,
+  "amplitudes": [
+    0.0,
+    0.3,
+    1.0,
+    3.0
+  ],
+  "grid": [
+    {
+      "amplitude": 0.0,
+      "phase_deg": 0.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.0022158040523331257,
+          "delta_hi": 0.0022988256763543545,
+          "delta_lo": 0.002139453353252124,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0008630380721739161,
+          "delta_hi": -0.0007766953173004964,
+          "delta_lo": -0.0009326451816465853,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0006763829900796048,
+          "delta_hi": 0.0007278769682351541,
+          "delta_lo": 0.000624185459657843,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 0.3,
+      "phase_deg": 0.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.0021185996503519933,
+          "delta_hi": 0.0021981525757236026,
+          "delta_lo": 0.0020422120887331864,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0009612141872762381,
+          "delta_hi": -0.0008780802534440607,
+          "delta_lo": -0.0010534083606694832,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0005786927315378776,
+          "delta_hi": 0.0006389409652791042,
+          "delta_lo": 0.0005196158581313323,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 0.3,
+      "phase_deg": 90.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.002215531127814585,
+          "delta_hi": 0.0023023204029322037,
+          "delta_lo": 0.0021335524260500034,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.000863478273751217,
+          "delta_hi": -0.0007806370381279154,
+          "delta_lo": -0.0009561058768121772,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.000676026427031684,
+          "delta_hi": 0.0007222597515412196,
+          "delta_lo": 0.0006176314633801486,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 0.3,
+      "phase_deg": 180.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.002312823637533268,
+          "delta_hi": 0.0023943676211420294,
+          "delta_lo": 0.002226758456820449,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0007647753258893664,
+          "delta_hi": -0.0006954177603033712,
+          "delta_lo": -0.0008460631503594523,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0007740241558219507,
+          "delta_hi": 0.0008226886342991221,
+          "delta_lo": 0.0007234889476275305,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 1.0,
+      "phase_deg": 0.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.0018911173212794452,
+          "delta_hi": 0.001976954908026657,
+          "delta_lo": 0.001815914551350714,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0011899065691050037,
+          "delta_hi": -0.0011126947790801977,
+          "delta_lo": -0.0012616443744128875,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.00035060537608722075,
+          "delta_hi": 0.0004053630559109067,
+          "delta_lo": 0.00029020815414159545,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 1.0,
+      "phase_deg": 90.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.00221464023507556,
+          "delta_hi": 0.0023029353546198754,
+          "delta_lo": 0.0021352715154090234,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0008644076659062305,
+          "delta_hi": -0.0007805183942270227,
+          "delta_lo": -0.0009592478386061337,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0006751162845846648,
+          "delta_hi": 0.0007221353035797865,
+          "delta_lo": 0.0006244859155981691,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 1.0,
+      "phase_deg": 180.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.002538437760421508,
+          "delta_hi": 0.0026223506029593112,
+          "delta_lo": 0.00244950228639326,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0005352072508001404,
+          "delta_hi": -0.00044849232894564323,
+          "delta_lo": -0.0006238976791561295,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0010016152548106838,
+          "delta_hi": 0.0010503818015465752,
+          "delta_lo": 0.0009420547994126463,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 3.0,
+      "phase_deg": 0.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.0012368271520579732,
+          "delta_hi": 0.0013186914560679663,
+          "delta_lo": 0.0011705496891444816,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.001839490446814418,
+          "delta_hi": -0.0017720750955438319,
+          "delta_lo": -0.0019170580348071091,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": -0.0003013316473782224,
+          "delta_hi": -0.0002449621584228123,
+          "delta_lo": -0.00035630681526044176,
+          "improves": true,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 3.0,
+      "phase_deg": 90.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.0022101432498908835,
+          "delta_hi": 0.0022782937119553174,
+          "delta_lo": 0.002119941763220301,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": -0.0008663026440564048,
+          "delta_hi": -0.0008023026865738913,
+          "delta_lo": -0.0009359523218736871,
+          "improves": true,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0006719203029172394,
+          "delta_hi": 0.0007258868718680492,
+          "delta_lo": 0.0006281985599580694,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    },
+    {
+      "amplitude": 3.0,
+      "phase_deg": 180.0,
+      "spatial": {
+        "LR": {
+          "delta": 0.003176342977171842,
+          "delta_hi": 0.0032582767317101496,
+          "delta_lo": 0.0030961669295405253,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "RL": {
+          "delta": 0.00012205593691427818,
+          "delta_hi": 0.00021769384987741227,
+          "delta_lo": 4.777984022442672e-05,
+          "improves": false,
+          "n_clusters": 211145
+        },
+        "pooled_RL_LR": {
+          "delta": 0.0016491994570430601,
+          "delta_hi": 0.0017015515838116446,
+          "delta_lo": 0.0015970287368278213,
+          "improves": false,
+          "n_clusters": 211145
+        }
+      }
+    }
+  ],
+  "nontemplate_differs": true,
+  "phases_deg": [
+    0.0,
+    90.0,
+    180.0
+  ],
+  "residual_jones_frequency_policy": "explicit_channel32_field9_plane_applied_to_all_publication_channels",
+  "spatial_n": 211145,
+  "train_n": 188681,
+  "unit_injection_improves": false,
+  "unit_spatial": {
+    "LR": {
+      "delta": 0.0018911173212794452,
+      "delta_hi": 0.001976954908026657,
+      "delta_lo": 0.001815914551350714,
+      "improves": false,
+      "n_clusters": 211145
+    },
+    "RL": {
+      "delta": -0.0011899065691050037,
+      "delta_hi": -0.0011126947790801977,
+      "delta_lo": -0.0012616443744128875,
+      "improves": true,
+      "n_clusters": 211145
+    },
+    "pooled_RL_LR": {
+      "delta": 0.00035060537608722075,
+      "delta_hi": 0.0004053630559109067,
+      "delta_lo": 0.00029020815414159545,
+      "improves": false,
+      "n_clusters": 211145
+    }
+  },
+  "zero_injection_improves": false,
+  "zero_spatial": {
+    "LR": {
+      "delta": 0.0022158040523331257,
+      "delta_hi": 0.0022988256763543545,
+      "delta_lo": 0.002139453353252124,
+      "improves": false,
+      "n_clusters": 211145
+    },
+    "RL": {
+      "delta": -0.0008630380721739161,
+      "delta_hi": -0.0007766953173004964,
+      "delta_lo": -0.0009326451816465853,
+      "improves": true,
+      "n_clusters": 211145
+    },
+    "pooled_RL_LR": {
+      "delta": 0.0006763829900796048,
+      "delta_hi": 0.0007278769682351541,
+      "delta_lo": 0.000624185459657843,
+      "improves": false,
+      "n_clusters": 211145
+    }
+  }
+}

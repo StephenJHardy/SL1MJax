@@ -1,0 +1,186 @@
+{
+  "channels": [
+    {
+      "channel": 0,
+      "copolar_passes": true,
+      "frequency_hz": 4500000000.0,
+      "mover_ci": [
+        6.689731156042655e-05,
+        0.0002820010239000775
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.00015396316454385772,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.00015400545082980833,
+        0.0002139823800158438
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.00018328567112602112,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 8,
+      "copolar_passes": true,
+      "frequency_hz": 4516000000.0,
+      "mover_ci": [
+        0.00016276634908957144,
+        0.0008352912008652658
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0005061695265656807,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0007030228060743035,
+        0.00081620240191234
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0007579251706706924,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 16,
+      "copolar_passes": true,
+      "frequency_hz": 4532000000.0,
+      "mover_ci": [
+        0.00045446947043904367,
+        0.0008062506786631086
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0006468481415556337,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0006687578443824547,
+        0.0007803553103596386
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0007252668480035029,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 24,
+      "copolar_passes": true,
+      "frequency_hz": 4548000000.0,
+      "mover_ci": [
+        0.0005363248108115962,
+        0.0009813333019367293
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0007733047884220245,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0005164223980416036,
+        0.0006097723202721491
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0005638418021158831,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 32,
+      "copolar_passes": true,
+      "frequency_hz": 4564000000.0,
+      "mover_ci": [
+        0.0005849633152054473,
+        0.001049457010229969
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0007818304388381714,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0006256877029465549,
+        0.0007290749650967335
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0006763829900796048,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 40,
+      "copolar_passes": true,
+      "frequency_hz": 4580000000.0,
+      "mover_ci": [
+        0.0006171976075195484,
+        0.0008534907010260273
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0007247713167977121,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0005781793554552564,
+        0.0006941127593441412
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0006376569457231529,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 48,
+      "copolar_passes": true,
+      "frequency_hz": 4596000000.0,
+      "mover_ci": [
+        0.0006389893995365464,
+        0.0008975797776483746
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0007506648214031797,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0006113096261485068,
+        0.0007220825914438594
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0006686961431827676,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 56,
+      "copolar_passes": true,
+      "frequency_hz": 4612000000.0,
+      "mover_ci": [
+        0.0002998929207249618,
+        0.0007341502879061804
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0004866695448695335,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.0004720954866947513,
+        0.0005649235811424319
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.0005157570252037891,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    },
+    {
+      "channel": 63,
+      "copolar_passes": true,
+      "frequency_hz": 4626000000.0,
+      "mover_ci": [
+        0.00018291785694834472,
+        0.00036907441010177415
+      ],
+      "mover_improves": false,
+      "mover_pooled_delta": 0.0002660768560592275,
+      "n_improving_movers": 0,
+      "spatial_ci": [
+        0.00028623736017817093,
+        0.00034626452735236484
+      ],
+      "spatial_improves": false,
+      "spatial_pooled_delta": 0.00031725638622714936,
+      "status": "inconclusive_sensitivity",
+      "support": "development_spatial_and_mover_holdout"
+    }
+  ],
+  "note": "Per-channel statuses use the same predeclared paired-loss gates as Phase 4. Injection recovery was scored once on channel 32; it did not recover the unit model, so no channel is supported_on_spw4_development.",
+  "pooled_outcome": "inconclusive_sensitivity"
+}
